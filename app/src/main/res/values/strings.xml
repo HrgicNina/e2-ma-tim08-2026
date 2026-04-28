@@ -21,6 +21,9 @@
     <string name="btn_logout">Odjavi se</string>
     <string name="btn_update_password">Sacuvaj novu lozinku</string>
     <string name="btn_go_reset_password">Promeni lozinku</string>
+    <string name="btn_open_step_by_step">Korak po korak</string>
+    <string name="btn_register_now">Registrujte se</string>
+    <string name="games_label">Igre:</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>
@@ -44,6 +47,29 @@
     <string name="welcome">Dobrodosli</string>
     <string name="welcome_guest">Dobrodosli, gost</string>
     <string name="welcome_user">Dobrodosli, %1$s</string>
+
+    <string name="step_round_label">Korak po korak - Runda %1$d/2</string>
+    <string name="step_current_player">Na potezu: Igrac %1$d</string>
+    <string name="step_phase_main">Glavna runda (7 koraka po 10s)</string>
+    <string name="step_round_starts_in">Runda pocinje za %1$d...</string>
+    <string name="step_one_guess_per_step">Vec ste pokusali u ovom koraku. Sacekajte sledeci korak.</string>
+    <string name="step_loading_data">Ucitavam podatke iz baze...</string>
+    <string name="step_phase_steal">Igrac %1$d ima 10 sekundi za protivnicki pokusaj</string>
+    <string name="step_timer_seconds">Vreme: %1$ds</string>
+    <string name="step_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="step_answer_hint">Unesi konacno resenje</string>
+    <string name="step_submit">Potvrdi odgovor</string>
+    <string name="step_enter_answer">Unesi odgovor.</string>
+    <string name="step_wrong_answer">Netacan odgovor.</string>
+    <string name="step_main_correct_points">Tacno! Osvojeno %1$d bodova.</string>
+    <string name="step_steal_correct_points">Tacno! Igrac %1$d dobija 5 bodova.</string>
+    <string name="step_steal_failed">Nema pogotka u protivnickom pokusaju.</string>
+    <string name="step_round_finished_answer">Runda zavrsena. Resenje je: %1$s</string>
+    <string name="step_match_finished">Partija Korak po korak je zavrsena.</string>
+    <string name="step_match_done_label">Kraj meca</string>
+    <string name="step_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="step_draw">Nereseno</string>
+    <string name="step_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>

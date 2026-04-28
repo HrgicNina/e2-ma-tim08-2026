@@ -83,4 +83,8 @@ public class AuthService {
     public String getCurrentUserEmail() {
         return repository.getCurrentUserEmail();
     }
+
+    public void getCurrentUsername(FirebaseAuthRepository.UsernameCallback callback) {
+        repository.getCurrentUsername(callback);
+    }
 }

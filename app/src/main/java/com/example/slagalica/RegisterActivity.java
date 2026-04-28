@@ -45,7 +45,11 @@ public class RegisterActivity extends AppCompatActivity {
         TextView tvGoLogin = findViewById(R.id.tvGoLogin);
 
         btnRegister.setOnClickListener(v -> register());
-        tvGoLogin.setOnClickListener(v -> finish());
+        tvGoLogin.setOnClickListener(v -> {
+            Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
+            startActivity(intent);
+            finish();
+        });
     }
 
     private void register() {

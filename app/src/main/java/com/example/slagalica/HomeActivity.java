@@ -22,22 +22,34 @@ public class HomeActivity extends AppCompatActivity {
         SessionManager sessionManager = new SessionManager(this);
 
         TextView tvWelcome = findViewById(R.id.tvWelcome);
+        Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
         Button btnResetPassword = findViewById(R.id.btnOpenResetPassword);
         Button btnLogout = findViewById(R.id.btnLogout);
+        Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
         if (sessionManager.isGuestMode()) {
             tvWelcome.setText(getString(R.string.welcome_guest));
             btnResetPassword.setVisibility(android.view.View.GONE);
+            btnLogout.setVisibility(android.view.View.GONE);
+            btnGuestRegister.setVisibility(android.view.View.VISIBLE);
         } else {
-            String email = authService.getCurrentUserEmail();
-            if (email != null) {
-                tvWelcome.setText(getString(R.string.welcome_user, email));
-            } else {
-                tvWelcome.setText(getString(R.string.welcome));
-            }
+            authService.getCurrentUsername(username -> {
+                if (username != null && !username.trim().isEmpty()) {
+                    tvWelcome.setText(getString(R.string.welcome_user, username));
+                } else {
+                    tvWelcome.setText(getString(R.string.welcome));
+                }
+            });
         }
 
+        btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
         btnResetPassword.setOnClickListener(v -> startActivity(new Intent(this, ResetPasswordActivity.class)));
+        btnGuestRegister.setOnClickListener(v -> {
+            sessionManager.clearGuestMode();
+            Intent intent = new Intent(this, RegisterActivity.class);
+            startActivity(intent);
+            finish();
+        });
 
         btnLogout.setOnClickListener(v -> {
             sessionManager.clearGuestMode();

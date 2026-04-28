@@ -13,7 +13,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/register_title"
-            android:textSize="26sp"
+            android:textSize="36sp"
             android:textStyle="bold" />
 
         <EditText
@@ -22,7 +22,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             android:hint="@string/hint_email"
-            android:inputType="textEmailAddress" />
+            android:inputType="textEmailAddress"
+            android:textSize="22sp" />
 
         <EditText
             android:id="@+id/etRegUsername"
@@ -30,7 +31,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/hint_username"
-            android:inputType="text" />
+            android:inputType="text"
+            android:textSize="22sp" />
 
         <AutoCompleteTextView
             android:id="@+id/etRegRegion"
@@ -38,7 +40,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/hint_region"
-            android:inputType="text" />
+            android:inputType="text"
+            android:textSize="22sp" />
 
         <EditText
             android:id="@+id/etRegPassword"
@@ -46,7 +49,8 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/hint_password"
-            android:inputType="textPassword" />
+            android:inputType="textPassword"
+            android:textSize="22sp" />
 
         <EditText
             android:id="@+id/etRegConfirmPassword"
@@ -54,14 +58,16 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
             android:hint="@string/hint_confirm_password"
-            android:inputType="textPassword" />
+            android:inputType="textPassword"
+            android:textSize="22sp" />
 
         <Button
             android:id="@+id/btnRegister"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="20dp"
-            android:text="@string/btn_register" />
+            android:text="@string/btn_register"
+            android:textSize="20sp" />
 
         <TextView
             android:id="@+id/tvGoLogin"
@@ -69,6 +75,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
             android:text="@string/go_login"
+            android:textSize="19sp"
             android:textStyle="bold" />
     </LinearLayout>
 </ScrollView>

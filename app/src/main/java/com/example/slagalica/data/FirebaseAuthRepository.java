@@ -13,6 +13,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class FirebaseAuthRepository {
+    public interface UsernameCallback {
+        void onLoaded(String username);
+    }
 
     private final FirebaseAuth auth;
     private final FirebaseFirestore db;
@@ -135,6 +138,25 @@ public class FirebaseAuthRepository {
     public String getCurrentUserEmail() {
         FirebaseUser user = auth.getCurrentUser();
         return user != null ? user.getEmail() : null;
+    }
+
+    public void getCurrentUsername(UsernameCallback callback) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            callback.onLoaded(null);
+            return;
+        }
+
+        db.collection("users")
+                .document(user.getUid())
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful() || task.getResult() == null) {
+                        callback.onLoaded(null);
+                        return;
+                    }
+                    callback.onLoaded(task.getResult().getString("username"));
+                });
     }
 
     private void loginWithEmail(String email, String password, AuthResultCallback callback) {
