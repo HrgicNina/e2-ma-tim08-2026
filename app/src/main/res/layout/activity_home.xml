@@ -38,6 +38,14 @@
         android:text="@string/btn_open_mastermind"
         android:textSize="20sp" />
 
+    <Button
+        android:id="@+id/btnOpenMyNumber"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/btn_open_my_number"
+        android:textSize="20sp" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"

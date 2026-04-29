@@ -23,6 +23,7 @@
     <string name="btn_go_reset_password">Promeni lozinku</string>
     <string name="btn_open_step_by_step">Korak po korak</string>
     <string name="btn_open_mastermind">Skocko</string>
+    <string name="btn_open_my_number">Moj broj</string>
     <string name="btn_register_now">Registrujte se</string>
     <string name="games_label">Igre:</string>
 
@@ -99,6 +100,38 @@
     <string name="master_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
     <string name="master_legend">Legenda: crvena tacka = tacan simbol na tacnoj poziciji, zuta = tacan simbol na pogresnoj poziciji.</string>
     <string name="master_fill_all_slots">Popuni sva 4 polja pre potvrde.</string>
+
+    <string name="number_round_label">Moj broj - Runda %1$d/2</string>
+    <string name="number_round_starts_in">Runda pocinje za %1$d...</string>
+    <string name="number_current_player">Na potezu: Igrac %1$d</string>
+    <string name="number_phase_stop_target">Klikni STOP za trazeni broj ili protresi telefon.</string>
+    <string name="number_phase_stop_numbers">Klikni STOP za brojeve ili protresi telefon.</string>
+    <string name="number_phase_auto_stop">Auto STOP za %1$d...</string>
+    <string name="number_phase_main">Glavni pokusaj (60s)</string>
+    <string name="number_phase_steal">Igrac %1$d ima 10s za protivnicki pokusaj.</string>
+    <string name="number_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="number_timer_seconds">Vreme: %1$ds</string>
+    <string name="number_target_label">Trazeni broj</string>
+    <string name="number_unknown_target">?</string>
+    <string name="number_unknown_value">?</string>
+    <string name="number_stop">STOP</string>
+    <string name="number_stop_target">STOP</string>
+    <string name="number_stop_numbers">STOP</string>
+    <string name="number_confirm_expression">Potvrdi</string>
+    <string name="number_expression_label">Unesi izraz</string>
+    <string name="number_expression_hint">Unesi izraz</string>
+    <string name="number_exact_points">Tacno! Igrac %1$d dobija 10 bodova.</string>
+    <string name="number_closer_points">Igrac %1$d je blizi i dobija 5 bodova.</string>
+    <string name="number_tie_starter_points">Isti rezultat. Igrac %1$d dobija 5 bodova kao starter.</string>
+    <string name="number_both_empty">Niko nije uneo izraz. 0 bodova.</string>
+    <string name="number_next_round_wait">Sledeca runda uskoro pocinje...</string>
+    <string name="number_next_round_in">Sledeca runda za %1$ds</string>
+    <string name="number_game_finished">Moj broj partija je zavrsena.</string>
+    <string name="number_match_done">Kraj meca</string>
+    <string name="number_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="number_draw">Nereseno</string>
+    <string name="number_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+    <string name="number_shake_stopped">STOP preko shake senzora.</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>

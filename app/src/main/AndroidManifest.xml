@@ -18,6 +18,9 @@
             android:name=".MastermindGameActivity"
             android:exported="false" />
         <activity
+            android:name=".MyNumberGameActivity"
+            android:exported="false" />
+        <activity
             android:name=".StepByStepActivity"
             android:exported="false" />
         <activity
