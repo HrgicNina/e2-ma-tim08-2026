@@ -23,6 +23,7 @@ public class HomeActivity extends AppCompatActivity {
 
         TextView tvWelcome = findViewById(R.id.tvWelcome);
         Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
+        Button btnMastermind = findViewById(R.id.btnOpenMastermind);
         Button btnResetPassword = findViewById(R.id.btnOpenResetPassword);
         Button btnLogout = findViewById(R.id.btnLogout);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
@@ -43,6 +44,7 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
+        btnMastermind.setOnClickListener(v -> startActivity(new Intent(this, MastermindGameActivity.class)));
         btnResetPassword.setOnClickListener(v -> startActivity(new Intent(this, ResetPasswordActivity.class)));
         btnGuestRegister.setOnClickListener(v -> {
             sessionManager.clearGuestMode();

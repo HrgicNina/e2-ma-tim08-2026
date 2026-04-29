@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView android:background="@drawable/bg_slagalica_blue" xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -47,15 +47,92 @@
             android:textStyle="bold"
             android:textSize="18sp" />
 
-        <TextView
-            android:id="@+id/tvStepClues"
+        <LinearLayout
+            android:id="@+id/stepCluesContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:background="#EFEFEF"
-            android:padding="12dp"
-            android:textSize="20sp"
-            android:textIsSelectable="false" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvStepClue1"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue2"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue3"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue4"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue5"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue6"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="6dp"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+
+            <TextView
+                android:id="@+id/tvStepClue7"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/step_clues_panel_bg"
+                android:padding="10dp"
+                android:textColor="#EAF4FF"
+                android:textSize="20sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvStepSolution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:background="@drawable/step_clues_panel_bg"
+            android:padding="10dp"
+            android:textColor="#EAF4FF"
+            android:textSize="20sp" />
 
         <EditText
             android:id="@+id/etStepAnswer"

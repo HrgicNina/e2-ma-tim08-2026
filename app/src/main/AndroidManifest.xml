@@ -15,6 +15,9 @@
         android:theme="@style/Theme.Slagalica">
 
         <activity
+            android:name=".MastermindGameActivity"
+            android:exported="false" />
+        <activity
             android:name=".StepByStepActivity"
             android:exported="false" />
         <activity

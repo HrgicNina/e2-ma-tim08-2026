@@ -22,6 +22,7 @@
     <string name="btn_update_password">Sacuvaj novu lozinku</string>
     <string name="btn_go_reset_password">Promeni lozinku</string>
     <string name="btn_open_step_by_step">Korak po korak</string>
+    <string name="btn_open_mastermind">Skocko</string>
     <string name="btn_register_now">Registrujte se</string>
     <string name="games_label">Igre:</string>
 
@@ -65,11 +66,39 @@
     <string name="step_steal_correct_points">Tacno! Igrac %1$d dobija 5 bodova.</string>
     <string name="step_steal_failed">Nema pogotka u protivnickom pokusaju.</string>
     <string name="step_round_finished_answer">Runda zavrsena. Resenje je: %1$s</string>
+    <string name="step_solution_format">Resenje: %1$s</string>
+    <string name="step_next_round_waiting">Sledeca runda pocinje za 5 sekundi...</string>
     <string name="step_match_finished">Partija Korak po korak je zavrsena.</string>
     <string name="step_match_done_label">Kraj meca</string>
     <string name="step_winner_player">Pobednik je Igrac %1$d</string>
     <string name="step_draw">Nereseno</string>
     <string name="step_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+
+    <string name="master_round_label">Skocko - Runda %1$d/2</string>
+    <string name="master_current_player">Na potezu: Igrac %1$d</string>
+    <string name="master_round_starts_in">Runda pocinje...</string>
+    <string name="master_round_starts_in_count">Runda pocinje za %1$d...</string>
+    <string name="master_phase_round">Pogodi kombinaciju od 4 simbola u 6 pokusaja</string>
+    <string name="master_phase_steal">Igrac %1$d ima jednu sansu u 10 sekundi (+10)</string>
+    <string name="master_timer_seconds">Vreme: %1$ds</string>
+    <string name="master_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="master_submit">Potvrdi pokusaj</string>
+    <string name="master_attempts_empty">Pokusaji ce se prikazivati ovde.</string>
+    <string name="master_attempt_format">#%1$d  %2$s  |  Exact: %3$d  Misplaced: %4$d</string>
+    <string name="master_solved_points">Tacno! Osvojeno %1$d bodova.</string>
+    <string name="master_steal_won_points">Tacno! Igrac %1$d dobija 10 bodova.</string>
+    <string name="master_steal_single_attempt">U steal fazi je dozvoljen samo jedan pokusaj.</string>
+    <string name="master_wrong_guess">Netacna kombinacija.</string>
+    <string name="master_round_end_secret">Runda zavrsena. Tajna kombinacija: %1$s</string>
+    <string name="master_showing_secret">Tacna kombinacija je prikazana.</string>
+    <string name="master_next_round_in">Sledeca runda za %1$ds</string>
+    <string name="master_game_finished">Skocko partija je zavrsena.</string>
+    <string name="master_match_done_label">Kraj meca</string>
+    <string name="master_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="master_draw">Nereseno</string>
+    <string name="master_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+    <string name="master_legend">Legenda: crvena tacka = tacan simbol na tacnoj poziciji, zuta = tacan simbol na pogresnoj poziciji.</string>
+    <string name="master_fill_all_slots">Popuni sva 4 polja pre potvrde.</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>

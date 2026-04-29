@@ -28,7 +28,8 @@ public class StepByStepActivity extends AppCompatActivity {
     private TextView tvCurrentPlayer;
     private TextView tvTimer;
     private TextView tvScore;
-    private TextView tvClues;
+    private TextView[] tvClues;
+    private TextView tvSolution;
     private TextView tvPhaseInfo;
     private EditText etAnswer;
     private Button btnSubmit;
@@ -47,6 +48,7 @@ public class StepByStepActivity extends AppCompatActivity {
     private CountDownTimer prepTimer;
     private CountDownTimer mainTimer;
     private CountDownTimer stealTimer;
+    private CountDownTimer roundTransitionTimer;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,7 +61,16 @@ public class StepByStepActivity extends AppCompatActivity {
         tvCurrentPlayer = findViewById(R.id.tvStepCurrentPlayer);
         tvTimer = findViewById(R.id.tvStepTimer);
         tvScore = findViewById(R.id.tvStepScore);
-        tvClues = findViewById(R.id.tvStepClues);
+        tvClues = new TextView[]{
+                findViewById(R.id.tvStepClue1),
+                findViewById(R.id.tvStepClue2),
+                findViewById(R.id.tvStepClue3),
+                findViewById(R.id.tvStepClue4),
+                findViewById(R.id.tvStepClue5),
+                findViewById(R.id.tvStepClue6),
+                findViewById(R.id.tvStepClue7)
+        };
+        tvSolution = findViewById(R.id.tvStepSolution);
         tvPhaseInfo = findViewById(R.id.tvStepPhaseInfo);
         etAnswer = findViewById(R.id.etStepAnswer);
         btnSubmit = findViewById(R.id.btnStepSubmit);
@@ -77,9 +88,13 @@ public class StepByStepActivity extends AppCompatActivity {
         tvRound.setText(getString(R.string.step_round_label, currentRound));
         tvCurrentPlayer.setText(getString(R.string.step_current_player, roundStartingPlayer));
         tvPhaseInfo.setText(R.string.step_loading_data);
-        tvClues.setText(R.string.step_loading_data);
+        tvSolution.setText("");
+        for (TextView clueView : tvClues) {
+            clueView.setText(R.string.step_loading_data);
+        }
         tvTimer.setText(getString(R.string.step_timer_seconds, 70));
         etAnswer.setText("");
+        etAnswer.setEnabled(true);
         btnSubmit.setEnabled(false);
         updateScoreText();
 
@@ -206,20 +221,34 @@ public class StepByStepActivity extends AppCompatActivity {
 
     private void finishRound() {
         cancelTimers();
-
-        Toast.makeText(this,
-                getString(R.string.step_round_finished_answer, currentPuzzle.getAnswer()),
-                Toast.LENGTH_LONG).show();
+        revealAllClues();
+        tvSolution.setText(getString(R.string.step_solution_format, currentPuzzle.getAnswer()));
+        btnSubmit.setEnabled(false);
+        etAnswer.setEnabled(false);
 
         if (currentRound == 1) {
-            currentRound = 2;
-            roundStartingPlayer = 2;
-            startRound();
+            tvPhaseInfo.setText(R.string.step_next_round_waiting);
+            roundTransitionTimer = new CountDownTimer(5000, 1000) {
+                @Override
+                public void onTick(long millisUntilFinished) {
+                    int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
+                    tvTimer.setText(getString(R.string.step_timer_seconds, seconds));
+                }
+
+                @Override
+                public void onFinish() {
+                    currentRound = 2;
+                    roundStartingPlayer = 2;
+                    etAnswer.setEnabled(true);
+                    startRound();
+                }
+            }.start();
             return;
         }
 
         phase = Phase.FINISHED;
         btnSubmit.setEnabled(false);
+        etAnswer.setEnabled(false);
         tvPhaseInfo.setText(R.string.step_match_finished);
         tvCurrentPlayer.setText(R.string.step_match_done_label);
         tvTimer.setText(getString(R.string.step_timer_seconds, 0));
@@ -239,34 +268,34 @@ public class StepByStepActivity extends AppCompatActivity {
     }
 
     private void renderClues() {
-        StringBuilder builder = new StringBuilder();
         List<String> clues = currentPuzzle.getClues();
         for (int i = 0; i < clues.size(); i++) {
             if (i < revealedStepCount) {
-                builder.append(i + 1).append(". ").append(clues.get(i));
+                tvClues[i].setText((i + 1) + ". " + clues.get(i));
             } else {
-                builder.append(i + 1).append(". ???");
-            }
-            if (i < clues.size() - 1) {
-                builder.append("\n");
+                tvClues[i].setText("");
             }
         }
-        tvClues.setText(builder.toString());
     }
 
     private void renderHiddenClues() {
         if (currentPuzzle == null) {
             return;
         }
-        StringBuilder builder = new StringBuilder();
         List<String> clues = currentPuzzle.getClues();
         for (int i = 0; i < clues.size(); i++) {
-            builder.append(i + 1).append(". ???");
-            if (i < clues.size() - 1) {
-                builder.append("\n");
-            }
+            tvClues[i].setText("");
         }
-        tvClues.setText(builder.toString());
+    }
+
+    private void revealAllClues() {
+        if (currentPuzzle == null) {
+            return;
+        }
+        List<String> clues = currentPuzzle.getClues();
+        for (int i = 0; i < clues.size(); i++) {
+            tvClues[i].setText((i + 1) + ". " + clues.get(i));
+        }
     }
 
     private void addPoints(int player, int points) {
@@ -298,6 +327,10 @@ public class StepByStepActivity extends AppCompatActivity {
         if (stealTimer != null) {
             stealTimer.cancel();
             stealTimer = null;
+        }
+        if (roundTransitionTimer != null) {
+            roundTransitionTimer.cancel();
+            roundTransitionTimer = null;
         }
     }
 
