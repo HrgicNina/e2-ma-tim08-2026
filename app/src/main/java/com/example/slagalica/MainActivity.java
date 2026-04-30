@@ -1,24 +1,34 @@
 package com.example.slagalica;
 
+import android.content.Intent;
 import android.os.Bundle;
 
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+
+import com.example.slagalica.data.FirebaseAuthRepository;
+import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.NotificationChannelHelper;
+import com.example.slagalica.domain.SessionManager;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_main);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
+        NotificationChannelHelper.createChannels(this);
+
+        AuthService authService = new AuthService(new FirebaseAuthRepository());
+        SessionManager sessionManager = new SessionManager(this);
+
+        if (sessionManager.isGuestMode()) {
+            sessionManager.clearGuestMode();
+        }
+
+        FirebaseAuth.getInstance().signOut();
+        Intent intent = new Intent(this, LoginActivity.class);
+
+        startActivity(intent);
+        finish();
     }
 }

@@ -1,3 +1,159 @@
 <resources>
     <string name="app_name">Slagalica</string>
+
+    <string name="login_title">Prijava</string>
+    <string name="register_title">Registracija</string>
+    <string name="reset_password_title">Promena lozinke</string>
+
+    <string name="hint_email_or_username">Email ili korisnicko ime</string>
+    <string name="hint_email">Email</string>
+    <string name="hint_username">Korisnicko ime</string>
+    <string name="hint_region">Region</string>
+    <string name="hint_password">Lozinka</string>
+    <string name="hint_confirm_password">Potvrdi lozinku</string>
+    <string name="hint_old_password">Stara lozinka</string>
+    <string name="hint_new_password">Nova lozinka</string>
+    <string name="hint_confirm_new_password">Potvrdi novu lozinku</string>
+
+    <string name="btn_login">Uloguj se</string>
+    <string name="btn_continue_as_guest">Nastavi kao gost</string>
+    <string name="btn_register">Registruj se</string>
+    <string name="btn_logout">Odjavi se</string>
+    <string name="btn_update_password">Sacuvaj novu lozinku</string>
+    <string name="btn_go_reset_password">Promeni lozinku</string>
+    <string name="btn_open_step_by_step">Korak po korak</string>
+    <string name="btn_open_mastermind">Skocko</string>
+    <string name="btn_open_my_number">Moj broj</string>
+    <string name="btn_open_notifications">Notifikacije</string>
+    <string name="btn_register_now">Registrujte se</string>
+    <string name="games_label">Igre:</string>
+
+    <string name="go_register">Nemate nalog? Registrujte se</string>
+    <string name="go_login">Imate nalog? Vratite se na prijavu</string>
+
+    <string name="fill_all_fields">Popuni sva polja.</string>
+    <string name="invalid_email">Email nije ispravan.</string>
+    <string name="password_too_short">Lozinka mora imati minimum 6 karaktera.</string>
+    <string name="passwords_not_match">Lozinke se ne poklapaju.</string>
+    <string name="registration_failed">Registracija nije uspela.</string>
+    <string name="registration_success_verify">Uspeh. Proveri email i potvrdi registraciju preko linka.</string>
+    <string name="verification_email_failed">Neuspesno slanje verifikacionog emaila.</string>
+    <string name="login_failed">Prijava nije uspela. Proveri podatke.</string>
+    <string name="verify_email_first">Morate potvrditi email pre prijave.</string>
+    <string name="user_not_found">Korisnik ne postoji.</string>
+    <string name="username_taken">Korisnicko ime je zauzeto.</string>
+    <string name="user_not_logged_in">Niste ulogovani.</string>
+    <string name="old_password_wrong">Stara lozinka nije tacna.</string>
+    <string name="password_updated">Lozinka je uspesno promenjena.</string>
+    <string name="password_update_failed">Promena lozinke nije uspela.</string>
+
+    <string name="welcome">Dobrodosli</string>
+    <string name="welcome_guest">Dobrodosli, gost</string>
+    <string name="welcome_user">Dobrodosli, %1$s</string>
+
+    <string name="step_round_label">Korak po korak - Runda %1$d/2</string>
+    <string name="step_current_player">Na potezu: Igrac %1$d</string>
+    <string name="step_phase_main">Glavna runda (7 koraka po 10s)</string>
+    <string name="step_round_starts_in">Runda pocinje za %1$d...</string>
+    <string name="step_one_guess_per_step">Vec ste pokusali u ovom koraku. Sacekajte sledeci korak.</string>
+    <string name="step_loading_data">Ucitavam podatke iz baze...</string>
+    <string name="step_phase_steal">Igrac %1$d ima 10 sekundi za protivnicki pokusaj</string>
+    <string name="step_timer_seconds">Vreme: %1$ds</string>
+    <string name="step_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="step_answer_hint">Unesi konacno resenje</string>
+    <string name="step_submit">Potvrdi odgovor</string>
+    <string name="step_enter_answer">Unesi odgovor.</string>
+    <string name="step_wrong_answer">Netacan odgovor.</string>
+    <string name="step_main_correct_points">Tacno! Osvojeno %1$d bodova.</string>
+    <string name="step_steal_correct_points">Tacno! Igrac %1$d dobija 5 bodova.</string>
+    <string name="step_steal_failed">Nema pogotka u protivnickom pokusaju.</string>
+    <string name="step_round_finished_answer">Runda zavrsena. Resenje je: %1$s</string>
+    <string name="step_solution_format">Resenje: %1$s</string>
+    <string name="step_next_round_waiting">Sledeca runda pocinje za 5 sekundi...</string>
+    <string name="step_match_finished">Partija Korak po korak je zavrsena.</string>
+    <string name="step_match_done_label">Kraj meca</string>
+    <string name="step_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="step_draw">Nereseno</string>
+    <string name="step_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+
+    <string name="master_round_label">Skocko - Runda %1$d/2</string>
+    <string name="master_current_player">Na potezu: Igrac %1$d</string>
+    <string name="master_round_starts_in">Runda pocinje...</string>
+    <string name="master_round_starts_in_count">Runda pocinje za %1$d...</string>
+    <string name="master_phase_round">Pogodi kombinaciju od 4 simbola u 6 pokusaja</string>
+    <string name="master_phase_steal">Igrac %1$d ima jednu sansu u 10 sekundi (+10)</string>
+    <string name="master_timer_seconds">Vreme: %1$ds</string>
+    <string name="master_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="master_submit">Potvrdi pokusaj</string>
+    <string name="master_attempts_empty">Pokusaji ce se prikazivati ovde.</string>
+    <string name="master_attempt_format">#%1$d  %2$s  |  Exact: %3$d  Misplaced: %4$d</string>
+    <string name="master_solved_points">Tacno! Osvojeno %1$d bodova.</string>
+    <string name="master_steal_won_points">Tacno! Igrac %1$d dobija 10 bodova.</string>
+    <string name="master_steal_single_attempt">U steal fazi je dozvoljen samo jedan pokusaj.</string>
+    <string name="master_wrong_guess">Netacna kombinacija.</string>
+    <string name="master_round_end_secret">Runda zavrsena. Tajna kombinacija: %1$s</string>
+    <string name="master_showing_secret">Tacna kombinacija je prikazana.</string>
+    <string name="master_next_round_in">Sledeca runda za %1$ds</string>
+    <string name="master_game_finished">Skocko partija je zavrsena.</string>
+    <string name="master_match_done_label">Kraj meca</string>
+    <string name="master_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="master_draw">Nereseno</string>
+    <string name="master_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+    <string name="master_legend">Legenda: crvena tacka = tacan simbol na tacnoj poziciji, zuta = tacan simbol na pogresnoj poziciji.</string>
+    <string name="master_fill_all_slots">Popuni sva 4 polja pre potvrde.</string>
+
+    <string name="number_round_label">Moj broj - Runda %1$d/2</string>
+    <string name="number_round_starts_in">Runda pocinje za %1$d...</string>
+    <string name="number_current_player">Na potezu: Igrac %1$d</string>
+    <string name="number_phase_stop_target">Klikni STOP za trazeni broj ili protresi telefon.</string>
+    <string name="number_phase_stop_numbers">Klikni STOP za brojeve ili protresi telefon.</string>
+    <string name="number_phase_auto_stop">Auto STOP za %1$d...</string>
+    <string name="number_phase_main">Glavni pokusaj (60s)</string>
+    <string name="number_phase_steal">Igrac %1$d ima 10s za protivnicki pokusaj.</string>
+    <string name="number_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="number_timer_seconds">Vreme: %1$ds</string>
+    <string name="number_target_label">Trazeni broj</string>
+    <string name="number_unknown_target">?</string>
+    <string name="number_unknown_value">?</string>
+    <string name="number_stop">STOP</string>
+    <string name="number_stop_target">STOP</string>
+    <string name="number_stop_numbers">STOP</string>
+    <string name="number_confirm_expression">Potvrdi</string>
+    <string name="number_expression_label">Unesi izraz</string>
+    <string name="number_expression_hint">Unesi izraz</string>
+    <string name="number_exact_points">Tacno! Igrac %1$d dobija 10 bodova.</string>
+    <string name="number_closer_points">Igrac %1$d je blizi i dobija 5 bodova.</string>
+    <string name="number_tie_starter_points">Isti rezultat. Igrac %1$d dobija 5 bodova kao starter.</string>
+    <string name="number_both_empty">Niko nije uneo izraz. 0 bodova.</string>
+    <string name="number_next_round_wait">Sledeca runda uskoro pocinje...</string>
+    <string name="number_next_round_in">Sledeca runda za %1$ds</string>
+    <string name="number_game_finished">Moj broj partija je zavrsena.</string>
+    <string name="number_match_done">Kraj meca</string>
+    <string name="number_winner_player">Pobednik je Igrac %1$d</string>
+    <string name="number_draw">Nereseno</string>
+    <string name="number_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
+    <string name="number_shake_stopped">STOP preko shake senzora.</string>
+
+    <string name="notifications_title">Notifikacije</string>
+    <string name="notifications_filter_all">Sve</string>
+    <string name="notifications_filter_unread">Neprocitane</string>
+    <string name="notifications_filter_read">Procitane</string>
+    <string name="notifications_test_label">Test obavestenja</string>
+    <string name="notifications_test_chat">Cet</string>
+    <string name="notifications_test_ranking">Rang</string>
+    <string name="notifications_test_rewards">Nagrade</string>
+    <string name="notifications_test_other">Ostalo</string>
+    <string name="notifications_empty">Nema notifikacija za izabrani filter.</string>
+    <string name="notifications_mark_read">Oznaci procitano</string>
+    <string name="notifications_already_read">Procitano</string>
+    <string name="notifications_react">Reaguj</string>
+    <string name="notifications_registered_only">Notifikacije su dostupne samo registrovanim igracima.</string>
+
+    <string-array name="serbia_regions">
+        <item>Beograd</item>
+        <item>Vojvodina</item>
+        <item>Sumadija i Zapadna Srbija</item>
+        <item>Juzna i Istocna Srbija</item>
+        <item>Kosovo i Metohija</item>
+    </string-array>
 </resources>
