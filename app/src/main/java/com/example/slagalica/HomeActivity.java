@@ -9,6 +9,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.SessionManager;
 
 public class HomeActivity extends AppCompatActivity {
@@ -17,6 +18,7 @@ public class HomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
+        NotificationChannelHelper.createChannels(this);
 
         AuthService authService = new AuthService(new FirebaseAuthRepository());
         SessionManager sessionManager = new SessionManager(this);
@@ -25,12 +27,14 @@ public class HomeActivity extends AppCompatActivity {
         Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
         Button btnMastermind = findViewById(R.id.btnOpenMastermind);
         Button btnMyNumber = findViewById(R.id.btnOpenMyNumber);
+        TextView btnNotifications = findViewById(R.id.btnOpenNotifications);
         Button btnResetPassword = findViewById(R.id.btnOpenResetPassword);
         Button btnLogout = findViewById(R.id.btnLogout);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
         if (sessionManager.isGuestMode()) {
             tvWelcome.setText(getString(R.string.welcome_guest));
+            btnNotifications.setVisibility(android.view.View.GONE);
             btnResetPassword.setVisibility(android.view.View.GONE);
             btnLogout.setVisibility(android.view.View.GONE);
             btnGuestRegister.setVisibility(android.view.View.VISIBLE);
@@ -47,6 +51,7 @@ public class HomeActivity extends AppCompatActivity {
         btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
         btnMastermind.setOnClickListener(v -> startActivity(new Intent(this, MastermindGameActivity.class)));
         btnMyNumber.setOnClickListener(v -> startActivity(new Intent(this, MyNumberGameActivity.class)));
+        btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnResetPassword.setOnClickListener(v -> startActivity(new Intent(this, ResetPasswordActivity.class)));
         btnGuestRegister.setOnClickListener(v -> {
             sessionManager.clearGuestMode();

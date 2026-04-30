@@ -24,6 +24,7 @@
     <string name="btn_open_step_by_step">Korak po korak</string>
     <string name="btn_open_mastermind">Skocko</string>
     <string name="btn_open_my_number">Moj broj</string>
+    <string name="btn_open_notifications">Notifikacije</string>
     <string name="btn_register_now">Registrujte se</string>
     <string name="games_label">Igre:</string>
 
@@ -132,6 +133,21 @@
     <string name="number_draw">Nereseno</string>
     <string name="number_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
     <string name="number_shake_stopped">STOP preko shake senzora.</string>
+
+    <string name="notifications_title">Notifikacije</string>
+    <string name="notifications_filter_all">Sve</string>
+    <string name="notifications_filter_unread">Neprocitane</string>
+    <string name="notifications_filter_read">Procitane</string>
+    <string name="notifications_test_label">Test obavestenja</string>
+    <string name="notifications_test_chat">Cet</string>
+    <string name="notifications_test_ranking">Rang</string>
+    <string name="notifications_test_rewards">Nagrade</string>
+    <string name="notifications_test_other">Ostalo</string>
+    <string name="notifications_empty">Nema notifikacija za izabrani filter.</string>
+    <string name="notifications_mark_read">Oznaci procitano</string>
+    <string name="notifications_already_read">Procitano</string>
+    <string name="notifications_react">Reaguj</string>
+    <string name="notifications_registered_only">Notifikacije su dostupne samo registrovanim igracima.</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>
