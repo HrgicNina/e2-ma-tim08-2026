@@ -211,6 +211,23 @@
     <string name="quiz_demo_finished">Runda je zavrsena. Ovo je GUI pregled stanja.</string>
     <string name="quiz_final_message">Ukupan prikaz pitanja i odgovora je spreman za dalje povezivanje sa pravom logikom.</string>
     <string name="quiz_round_only_finished">Runda je zavrsena.</string>
+    <string name="btn_open_connections">Spojnice</string>
+    <string name="connections_title">Spojnice</string>
+    <string name="connections_round_title">Spojnice - Runda %1$d/2</string>
+    <string name="connections_current_player">Na potezu: Igrac %1$d</string>
+    <string name="connections_phase_starter">Starter igra i povezuje svih 5 pojmova u 30 sekundi.</string>
+    <string name="connections_phase_steal">Preostale pojmove povezuje Igrac %1$d u 30 sekundi.</string>
+    <string name="connections_timer_seconds">Vreme: %1$ds</string>
+    <string name="connections_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="connections_left_title">Leva kolona</string>
+    <string name="connections_right_title">Desna kolona</string>
+    <string name="connections_status_correct">Tacna spojnica. Igrac %1$d dobija 2 boda.</string>
+    <string name="connections_status_wrong">Netacna spojnica. Pokusaj ponovo.</string>
+    <string name="connections_round_done">Kraj runde</string>
+    <string name="connections_round_finished">Runda je zavrsena. Nepovezani pojmovi ostaju za sledecu fazu ili narednu rundu.</string>
+    <string name="connections_open_next_phase">Sacekaj kraj runde</string>
+    <string name="connections_open_next_round">Otvori rundu 2</string>
+    <string name="connections_finish_round">Zavrsi rundu</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>
