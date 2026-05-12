@@ -118,6 +118,14 @@
         android:textSize="20sp" />
 
     <Button
+        android:id="@+id/btnOpenAssociations"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="@string/btn_open_associations"
+        android:textSize="20sp" />
+
+    <Button
         android:id="@+id/btnOpenStepByStep"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

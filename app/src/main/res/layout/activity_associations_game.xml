@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_slagalica_blue"
+    android:fillViewport="true"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvAssociationsRound"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/app_on_surface"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvAssociationsCurrentPlayer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:textColor="#1C3E63"
+            android:textSize="17sp" />
+
+        <TextView
+            android:id="@+id/tvAssociationsPhaseInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/profile_card_bg"
+            android:padding="10dp"
+            android:textColor="#2A4F75"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/tvAssociationsTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/app_on_surface"
+            android:textSize="28sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvAssociationsScore"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#1C3E63"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/associations_column_a"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button android:id="@+id/btnA1" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnA2" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnA3" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnA4" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnSolveA" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="8dp" android:background="@drawable/associations_solution_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="@color/app_on_surface" android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/associations_column_b"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button android:id="@+id/btnB1" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnB2" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnB3" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnB4" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnSolveB" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="8dp" android:background="@drawable/associations_solution_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="@color/app_on_surface" android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/associations_column_c"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button android:id="@+id/btnC1" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnC2" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnC3" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnC4" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnSolveC" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="8dp" android:background="@drawable/associations_solution_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="@color/app_on_surface" android:textSize="14sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/associations_column_d"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <Button android:id="@+id/btnD1" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnD2" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnD3" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnD4" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="6dp" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
+                <Button android:id="@+id/btnSolveD" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="0dp" android:layout_marginTop="8dp" android:background="@drawable/associations_solution_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="@color/app_on_surface" android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvAssociationsSelectedColumn"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:background="@drawable/profile_card_bg"
+            android:padding="12dp"
+            android:text="@string/associations_selected_none"
+            android:textColor="@color/app_on_surface"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <EditText
+            android:id="@+id/etAssociationsGuess"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:hint="@string/associations_guess_hint"
+            android:inputType="text"
+            android:textSize="18sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnAssociationsSolveColumn"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/associations_solution_bg"
+                android:backgroundTint="@null"
+                android:text="@string/associations_solve_column"
+                android:textAllCaps="false"
+                android:textColor="@color/app_on_surface"
+                android:textSize="16sp" />
+
+            <Button
+                android:id="@+id/btnAssociationsSolveFinal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:background="@drawable/associations_solution_bg"
+                android:backgroundTint="@null"
+                android:text="@string/associations_solve_final"
+                android:textAllCaps="false"
+                android:textColor="@color/app_on_surface"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvAssociationsFinalSolution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/profile_card_bg"
+            android:padding="14dp"
+            android:text="@string/associations_final_placeholder"
+            android:textColor="@color/app_on_surface"
+            android:textSize="18sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnAssociationsContinue"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="8dp"
+            android:text="@string/associations_finish_round"
+            android:textSize="18sp" />
+    </LinearLayout>
+</ScrollView>

@@ -27,6 +27,7 @@ public class HomeActivity extends AppCompatActivity {
         TextView btnProfile = findViewById(R.id.btnOpenProfile);
         Button btnQuiz = findViewById(R.id.btnOpenQuiz);
         Button btnConnections = findViewById(R.id.btnOpenConnections);
+        Button btnAssociations = findViewById(R.id.btnOpenAssociations);
         Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
         Button btnMastermind = findViewById(R.id.btnOpenMastermind);
         Button btnMyNumber = findViewById(R.id.btnOpenMyNumber);
@@ -67,6 +68,7 @@ public class HomeActivity extends AppCompatActivity {
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnQuiz.setOnClickListener(v -> startActivity(new Intent(this, QuizGameActivity.class)));
         btnConnections.setOnClickListener(v -> startActivity(new Intent(this, ConnectionsGameActivity.class)));
+        btnAssociations.setOnClickListener(v -> startActivity(new Intent(this, AssociationsGameActivity.class)));
         btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
         btnMastermind.setOnClickListener(v -> startActivity(new Intent(this, MastermindGameActivity.class)));
         btnMyNumber.setOnClickListener(v -> startActivity(new Intent(this, MyNumberGameActivity.class)));

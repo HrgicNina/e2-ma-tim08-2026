@@ -228,6 +228,35 @@
     <string name="connections_open_next_phase">Sacekaj kraj runde</string>
     <string name="connections_open_next_round">Otvori rundu 2</string>
     <string name="connections_finish_round">Zavrsi rundu</string>
+    <string name="btn_open_associations">Asocijacije</string>
+    <string name="associations_title">Asocijacije</string>
+    <string name="associations_current_player">Na potezu: Igrac %1$d</string>
+    <string name="associations_timer_format">Vreme: %1$d:%2$02d</string>
+    <string name="associations_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="associations_column_a">Kolona A</string>
+    <string name="associations_column_b">Kolona B</string>
+    <string name="associations_column_c">Kolona C</string>
+    <string name="associations_column_d">Kolona D</string>
+    <string name="associations_column_placeholder">Resenje %1$s</string>
+    <string name="associations_selected_none">Izabrana kolona: nijedna</string>
+    <string name="associations_selected_column">Izabrana kolona: %1$s</string>
+    <string name="associations_guess_hint">Unesi pokusaj za kolonu ili konacno resenje</string>
+    <string name="associations_solve_column">Pogodi kolonu</string>
+    <string name="associations_solve_final">Pogodi konacno resenje</string>
+    <string name="associations_final_placeholder">Konacno resenje</string>
+    <string name="associations_final_label">Konacno resenje: %1$s</string>
+    <string name="associations_status_idle">Otvori polje, izaberi kolonu i unesi pokusaj.</string>
+    <string name="associations_opened_hint">Otvoreno je polje u koloni %1$s. Sada mozes da pogadjas.</string>
+    <string name="associations_column_try">Pokusaj resenje za kolonu %1$s.</string>
+    <string name="associations_select_column_first">Prvo izaberi kolonu koju zelis da pogadjas.</string>
+    <string name="associations_column_solved">Resena je kolona %1$s.</string>
+    <string name="associations_column_wrong">Netacan pokusaj za kolonu %1$s.</string>
+    <string name="associations_all_columns_open">Sve kolone su otvorene. Ostaje konacno resenje.</string>
+    <string name="associations_final_try">Pokusaj konacno resenje.</string>
+    <string name="associations_final_wrong">Netacno konacno resenje.</string>
+    <string name="associations_final_solved">Konacno resenje je pogodjeno.</string>
+    <string name="associations_finish_round">Zavrsi rundu</string>
+    <string name="associations_round_finished">Runda je zavrsena.</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>

@@ -21,6 +21,9 @@
             android:name=".ConnectionsGameActivity"
             android:exported="false" />
         <activity
+            android:name=".AssociationsGameActivity"
+            android:exported="false" />
+        <activity
             android:name=".QuizGameActivity"
             android:exported="false" />
         <activity
