@@ -17,6 +17,20 @@ public class FirebaseAuthRepository {
         void onLoaded(String username);
     }
 
+    public interface UserProfileCallback {
+        void onLoaded(UserProfile profile);
+    }
+
+    public static class UserProfile {
+        public final String username;
+        public final String region;
+
+        public UserProfile(String username, String region) {
+            this.username = username;
+            this.region = region;
+        }
+    }
+
     private final FirebaseAuth auth;
     private final FirebaseFirestore db;
 
@@ -156,6 +170,28 @@ public class FirebaseAuthRepository {
                         return;
                     }
                     callback.onLoaded(task.getResult().getString("username"));
+                });
+    }
+
+    public void getCurrentUserProfile(UserProfileCallback callback) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            callback.onLoaded(new UserProfile(null, null));
+            return;
+        }
+
+        db.collection("users")
+                .document(user.getUid())
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful() || task.getResult() == null) {
+                        callback.onLoaded(new UserProfile(null, null));
+                        return;
+                    }
+
+                    String username = task.getResult().getString("username");
+                    String region = task.getResult().getString("region");
+                    callback.onLoaded(new UserProfile(username, region));
                 });
     }
 

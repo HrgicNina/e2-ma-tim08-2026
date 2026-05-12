@@ -24,6 +24,7 @@ public class HomeActivity extends AppCompatActivity {
         SessionManager sessionManager = new SessionManager(this);
 
         TextView tvWelcome = findViewById(R.id.tvWelcome);
+        TextView btnProfile = findViewById(R.id.btnOpenProfile);
         Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
         Button btnMastermind = findViewById(R.id.btnOpenMastermind);
         Button btnMyNumber = findViewById(R.id.btnOpenMyNumber);
@@ -31,6 +32,9 @@ public class HomeActivity extends AppCompatActivity {
         Button btnResetPassword = findViewById(R.id.btnOpenResetPassword);
         Button btnLogout = findViewById(R.id.btnLogout);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
+        TextView tvHomeTokens = findViewById(R.id.tvHomeTokens);
+        TextView tvHomeStars = findViewById(R.id.tvHomeStars);
+        TextView tvHomeLeague = findViewById(R.id.tvHomeLeague);
 
         if (sessionManager.isGuestMode()) {
             tvWelcome.setText(getString(R.string.welcome_guest));
@@ -38,16 +42,27 @@ public class HomeActivity extends AppCompatActivity {
             btnResetPassword.setVisibility(android.view.View.GONE);
             btnLogout.setVisibility(android.view.View.GONE);
             btnGuestRegister.setVisibility(android.view.View.VISIBLE);
+            btnProfile.setVisibility(android.view.View.GONE);
+            tvHomeTokens.setText(R.string.home_tokens_guest);
+            tvHomeStars.setText(R.string.home_stars_guest);
+            tvHomeLeague.setText(R.string.home_league_guest);
         } else {
             authService.getCurrentUsername(username -> {
                 if (username != null && !username.trim().isEmpty()) {
                     tvWelcome.setText(getString(R.string.welcome_user, username));
+                    btnProfile.setText(username.substring(0, 1).toUpperCase());
                 } else {
                     tvWelcome.setText(getString(R.string.welcome));
                 }
             });
+            tvHomeTokens.setText(R.string.home_tokens_value);
+            tvHomeStars.setText(R.string.home_stars_value);
+            tvHomeLeague.setText(R.string.home_league_value);
         }
 
+        btnNotifications.setText("\uD83D\uDD14");
+
+        btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
         btnMastermind.setOnClickListener(v -> startActivity(new Intent(this, MastermindGameActivity.class)));
         btnMyNumber.setOnClickListener(v -> startActivity(new Intent(this, MyNumberGameActivity.class)));

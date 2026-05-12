@@ -149,6 +149,53 @@
     <string name="notifications_react">Reaguj</string>
     <string name="notifications_registered_only">Notifikacije su dostupne samo registrovanim igracima.</string>
 
+    <string name="profile_title">Profil</string>
+    <string name="profile_username_placeholder">Korisnik</string>
+    <string name="profile_change_avatar">Izmeni avatar</string>
+    <string name="profile_league_value">Liga: Zlato I</string>
+    <string name="profile_tokens_value">Tokeni\n18</string>
+    <string name="profile_stars_value">Zvezde\n246</string>
+    <string name="profile_region_value">Region\nBeograd</string>
+    <string name="profile_region_placeholder">Region\n-</string>
+    <string name="profile_region_label">Region\n%1$s</string>
+    <string name="profile_qr_description">QR kod za poziv prijatelja</string>
+    <string name="profile_qr_placeholder">QR</string>
+    <string name="profile_statistics_title">Statistika</string>
+    <string name="profile_average_points">Prosecno osvojeni bodovi po igri</string>
+    <string name="profile_avg_quiz">Ko zna zna: 36/50</string>
+    <string name="profile_avg_connections">Spojnice: 13/20</string>
+    <string name="profile_avg_associations">Asocijacije: 35/60</string>
+    <string name="profile_avg_step">Korak po korak: 16/20</string>
+    <string name="profile_avg_mastermind">Skocko: 23/30</string>
+    <string name="profile_avg_number">Moj broj: 7/10</string>
+    <string name="profile_quiz_ratio">Ko zna zna: 68% pogodjenih, 32% promasenih</string>
+    <string name="profile_number_percent">Moj broj: 42% tacno pronadjenih brojeva</string>
+    <string name="profile_associations_ratio">Asocijacije: 61% resenih</string>
+    <string name="profile_connections_percent">Spojnice: 74% uspesno povezanih pojmova</string>
+    <string name="profile_step_stats">Korak po korak: procenat pogotka po koraku</string>
+    <string name="profile_step_1">Korak 1: 90%</string>
+    <string name="profile_step_2">Korak 2: 78%</string>
+    <string name="profile_step_3">Korak 3: 66%</string>
+    <string name="profile_step_4">Korak 4: 52%</string>
+    <string name="profile_step_5">Korak 5: 39%</string>
+    <string name="profile_step_6">Korak 6: 24%</string>
+    <string name="profile_step_7">Korak 7: 14%</string>
+    <string name="profile_mastermind_stats">Skocko: pogodjena kombinacija po pokusaju</string>
+    <string name="profile_mastermind_1">Pokusaj 1: 18%</string>
+    <string name="profile_mastermind_2">Pokusaj 2: 29%</string>
+    <string name="profile_mastermind_3">Pokusaj 3: 36%</string>
+    <string name="profile_mastermind_4">Pokusaj 4: 44%</string>
+    <string name="profile_mastermind_5">Pokusaj 5: 53%</string>
+    <string name="profile_mastermind_6">Pokusaj 6: 61%</string>
+    <string name="profile_matches_total">Ukupno odigranih partija: 38</string>
+    <string name="profile_win_percent">Pobede: 63% | Porazi: 37%</string>
+    <string name="home_tokens_value">Tokeni\n18</string>
+    <string name="home_stars_value">Zvezde\n246</string>
+    <string name="home_league_value">Liga\nZlato I</string>
+    <string name="home_tokens_guest">Tokeni\n-</string>
+    <string name="home_stars_guest">Zvezde\n-</string>
+    <string name="home_league_guest">Liga\nGost</string>
+
     <string-array name="serbia_regions">
         <item>Beograd</item>
         <item>Vojvodina</item>
