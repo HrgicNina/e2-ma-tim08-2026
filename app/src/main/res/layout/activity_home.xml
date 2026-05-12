@@ -102,10 +102,18 @@
         android:textStyle="bold" />
 
     <Button
-        android:id="@+id/btnOpenStepByStep"
+        android:id="@+id/btnOpenQuiz"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:text="@string/btn_open_quiz"
+        android:textSize="20sp" />
+
+    <Button
+        android:id="@+id/btnOpenStepByStep"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
         android:text="@string/btn_open_step_by_step"
         android:textSize="20sp" />
 
