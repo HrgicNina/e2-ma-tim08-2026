@@ -18,6 +18,21 @@
             android:name=".MastermindGameActivity"
             android:exported="false" />
         <activity
+            android:name=".ConnectionsGameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".AssociationsGameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MatchActivity"
+            android:exported="false" />
+        <activity
+            android:name=".QuizGameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false" />
+        <activity
             android:name=".NotificationsActivity"
             android:exported="false" />
         <activity

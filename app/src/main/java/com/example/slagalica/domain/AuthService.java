@@ -87,4 +87,8 @@ public class AuthService {
     public void getCurrentUsername(FirebaseAuthRepository.UsernameCallback callback) {
         repository.getCurrentUsername(callback);
     }
+
+    public void getCurrentUserProfile(FirebaseAuthRepository.UserProfileCallback callback) {
+        repository.getCurrentUserProfile(callback);
+    }
 }
