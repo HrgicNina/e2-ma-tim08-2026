@@ -257,6 +257,22 @@
     <string name="associations_final_solved">Konacno resenje je pogodjeno.</string>
     <string name="associations_finish_round">Zavrsi rundu</string>
     <string name="associations_round_finished">Runda je zavrsena.</string>
+    <string name="btn_open_match">Partija</string>
+    <string name="match_title">Partija</string>
+    <string name="match_stage_title">Trenutna igra %1$d/6</string>
+    <string name="match_current_game">Sledeca ili aktivna igra: %1$s</string>
+    <string name="match_score_format">Ukupan rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
+    <string name="match_order_title">Redosled igara</string>
+    <string name="match_step_done">%1$d. %2$s - zavrseno</string>
+    <string name="match_step_current">%1$d. %2$s - trenutno aktivno</string>
+    <string name="match_step_upcoming">%1$d. %2$s - sledi</string>
+    <string name="match_open_game">Otvori igru</string>
+    <string name="match_open_current_game">Otvori: %1$s</string>
+    <string name="match_next_game">Predji na sledecu igru</string>
+    <string name="match_finish_match">Zavrsi partiju</string>
+    <string name="match_give_up">Odustani od partije</string>
+    <string name="match_finished_title">Partija je zavrsena</string>
+    <string name="match_finished_message">Sve igre iz partije su prosle.</string>
 
     <string-array name="serbia_regions">
         <item>Beograd</item>

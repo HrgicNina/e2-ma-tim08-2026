@@ -28,6 +28,7 @@ public class HomeActivity extends AppCompatActivity {
         Button btnQuiz = findViewById(R.id.btnOpenQuiz);
         Button btnConnections = findViewById(R.id.btnOpenConnections);
         Button btnAssociations = findViewById(R.id.btnOpenAssociations);
+        Button btnMatch = findViewById(R.id.btnOpenMatch);
         Button btnStepByStep = findViewById(R.id.btnOpenStepByStep);
         Button btnMastermind = findViewById(R.id.btnOpenMastermind);
         Button btnMyNumber = findViewById(R.id.btnOpenMyNumber);
@@ -69,6 +70,7 @@ public class HomeActivity extends AppCompatActivity {
         btnQuiz.setOnClickListener(v -> startActivity(new Intent(this, QuizGameActivity.class)));
         btnConnections.setOnClickListener(v -> startActivity(new Intent(this, ConnectionsGameActivity.class)));
         btnAssociations.setOnClickListener(v -> startActivity(new Intent(this, AssociationsGameActivity.class)));
+        btnMatch.setOnClickListener(v -> startActivity(new Intent(this, MatchActivity.class)));
         btnStepByStep.setOnClickListener(v -> startActivity(new Intent(this, StepByStepActivity.class)));
         btnMastermind.setOnClickListener(v -> startActivity(new Intent(this, MastermindGameActivity.class)));
         btnMyNumber.setOnClickListener(v -> startActivity(new Intent(this, MyNumberGameActivity.class)));
