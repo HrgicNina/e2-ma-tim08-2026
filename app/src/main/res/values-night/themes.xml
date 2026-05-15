@@ -12,4 +12,6 @@
         <item name="colorSurface">@color/app_surface_light_blue</item>
         <item name="colorOnSurface">@color/app_on_surface</item>
     </style>
+
+    <style name="Theme.Slagalica" parent="Base.Theme.Slagalica" />
 </resources>

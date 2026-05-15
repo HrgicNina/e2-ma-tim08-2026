@@ -15,6 +15,10 @@ public class MyNumberGameService {
         return 100 + random.nextInt(900);
     }
 
+    public int generateTarget(Random source) {
+        return 100 + source.nextInt(900);
+    }
+
     public List<Integer> generateNumbers() {
         List<Integer> values = new ArrayList<>();
         for (int i = 0; i < 4; i++) {
@@ -26,6 +30,21 @@ public class MyNumberGameService {
 
         int[] highs = {25, 50, 75, 100};
         values.add(highs[random.nextInt(highs.length)]);
+
+        return values;
+    }
+
+    public List<Integer> generateNumbers(Random source) {
+        List<Integer> values = new ArrayList<>();
+        for (int i = 0; i < 4; i++) {
+            values.add(1 + source.nextInt(9));
+        }
+
+        int[] mids = {10, 15, 20};
+        values.add(mids[source.nextInt(mids.length)]);
+
+        int[] highs = {25, 50, 75, 100};
+        values.add(highs[source.nextInt(highs.length)]);
 
         return values;
     }

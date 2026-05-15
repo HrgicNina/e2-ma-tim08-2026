@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="app_primary_blue">#2C6FBF</color>
+    <color name="app_on_primary">#FFFFFFFF</color>
+    <color name="app_secondary_blue">#3E86D8</color>
+    <color name="app_background_light_blue">#0F2236</color>
+    <color name="app_surface_light_blue">#16304A</color>
+    <color name="app_on_surface">#EAF4FF</color>
+</resources>

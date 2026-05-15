@@ -37,3 +37,20 @@ Ako se javi greska pri build-u:
 1. `Build > Clean Project`
 2. `Build > Assemble Project`
 3. ponovo `Run app`.
+
+## WebSocket server za real-time partije
+
+Za matchmaking i prijateljske partije potreban je lokalni WS server:
+
+1. Otvoriti terminal u `realtime-server`.
+2. Instalirati pakete:
+   ```bash
+   npm install
+   ```
+3. Pokrenuti server:
+   ```bash
+   npm start
+   ```
+
+Android emulator koristi adresu:
+- `ws://10.0.2.2:8080`

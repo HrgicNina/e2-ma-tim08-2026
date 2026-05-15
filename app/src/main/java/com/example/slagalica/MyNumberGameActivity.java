@@ -1,12 +1,16 @@
 package com.example.slagalica;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -16,11 +20,15 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.MyNumberGameService;
 
+import org.json.JSONObject;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 public class MyNumberGameActivity extends AppCompatActivity implements SensorEventListener {
+    private static final String GAME_ID = "number";
 
     private enum Phase { STOP_TARGET, STOP_NUMBERS, MAIN_ATTEMPT, STEAL_ATTEMPT, FINISHED }
 
@@ -42,6 +50,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private CountDownTimer roundTimer;
     private CountDownTimer stealTimer;
     private CountDownTimer transitionTimer;
+    private CountDownTimer finishTimer;
 
     private SensorManager sensorManager;
     private Sensor accelerometer;
@@ -50,6 +59,28 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private float lastZ;
     private long lastShakeTime = 0L;
     private final java.util.Random uiRandom = new java.util.Random();
+    private String matchRoomId = "";
+    private int myPlayerNumber = 1;
+    private int lastTimerSeconds = 60;
+    private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!MatchActivity.ACTION_GAME_EVENT.equals(intent.getAction())) {
+                return;
+            }
+            String room = intent.getStringExtra(MatchActivity.EXTRA_ROOM_ID);
+            String game = intent.getStringExtra(MatchActivity.EXTRA_GAME);
+            String event = intent.getStringExtra(MatchActivity.EXTRA_EVENT);
+            if (!GAME_ID.equals(game) || !matchRoomId.equals(room) || !"state".equals(event)) {
+                return;
+            }
+            String raw = intent.getStringExtra(MatchActivity.EXTRA_DATA);
+            try {
+                applyRemoteState(new JSONObject(raw == null ? "{}" : raw));
+            } catch (Exception ignored) {
+            }
+        }
+    };
 
     private Phase phase = Phase.STOP_TARGET;
     private int currentRound = 1;
@@ -69,6 +100,11 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         setContentView(R.layout.activity_my_number_game);
 
         gameService = new MyNumberGameService();
+        matchRoomId = getIntent().getStringExtra("match_room_id");
+        if (matchRoomId == null) {
+            matchRoomId = "";
+        }
+        myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -142,6 +178,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
                 tvPhase.setText(getString(R.string.number_round_starts_in, seconds));
                 tvTimer.setText(getString(R.string.number_timer_seconds, 60));
+                lastTimerSeconds = 60;
             }
 
             @Override
@@ -150,11 +187,22 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 btnStop.setEnabled(true);
                 startTargetSpin();
                 startAutoStopTimer(MyNumberGameActivity.this::revealTarget);
+                publishState();
             }
         }.start();
     }
 
     private void handleMainButtonClick() {
+        if (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS || phase == Phase.MAIN_ATTEMPT) {
+            if (roundStarter != myPlayerNumber) {
+                return;
+            }
+        }
+        if (phase == Phase.STEAL_ATTEMPT) {
+            if (opponent(roundStarter) != myPlayerNumber) {
+                return;
+            }
+        }
         if (phase == Phase.STOP_TARGET) {
             revealTarget();
         } else if (phase == Phase.STOP_NUMBERS) {
@@ -171,7 +219,12 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
         cancelAutoStopTimer();
         stopSpinTimers();
-        targetNumber = gameService.generateTarget();
+        if (matchRoomId.isEmpty()) {
+            targetNumber = gameService.generateTarget();
+        } else {
+            int seed = (matchRoomId + "_number_target_" + currentRound).hashCode();
+            targetNumber = gameService.generateTarget(new Random(seed));
+        }
         tvTarget.setText(String.valueOf(targetNumber));
         phase = Phase.STOP_NUMBERS;
         tvPhase.setText(R.string.number_phase_stop_numbers);
@@ -179,6 +232,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         btnStop.setText(R.string.number_stop_numbers);
         startNumbersSpin();
         startAutoStopTimer(this::revealNumbers);
+        publishState();
     }
 
     private void revealNumbers() {
@@ -188,7 +242,12 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
         cancelAutoStopTimer();
         stopSpinTimers();
-        availableNumbers = gameService.generateNumbers();
+        if (matchRoomId.isEmpty()) {
+            availableNumbers = gameService.generateNumbers();
+        } else {
+            int seed = (matchRoomId + "_number_values_" + currentRound).hashCode();
+            availableNumbers = gameService.generateNumbers(new Random(seed));
+        }
         resetNumberUsage();
         for (int i = 0; i < numberViews.length; i++) {
             numberViews[i].setText(String.valueOf(availableNumbers.get(i)));
@@ -198,11 +257,16 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
         phase = Phase.MAIN_ATTEMPT;
         tvPhase.setText(R.string.number_phase_main);
-        btnStop.setEnabled(true);
+        boolean myMainTurn = roundStarter == myPlayerNumber;
+        btnStop.setEnabled(myMainTurn);
         btnStop.setText(R.string.number_confirm_expression);
-        etExpression.setEnabled(true);
+        etExpression.setEnabled(myMainTurn);
         etExpression.setText("");
+        for (TextView view : numberViews) {
+            view.setEnabled(myMainTurn);
+        }
         startMainRoundTimer();
+        publishState();
     }
 
     private void startTargetSpin() {
@@ -259,6 +323,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             public void onTick(long millisUntilFinished) {
                 int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
                 tvPhase.setText(getString(R.string.number_phase_auto_stop, seconds));
+                publishState();
             }
 
             @Override
@@ -273,7 +338,10 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         roundTimer = new CountDownTimer(60000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                tvTimer.setText(getString(R.string.number_timer_seconds, (int) (millisUntilFinished / 1000)));
+                int sec = (int) (millisUntilFinished / 1000);
+                tvTimer.setText(getString(R.string.number_timer_seconds, sec));
+                lastTimerSeconds = sec;
+                publishState();
             }
 
             @Override
@@ -313,19 +381,23 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         tvCurrentPlayer.setText(getString(R.string.number_current_player, stealPlayer));
         tvPhase.setText(getString(R.string.number_phase_steal, stealPlayer));
         etExpression.setText("");
-        etExpression.setEnabled(true);
-        btnStop.setEnabled(true);
+        boolean myStealTurn = stealPlayer == myPlayerNumber;
+        etExpression.setEnabled(myStealTurn);
+        btnStop.setEnabled(myStealTurn);
         btnStop.setText(R.string.number_confirm_expression);
         resetNumberUsage();
         for (TextView view : numberViews) {
-            view.setEnabled(true);
+            view.setEnabled(myStealTurn);
             view.setAlpha(1f);
         }
 
         stealTimer = new CountDownTimer(10000, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                tvTimer.setText(getString(R.string.number_timer_seconds, (int) (millisUntilFinished / 1000)));
+                int sec = (int) (millisUntilFinished / 1000);
+                tvTimer.setText(getString(R.string.number_timer_seconds, sec));
+                lastTimerSeconds = sec;
+                publishState();
             }
 
             @Override
@@ -338,6 +410,12 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     private void submitExpression() {
         if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+            return;
+        }
+        if (phase == Phase.MAIN_ATTEMPT && roundStarter != myPlayerNumber) {
+            return;
+        }
+        if (phase == Phase.STEAL_ATTEMPT && opponent(roundStarter) != myPlayerNumber) {
             return;
         }
 
@@ -466,6 +544,18 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         Toast.makeText(this,
                 getString(R.string.number_final_score_message, player1Score, player2Score, winner),
                 Toast.LENGTH_LONG).show();
+        lastTimerSeconds = 0;
+        publishState();
+        finishTimer = new CountDownTimer(1200, 1200) {
+            @Override
+            public void onTick(long millisUntilFinished) { }
+
+            @Override
+            public void onFinish() {
+                setResult(RESULT_OK);
+                finish();
+            }
+        }.start();
     }
 
     private void wireOperatorButtons() {
@@ -484,6 +574,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         btnMul.setOnClickListener(v -> appendToExpression("*"));
         btnDiv.setOnClickListener(v -> appendToExpression("/"));
         btnClear.setOnClickListener(v -> {
+            if (!isMyTurnForInput()) {
+                return;
+            }
             etExpression.setText("");
             if (phase == Phase.MAIN_ATTEMPT || phase == Phase.STEAL_ATTEMPT) {
                 resetNumberUsage();
@@ -499,6 +592,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     private void deleteOneCharacter() {
         if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+            return;
+        }
+        if (!isMyTurnForInput()) {
             return;
         }
         String current = etExpression.getText().toString();
@@ -527,6 +623,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 if (!v.isEnabled()) {
                     return;
                 }
+                if (!isMyTurnForInput()) {
+                    return;
+                }
                 if (index < numberUsed.length && numberUsed[index]) {
                     return;
                 }
@@ -542,6 +641,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     private void appendToExpression(String token) {
         if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+            return;
+        }
+        if (!isMyTurnForInput()) {
             return;
         }
 
@@ -586,6 +688,16 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         return player == 1 ? 2 : 1;
     }
 
+    private boolean isMyTurnForInput() {
+        if (phase == Phase.MAIN_ATTEMPT || phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS) {
+            return roundStarter == myPlayerNumber;
+        }
+        if (phase == Phase.STEAL_ATTEMPT) {
+            return opponent(roundStarter) == myPlayerNumber;
+        }
+        return false;
+    }
+
     private void cancelAutoStopTimer() {
         if (autoStopTimer != null) {
             autoStopTimer.cancel();
@@ -615,6 +727,10 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         if (transitionTimer != null) {
             transitionTimer.cancel();
             transitionTimer = null;
+        }
+        if (finishTimer != null) {
+            finishTimer.cancel();
+            finishTimer = null;
         }
     }
 
@@ -672,6 +788,21 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     }
 
     @Override
+    protected void onStart() {
+        super.onStart();
+        registerReceiver(gameEventReceiver, new IntentFilter(MatchActivity.ACTION_GAME_EVENT));
+    }
+
+    @Override
+    protected void onStop() {
+        try {
+            unregisterReceiver(gameEventReceiver);
+        } catch (Exception ignored) {
+        }
+        super.onStop();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         if (accelerometer != null && sensorManager != null) {
@@ -712,6 +843,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         float shake = deltaX + deltaY + deltaZ;
         long now = System.currentTimeMillis();
         if (shake > 20f && now - lastShakeTime > 1200) {
+            if (roundStarter != myPlayerNumber) {
+                return;
+            }
             lastShakeTime = now;
             if (phase == Phase.STOP_TARGET) {
                 revealTarget();
@@ -725,5 +859,55 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
+    }
+
+    private void publishState() {
+        if (TextUtils.isEmpty(matchRoomId) || !isMyTurnForInput()) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("round", currentRound);
+            data.put("starter", roundStarter);
+            data.put("phase", phase.name());
+            data.put("timer", lastTimerSeconds);
+
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "state");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRemoteState(JSONObject data) {
+        currentRound = data.optInt("round", currentRound);
+        roundStarter = data.optInt("starter", roundStarter);
+        String phaseName = data.optString("phase", phase.name());
+        try {
+            phase = Phase.valueOf(phaseName);
+        } catch (Exception ignored) {
+        }
+        lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
+        tvRound.setText(getString(R.string.number_round_label, currentRound));
+        tvTimer.setText(getString(R.string.number_timer_seconds, Math.max(0, lastTimerSeconds)));
+
+        if (!isMyTurnForInput()) {
+            if (roundTimer != null) {
+                roundTimer.cancel();
+                roundTimer = null;
+            }
+            if (stealTimer != null) {
+                stealTimer.cancel();
+                stealTimer = null;
+            }
+            btnStop.setEnabled(false);
+            etExpression.setEnabled(false);
+            for (TextView view : numberViews) {
+                view.setEnabled(false);
+            }
+        }
     }
 }

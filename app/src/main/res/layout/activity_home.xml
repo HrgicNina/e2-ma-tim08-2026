@@ -4,7 +4,7 @@
     android:layout_height="match_parent"
     android:background="@drawable/bg_slagalica_blue"
     android:orientation="vertical"
-    android:padding="24dp">
+    android:padding="20dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -13,26 +13,41 @@
         android:orientation="horizontal">
 
         <TextView
-            android:id="@+id/tvWelcome"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/welcome"
-            android:textColor="@color/app_on_surface"
-            android:textSize="32sp"
-            android:textStyle="bold" />
-
-        <TextView
             android:id="@+id/btnOpenProfile"
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/profile_avatar_bg"
             android:gravity="center"
-            android:text="M"
-            android:textColor="#FFFFFF"
+            android:text="U"
+            android:textColor="@color/app_on_primary"
             android:textSize="20sp"
             android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvHomeUsername"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="korisnik"
+            android:textColor="@color/app_on_surface"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/btnOpenSettings"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/master_symbol_btn_bg"
+            android:gravity="center"
+            android:text="?"
+            android:textColor="@color/app_on_primary"
+            android:textSize="22sp" />
 
         <TextView
             android:id="@+id/btnOpenNotifications"
@@ -40,33 +55,33 @@
             android:layout_height="44dp"
             android:background="@drawable/master_symbol_btn_bg"
             android:gravity="center"
-            android:textColor="#FFFFFF"
+            android:textColor="@color/app_on_primary"
             android:textSize="22sp" />
     </LinearLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="14dp"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/tvHomeTokens"
             android:layout_width="0dp"
-            android:layout_height="74dp"
+            android:layout_height="72dp"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
             android:background="@drawable/profile_card_bg"
             android:gravity="center"
             android:text="@string/home_tokens_value"
             android:textColor="@color/app_on_surface"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvHomeStars"
             android:layout_width="0dp"
-            android:layout_height="74dp"
+            android:layout_height="72dp"
             android:layout_marginStart="6dp"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
@@ -74,13 +89,13 @@
             android:gravity="center"
             android:text="@string/home_stars_value"
             android:textColor="@color/app_on_surface"
-            android:textSize="17sp"
+            android:textSize="16sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvHomeLeague"
             android:layout_width="0dp"
-            android:layout_height="74dp"
+            android:layout_height="72dp"
             android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:background="@drawable/profile_card_bg"
@@ -91,100 +106,127 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-    <TextView
-        android:id="@+id/tvGamesLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="28dp"
-        android:text="@string/games_label"
-        android:textColor="@color/app_on_surface"
-        android:textSize="24sp"
-        android:textStyle="bold" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="0.65" />
 
     <Button
-        android:id="@+id/btnOpenQuiz"
+        android:id="@+id/btnStartGame"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="@string/btn_open_quiz"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenConnections"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_connections"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenAssociations"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_associations"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenStepByStep"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_step_by_step"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenMastermind"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_mastermind"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenMyNumber"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_my_number"
-        android:textSize="20sp" />
-
-    <Button
-        android:id="@+id/btnOpenMatch"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_match"
-        android:textSize="20sp" />
+        android:layout_height="72dp"
+        android:text="@string/home_start_game"
+        android:textSize="24sp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1" />
+        android:layout_weight="0.35" />
 
-    <Button
-        android:id="@+id/btnOpenResetPassword"
-        android:layout_width="match_parent"
+    <TextView
+        android:id="@+id/tvFriendsLabel"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/btn_go_reset_password"
-        android:textSize="20sp" />
+        android:layout_marginTop="26dp"
+        android:text="@string/home_friends_label"
+        android:textColor="@color/app_on_surface"
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
-    <Button
-        android:id="@+id/btnLogout"
+    <LinearLayout
+        android:id="@+id/friendsContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="@string/btn_logout"
-        android:textSize="20sp" />
+        android:gravity="center"
+        android:orientation="horizontal">
+
+        <LinearLayout
+            android:id="@+id/friendItem1"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <ImageView
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@drawable/profile_avatar_bg"
+                android:padding="6dp"
+                android:src="@drawable/owl_icon" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="marko"
+                android:textColor="@color/app_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/friendItem2"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <ImageView
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@drawable/profile_avatar_bg"
+                android:padding="6dp"
+                android:src="@drawable/owl_icon" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="ana"
+                android:textColor="@color/app_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/friendItem3"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="6dp">
+
+            <ImageView
+                android:layout_width="54dp"
+                android:layout_height="54dp"
+                android:background="@drawable/profile_avatar_bg"
+                android:padding="6dp"
+                android:src="@drawable/owl_icon" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="milica"
+                android:textColor="@color/app_on_surface"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnGuestRegister"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:text="@string/btn_register_now"
-        android:textSize="20sp"
+        android:textSize="18sp"
         android:visibility="gone" />
 
 </LinearLayout>

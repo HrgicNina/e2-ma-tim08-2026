@@ -1,192 +1,133 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/bg_slagalica_blue"
-    android:fillViewport="true"
-    android:padding="16dp">
+    android:padding="24dp">
 
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="match_parent"
+        android:gravity="center"
         android:orientation="vertical">
 
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/match_title"
-            android:textColor="@color/app_on_surface"
-            android:textSize="28sp"
-            android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="74dp"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/profile_card_bg"
-                android:gravity="center"
-                android:text="@string/home_tokens_value"
-                android:textColor="@color/app_on_surface"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="74dp"
-                android:layout_marginStart="6dp"
-                android:layout_marginEnd="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/profile_card_bg"
-                android:gravity="center"
-                android:text="@string/home_stars_value"
-                android:textColor="@color/app_on_surface"
-                android:textSize="17sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="74dp"
-                android:layout_marginStart="6dp"
-                android:layout_weight="1"
-                android:background="@drawable/profile_card_bg"
-                android:gravity="center"
-                android:text="@string/home_league_value"
-                android:textColor="@color/app_on_surface"
-                android:textSize="16sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/tvMatchStage"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="22sp"
-            android:textStyle="bold" />
+        <ProgressBar
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:indeterminate="true" />
 
         <TextView
             android:id="@+id/tvMatchInfo"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="#1C3E63"
-            android:textSize="17sp" />
+            android:layout_marginTop="18dp"
+            android:text="@string/match_waiting"
+            android:textColor="@color/app_on_surface"
+            android:textSize="24sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="1dp"
+        android:layout_height="1dp"
+        android:alpha="0"
+        android:importantForAccessibility="no"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvMatchStage"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchScore"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="18sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="@string/match_order_title"
-            android:textColor="@color/app_on_surface"
-            android:textSize="20sp"
-            android:textStyle="bold" />
+            android:id="@+id/tvMatchTokens"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <TextView
+            android:id="@+id/tvMatchStars"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <TextView
+            android:id="@+id/tvMatchLeague"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame1"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/match_step_current_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame2"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/match_step_upcoming_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame3"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/match_step_upcoming_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame4"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/match_step_upcoming_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame5"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/match_step_upcoming_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <TextView
             android:id="@+id/tvMatchGame6"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:background="@drawable/match_step_upcoming_bg"
-            android:padding="12dp"
-            android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <EditText
+            android:id="@+id/etInviteTarget"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <Button
             android:id="@+id/btnMatchOpenGame"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="@string/match_open_game"
-            android:textSize="18sp" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <Button
             android:id="@+id/btnMatchNextGame"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="@string/match_next_game"
-            android:textSize="18sp" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <Button
+            android:id="@+id/btnSubmitMatchScore"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <Button
+            android:id="@+id/btnFindRandom"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <Button
+            android:id="@+id/btnCancelQueue"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
+
+        <Button
+            android:id="@+id/btnInviteFriend"
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
 
         <Button
             android:id="@+id/btnMatchGiveUp"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/match_give_up"
-            android:textSize="18sp" />
+            android:layout_width="1dp"
+            android:layout_height="1dp" />
     </LinearLayout>
-</ScrollView>
+
+</FrameLayout>

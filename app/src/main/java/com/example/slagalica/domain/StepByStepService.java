@@ -31,6 +31,10 @@ public class StepByStepService {
         });
     }
 
+    public void getPuzzles(StepByStepRepository.PuzzlesCallback callback) {
+        repository.getPuzzles(callback);
+    }
+
     public boolean isCorrectAnswer(String input, String correctAnswer) {
         if (input == null || correctAnswer == null) {
             return false;
