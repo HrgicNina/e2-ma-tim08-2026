@@ -407,7 +407,11 @@ public class MatchActivity extends AppCompatActivity {
                     opponentScore = oppScore;
                     finishLocalRoom();
                     if (!guestMode && !friendlyRoom && !resultApplied) {
-                        applyRankedResult(iAmWinner, myScore);
+                        if (forfeit && !iAmWinner) {
+                            applyForfeitLoserResult();
+                        } else {
+                            applyRankedResult(iAmWinner, myScore);
+                        }
                     }
                     String msg = iAmWinner
                             ? "Pobedili ste partiju!"
@@ -657,6 +661,26 @@ public class MatchActivity extends AppCompatActivity {
 
     private void applyRankedResult(boolean winner, int score) {
         economyRepository.applyRankedMatchResult(myUid, winner, score, new PlayerEconomyRepository.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> values) {
+                resultApplied = true;
+                stars = values.get("stars");
+                tokens = values.get("tokens");
+                runOnUiThread(() -> {
+                    tvMatchStars.setText("Zvezde\n" + stars);
+                    tvMatchTokens.setText("Tokeni\n" + tokens);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void applyForfeitLoserResult() {
+        economyRepository.applyForfeitLoserPenalty(myUid, new PlayerEconomyRepository.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> values) {
                 resultApplied = true;

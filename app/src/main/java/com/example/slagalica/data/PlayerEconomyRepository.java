@@ -134,4 +134,23 @@ public class PlayerEconomyRepository {
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> callback.onError("Neuspesna obrada rezultata partije."));
     }
+
+    public void applyForfeitLoserPenalty(String uid, EconomyCallback callback) {
+        DocumentReference ref = db.collection("users").document(uid);
+        db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
+            Long stars = transaction.get(ref).getLong("stars");
+            Long tokens = transaction.get(ref).getLong("tokens");
+            if (stars == null) stars = 0L;
+            if (tokens == null) tokens = 0L;
+
+            long newStars = Math.max(0, stars - 10);
+            transaction.update(ref, "stars", newStars);
+
+            Map<String, Long> out = new HashMap<>();
+            out.put("stars", newStars);
+            out.put("tokens", tokens);
+            return out;
+        }).addOnSuccessListener(callback::onSuccess)
+                .addOnFailureListener(e -> callback.onError("Neuspesna obrada forfeit kazne."));
+    }
 }

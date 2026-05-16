@@ -29,6 +29,10 @@
     <string name="games_label">Igre:</string>
     <string name="home_start_game">Započni igru</string>
     <string name="home_friends_label">Prijatelji</string>
+    <string name="chat_title">Regionalni cet</string>
+    <string name="chat_title_region">Cet regiona: %1$s</string>
+    <string name="chat_hint">Unesi poruku</string>
+    <string name="chat_send">Posalji</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>

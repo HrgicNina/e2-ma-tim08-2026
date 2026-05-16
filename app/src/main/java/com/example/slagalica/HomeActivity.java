@@ -44,6 +44,7 @@ public class HomeActivity extends AppCompatActivity {
         NotificationsRepository notificationsRepository = new NotificationsRepository();
 
         TextView btnProfile = findViewById(R.id.btnOpenProfile);
+        TextView btnOpenChat = findViewById(R.id.btnOpenChat);
         TextView btnSettings = findViewById(R.id.btnOpenSettings);
         TextView btnNotifications = findViewById(R.id.btnOpenNotifications);
         TextView tvHomeUsername = findViewById(R.id.tvHomeUsername);
@@ -59,6 +60,7 @@ public class HomeActivity extends AppCompatActivity {
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
         btnNotifications.setText("\uD83D\uDD14");
+        btnOpenChat.setText("\uD83D\uDCAC");
         btnSettings.setText("\u2699\uFE0F");
         authService.getCurrentUsername(username -> {
             if (username != null && !username.trim().isEmpty()) {
@@ -80,6 +82,7 @@ public class HomeActivity extends AppCompatActivity {
             friend3.setVisibility(View.GONE);
 
             btnNotifications.setVisibility(View.GONE);
+            btnOpenChat.setVisibility(View.GONE);
             btnSettings.setVisibility(View.GONE);
             btnProfile.setVisibility(View.GONE);
             tvHomeUsername.setVisibility(View.GONE);
@@ -95,6 +98,7 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
+        btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnSettings.setOnClickListener(v -> showSettingsMenu(btnSettings));
 

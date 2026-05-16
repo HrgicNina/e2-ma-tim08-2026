@@ -39,6 +39,16 @@
             android:layout_weight="1" />
 
         <TextView
+            android:id="@+id/btnOpenChat"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/master_symbol_btn_bg"
+            android:gravity="center"
+            android:textColor="@color/app_on_primary"
+            android:textSize="22sp" />
+
+        <TextView
             android:id="@+id/btnOpenSettings"
             android:layout_width="44dp"
             android:layout_height="44dp"

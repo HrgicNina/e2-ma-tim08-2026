@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_slagalica_blue"
+    android:orientation="vertical"
+    android:padding="14dp">
+
+    <TextView
+        android:id="@+id/tvChatTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/match_header_panel_bg"
+        android:gravity="center"
+        android:padding="12dp"
+        android:text="@string/chat_title"
+        android:textColor="#FFFFFF"
+        android:textSize="21sp"
+        android:textStyle="bold" />
+
+    <ScrollView
+        android:id="@+id/svChatMessages"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="10dp"
+        android:layout_weight="1"
+        android:background="@drawable/profile_card_bg"
+        android:padding="8dp">
+
+        <LinearLayout
+            android:id="@+id/llChatMessages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/etChatMessage"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:background="@drawable/number_box_bg"
+            android:hint="@string/chat_hint"
+            android:imeOptions="actionSend"
+            android:inputType="textCapSentences"
+            android:maxLines="1"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#BFD5EE"
+            android:textSize="18sp" />
+
+        <Button
+            android:id="@+id/btnChatSend"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="8dp"
+            android:minWidth="86dp"
+            android:text="@string/chat_send"
+            android:textSize="18sp" />
+    </LinearLayout>
+
+</LinearLayout>
