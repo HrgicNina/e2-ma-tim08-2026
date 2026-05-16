@@ -51,6 +51,13 @@ public class QuizGameActivity extends AppCompatActivity {
     private TextView tvPhaseInfo;
     private TextView tvTimer;
     private TextView tvScore;
+    private TextView tvHeaderLeftAvatar;
+    private TextView tvHeaderLeftName;
+    private TextView tvHeaderLeftScore;
+    private TextView tvHeaderRightAvatar;
+    private TextView tvHeaderRightName;
+    private TextView tvHeaderRightScore;
+    private TurnIndicatorAnimator turnIndicatorAnimator;
     private TextView tvQuestion;
     private Button[] answerButtons;
     private Button btnNextQuestion;
@@ -68,6 +75,8 @@ public class QuizGameActivity extends AppCompatActivity {
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -113,14 +122,30 @@ public class QuizGameActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false) || TextUtils.isEmpty(matchRoomId);
+        player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
+        player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
+        player1DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_NAME),
+                "Igrac 1");
+        player2DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
+                "Igrac 2");
 
         tvQuestionIndex = findViewById(R.id.tvQuizQuestionIndex);
         tvCurrentPlayer = findViewById(R.id.tvQuizCurrentPlayer);
         tvPhaseInfo = findViewById(R.id.tvQuizPhaseInfo);
         tvTimer = findViewById(R.id.tvQuizTimer);
         tvScore = findViewById(R.id.tvQuizScore);
+        tvHeaderLeftAvatar = findViewById(R.id.tvHeaderLeftAvatar);
+        tvHeaderLeftName = findViewById(R.id.tvHeaderLeftName);
+        tvHeaderLeftScore = findViewById(R.id.tvHeaderLeftScore);
+        tvHeaderRightAvatar = findViewById(R.id.tvHeaderRightAvatar);
+        tvHeaderRightName = findViewById(R.id.tvHeaderRightName);
+        tvHeaderRightScore = findViewById(R.id.tvHeaderRightScore);
+        turnIndicatorAnimator = new TurnIndicatorAnimator(tvHeaderLeftAvatar, tvHeaderRightAvatar);
         tvQuestion = findViewById(R.id.tvQuizQuestion);
         btnNextQuestion = findViewById(R.id.btnQuizNext);
+        bindMatchHeader();
 
         answerButtons = new Button[]{
                 findViewById(R.id.btnQuizAnswer1),
@@ -160,12 +185,13 @@ public class QuizGameActivity extends AppCompatActivity {
         } else {
             cancelQuestionTimer();
         }
+        refreshTurnIndicator();
         publishState();
     }
 
     private void refreshUiFromState() {
         if (gameFinished) {
-            tvQuestionIndex.setText(R.string.quiz_round_finished);
+            tvQuestionIndex.setText("");
             tvCurrentPlayer.setText("");
             tvPhaseInfo.setText(R.string.quiz_round_only_finished);
             tvTimer.setText(getString(R.string.quiz_timer_seconds, 0));
@@ -176,12 +202,13 @@ public class QuizGameActivity extends AppCompatActivity {
                 answerButton.setText("");
             }
             btnNextQuestion.setEnabled(false);
+            refreshTurnIndicator();
             return;
         }
 
-        tvQuestionIndex.setText(getString(R.string.quiz_question_index, currentQuestion + 1));
+        tvQuestionIndex.setText("");
         tvCurrentPlayer.setText(getString(R.string.quiz_current_player, POINT_OWNER[currentQuestion]));
-        tvScore.setText(getString(R.string.quiz_score_format, player1Score, player2Score));
+        updateScoreText();
         tvQuestion.setText(questions[currentQuestion]);
         tvTimer.setText(getString(R.string.quiz_timer_seconds, Math.max(0, lastTimerSeconds)));
 
@@ -215,6 +242,7 @@ public class QuizGameActivity extends AppCompatActivity {
                 ? getString(R.string.quiz_finish_round)
                 : getString(R.string.quiz_next_question));
         btnNextQuestion.setEnabled(isControllerForCurrentQuestion());
+        refreshTurnIndicator();
     }
 
     private void selectAnswer(int selectedIndex) {
@@ -337,6 +365,7 @@ public class QuizGameActivity extends AppCompatActivity {
                 finish();
             }
         }
+        refreshTurnIndicator();
     }
 
     private void publishState() {
@@ -414,6 +443,59 @@ public class QuizGameActivity extends AppCompatActivity {
         }
     }
 
+    private void refreshTurnIndicator() {
+        if (gameFinished) {
+            turnIndicatorAnimator.setActivePlayer(null);
+            return;
+        }
+        turnIndicatorAnimator.setActivePlayer(POINT_OWNER[currentQuestion]);
+    }
+
+    private void updateScoreText() {
+        tvScore.setText(getString(R.string.quiz_score_format, player1Score, player2Score));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void bindMatchHeader() {
+        tvHeaderLeftName.setText(headerName(player1DisplayName));
+        tvHeaderRightName.setText(headerName(player2DisplayName));
+        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
+        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String initialForName(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return fallback;
+        }
+        return String.valueOf(Character.toUpperCase(trimmed.charAt(0)));
+    }
+
+    private String headerName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 9) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 9) + "...";
+    }
+
     private void applyForceFinish(JSONObject data) {
         player1Score = data.optInt("p1", player1Score);
         player2Score = data.optInt("p2", player2Score);
@@ -443,5 +525,10 @@ public class QuizGameActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         cancelQuestionTimer();
+        turnIndicatorAnimator.clear();
     }
 }
+
+
+
+

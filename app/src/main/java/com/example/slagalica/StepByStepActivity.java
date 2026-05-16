@@ -42,6 +42,13 @@ public class StepByStepActivity extends AppCompatActivity {
     private TextView tvCurrentPlayer;
     private TextView tvTimer;
     private TextView tvScore;
+    private TextView tvHeaderLeftAvatar;
+    private TextView tvHeaderLeftName;
+    private TextView tvHeaderLeftScore;
+    private TextView tvHeaderRightAvatar;
+    private TextView tvHeaderRightName;
+    private TextView tvHeaderRightScore;
+    private TurnIndicatorAnimator turnIndicatorAnimator;
     private TextView[] tvClues;
     private TextView tvSolution;
     private TextView tvPhaseInfo;
@@ -70,6 +77,8 @@ public class StepByStepActivity extends AppCompatActivity {
     private int lastTimerSeconds = 70;
     private boolean remoteFinishHandled = false;
     private int lastBootstrapPublishedRound = -1;
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -123,11 +132,26 @@ public class StepByStepActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
+        player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
+        player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
+        player1DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_NAME),
+                "Igrac 1");
+        player2DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
+                "Igrac 2");
 
         tvRound = findViewById(R.id.tvStepRound);
         tvCurrentPlayer = findViewById(R.id.tvStepCurrentPlayer);
         tvTimer = findViewById(R.id.tvStepTimer);
         tvScore = findViewById(R.id.tvStepScore);
+        tvHeaderLeftAvatar = findViewById(R.id.tvHeaderLeftAvatar);
+        tvHeaderLeftName = findViewById(R.id.tvHeaderLeftName);
+        tvHeaderLeftScore = findViewById(R.id.tvHeaderLeftScore);
+        tvHeaderRightAvatar = findViewById(R.id.tvHeaderRightAvatar);
+        tvHeaderRightName = findViewById(R.id.tvHeaderRightName);
+        tvHeaderRightScore = findViewById(R.id.tvHeaderRightScore);
+        turnIndicatorAnimator = new TurnIndicatorAnimator(tvHeaderLeftAvatar, tvHeaderRightAvatar);
         tvClues = new TextView[]{
                 findViewById(R.id.tvStepClue1),
                 findViewById(R.id.tvStepClue2),
@@ -141,6 +165,7 @@ public class StepByStepActivity extends AppCompatActivity {
         tvPhaseInfo = findViewById(R.id.tvStepPhaseInfo);
         etAnswer = findViewById(R.id.etStepAnswer);
         btnSubmit = findViewById(R.id.btnStepSubmit);
+        bindMatchHeader();
 
         btnSubmit.setOnClickListener(v -> submitAnswer());
         etAnswer.setOnEditorActionListener((v, actionId, event) -> {
@@ -172,12 +197,12 @@ public class StepByStepActivity extends AppCompatActivity {
         revealedStepCount = 0;
         lastGuessedStep = -1;
 
-        tvRound.setText(getString(R.string.step_round_label, currentRound));
+        tvRound.setText("");
         tvCurrentPlayer.setText(getString(R.string.step_current_player, roundStartingPlayer));
-        tvPhaseInfo.setText(R.string.step_loading_data);
+        tvPhaseInfo.setText("");
         tvSolution.setText("");
         for (TextView clueView : tvClues) {
-            clueView.setText(R.string.step_loading_data);
+            clueView.setText("");
         }
         tvTimer.setText(getString(R.string.step_timer_seconds, 70));
         lastTimerSeconds = 70;
@@ -185,6 +210,7 @@ public class StepByStepActivity extends AppCompatActivity {
         etAnswer.setEnabled(false);
         btnSubmit.setEnabled(false);
         updateScoreText();
+        refreshTurnIndicator();
 
         final int roundForSeed = currentRound;
         service.getPuzzles(puzzles -> {
@@ -236,6 +262,7 @@ public class StepByStepActivity extends AppCompatActivity {
                     cancelMainAndStealTimers();
                 }
                 publishState(false);
+                refreshTurnIndicator();
             }
         }.start();
     }
@@ -269,6 +296,8 @@ public class StepByStepActivity extends AppCompatActivity {
 
     private void openStealPhase() {
         phase = Phase.STEAL;
+        lastTimerSeconds = 10;
+        tvTimer.setText(getString(R.string.step_timer_seconds, 10));
         int stealPlayer = opponent(roundStartingPlayer);
         tvCurrentPlayer.setText(getString(R.string.step_current_player, stealPlayer));
         tvPhaseInfo.setText(getString(R.string.step_phase_steal, stealPlayer));
@@ -277,6 +306,7 @@ public class StepByStepActivity extends AppCompatActivity {
         etAnswer.setEnabled(myStealTurn);
         btnSubmit.setEnabled(myStealTurn);
         publishState(false);
+        refreshTurnIndicator();
 
         if (myStealTurn) {
             startStealTimer(10000);
@@ -367,6 +397,7 @@ public class StepByStepActivity extends AppCompatActivity {
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.step_next_round_waiting);
             publishState(false);
+            refreshTurnIndicator();
             roundTransitionTimer = new CountDownTimer(5000, 1000) {
                 @Override
                 public void onTick(long millisUntilFinished) {
@@ -396,20 +427,9 @@ public class StepByStepActivity extends AppCompatActivity {
         tvTimer.setText(getString(R.string.step_timer_seconds, 0));
         lastTimerSeconds = 0;
         publishState(false);
+        refreshTurnIndicator();
         sendForceFinishEvent();
 
-        String winnerMessage;
-        if (player1Score > player2Score) {
-            winnerMessage = getString(R.string.step_winner_player, 1);
-        } else if (player2Score > player1Score) {
-            winnerMessage = getString(R.string.step_winner_player, 2);
-        } else {
-            winnerMessage = getString(R.string.step_draw);
-        }
-
-        Toast.makeText(this,
-                getString(R.string.step_final_score_message, player1Score, player2Score, winnerMessage),
-                Toast.LENGTH_LONG).show();
         finishTimer = new CountDownTimer(1200, 1200) {
             @Override
             public void onTick(long millisUntilFinished) { }
@@ -467,6 +487,47 @@ public class StepByStepActivity extends AppCompatActivity {
 
     private void updateScoreText() {
         tvScore.setText(getString(R.string.step_score_format, player1Score, player2Score));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void bindMatchHeader() {
+        tvHeaderLeftName.setText(headerName(player1DisplayName));
+        tvHeaderRightName.setText(headerName(player2DisplayName));
+        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
+        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String initialForName(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return fallback;
+        }
+        return String.valueOf(Character.toUpperCase(trimmed.charAt(0)));
+    }
+
+    private String headerName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 9) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 9) + "...";
     }
 
     private int opponent(int player) {
@@ -511,6 +572,7 @@ public class StepByStepActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         cancelTimers();
+        turnIndicatorAnimator.clear();
     }
 
     private void showLeaveGameDialog() {
@@ -536,7 +598,11 @@ public class StepByStepActivity extends AppCompatActivity {
             return;
         }
         boolean iAmRoundOwner = roundStartingPlayer == myPlayerNumber;
-        boolean shouldSend = iAmRoundOwner || phase == Phase.FINISHED;
+        boolean iAmStealPlayer = opponent(roundStartingPlayer) == myPlayerNumber;
+        boolean shouldSend = iAmRoundOwner
+                || phase == Phase.FINISHED
+                || phase == Phase.ROUND_END
+                || (phase == Phase.STEAL && iAmStealPlayer);
         if (!force && !shouldSend) {
             return;
         }
@@ -583,7 +649,7 @@ public class StepByStepActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
 
-        tvRound.setText(getString(R.string.step_round_label, currentRound));
+        tvRound.setText("");
         tvTimer.setText(getString(R.string.step_timer_seconds, Math.max(0, lastTimerSeconds)));
         updateScoreText();
 
@@ -644,6 +710,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 }, 500);
             }
         }
+        refreshTurnIndicator();
     }
 
     private void enableSoloModeAfterForfeit() {
@@ -661,6 +728,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 startStealTimer(lastTimerSeconds * 1000L);
             }
         }
+        refreshTurnIndicator();
     }
 
     private void cancelMainAndStealTimers() {
@@ -672,6 +740,18 @@ public class StepByStepActivity extends AppCompatActivity {
             stealTimer.cancel();
             stealTimer = null;
         }
+    }
+
+    private void refreshTurnIndicator() {
+        if (phase == Phase.MAIN) {
+            turnIndicatorAnimator.setActivePlayer(roundStartingPlayer);
+            return;
+        }
+        if (phase == Phase.STEAL) {
+            turnIndicatorAnimator.setActivePlayer(opponent(roundStartingPlayer));
+            return;
+        }
+        turnIndicatorAnimator.setActivePlayer(null);
     }
 
     private void sendForceFinishEvent() {
@@ -751,3 +831,6 @@ public class StepByStepActivity extends AppCompatActivity {
         startRound();
     }
 }
+
+
+

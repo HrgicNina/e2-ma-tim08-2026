@@ -18,6 +18,7 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.example.slagalica.data.FirebaseAuthRepository;
+import com.example.slagalica.data.NotificationsRepository;
 import com.example.slagalica.data.PlayerEconomyRepository;
 import com.example.slagalica.domain.MatchRealtimeClient;
 import com.example.slagalica.domain.SessionManager;
@@ -42,6 +43,10 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
     public static final String EXTRA_MATCH_FORFEIT = "match_forfeit";
     public static final String EXTRA_MATCH_SOLO_MODE = "match_solo_mode";
+    public static final String EXTRA_MATCH_PLAYER1_NAME = "match_player1_name";
+    public static final String EXTRA_MATCH_PLAYER2_NAME = "match_player2_name";
+    public static final String EXTRA_MATCH_BASE_PLAYER1_SCORE = "match_base_player1_score";
+    public static final String EXTRA_MATCH_BASE_PLAYER2_SCORE = "match_base_player2_score";
 
     private static final String[] GAME_NAMES = {
             "Korak po korak",
@@ -89,14 +94,18 @@ public class MatchActivity extends AppCompatActivity {
     private String myUsername = "";
     private String opponentUid = null;
     private String opponentUsername = "-";
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private int myPlayerNumber = 1;
     private boolean resultApplied = false;
     private boolean autoStartQueueRequested = false;
     private String autoInviteTarget = null;
     private boolean guestMode = false;
     private boolean opponentForfeited = false;
+    private String pendingInviteTargetForFallback = null;
 
     private final FirebaseAuthRepository authRepository = new FirebaseAuthRepository();
+    private final NotificationsRepository notificationsRepository = new NotificationsRepository();
     private final PlayerEconomyRepository economyRepository = new PlayerEconomyRepository();
     private final MatchRealtimeClient realtimeClient = new MatchRealtimeClient();
     private final BroadcastReceiver gameCommandReceiver = new BroadcastReceiver() {
@@ -176,11 +185,11 @@ public class MatchActivity extends AppCompatActivity {
                 int player1GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER1_SCORE, 0);
                 int player2GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER2_SCORE, 0);
                 if (myPlayerNumber == 1) {
-                    myScore += player1GameScore;
-                    opponentScore += player2GameScore;
+                    myScore = player1GameScore;
+                    opponentScore = player2GameScore;
                 } else {
-                    myScore += player2GameScore;
-                    opponentScore += player1GameScore;
+                    myScore = player2GameScore;
+                    opponentScore = player1GameScore;
                 }
             }
             if (currentGameIndex < GAME_NAMES.length - 1) {
@@ -265,7 +274,6 @@ public class MatchActivity extends AppCompatActivity {
                     wsConnected = false;
                     wsAuthenticated = false;
                     queueing = false;
-                    Toast.makeText(MatchActivity.this, R.string.match_not_connected, Toast.LENGTH_SHORT).show();
                     renderMatch();
                 });
             }
@@ -273,6 +281,14 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> {
+                    if (!TextUtils.isEmpty(pendingInviteTargetForFallback)
+                            && message != null
+                            && message.toLowerCase().contains("nije online")) {
+                        String target = pendingInviteTargetForFallback;
+                        pendingInviteTargetForFallback = null;
+                        createOfflineInviteFallback(target);
+                        return;
+                    }
                     if (queueing || pendingJoinRequest) {
                         queueing = false;
                         pendingJoinRequest = false;
@@ -295,6 +311,7 @@ public class MatchActivity extends AppCompatActivity {
                             renderMatch();
                         }
                     }
+                    pendingInviteTargetForFallback = null;
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                 });
             }
@@ -313,6 +330,13 @@ public class MatchActivity extends AppCompatActivity {
                     }
                     opponentUid = oppUid;
                     opponentUsername = oppUsername;
+                    if (myPlayerNumber == 1) {
+                        player1DisplayName = displayNameOrFallback(myUsername, "Igrac 1");
+                        player2DisplayName = displayNameOrFallback(opponentUsername, "Igrac 2");
+                    } else {
+                        player1DisplayName = displayNameOrFallback(opponentUsername, "Igrac 1");
+                        player2DisplayName = displayNameOrFallback(myUsername, "Igrac 2");
+                    }
                     resultApplied = false;
                     opponentForfeited = false;
                     currentGameIndex = 0;
@@ -339,6 +363,9 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onInfo(String message) {
                 runOnUiThread(() -> {
+                    if (message != null && message.toLowerCase().contains("poziv poslat")) {
+                        pendingInviteTargetForFallback = null;
+                    }
                     tvMatchInfo.setText(message);
                 });
             }
@@ -443,7 +470,7 @@ public class MatchActivity extends AppCompatActivity {
     private void startRankedQueue() {
         if (inRoom || queueing) return;
         if (!wsConnected) {
-            Toast.makeText(this, R.string.match_not_connected, Toast.LENGTH_SHORT).show();
+            renderMatch();
             return;
         }
         if (guestMode) {
@@ -518,6 +545,7 @@ public class MatchActivity extends AppCompatActivity {
             return;
         }
         realtimeClient.sendInvite(target);
+        pendingInviteTargetForFallback = target;
         Toast.makeText(this, "Poziv poslat.", Toast.LENGTH_SHORT).show();
     }
 
@@ -558,6 +586,12 @@ public class MatchActivity extends AppCompatActivity {
         intent.putExtra("match_game_index", currentGameIndex);
         intent.putExtra("match_my_player_number", myPlayerNumber);
         intent.putExtra(EXTRA_MATCH_SOLO_MODE, opponentForfeited);
+        intent.putExtra(EXTRA_MATCH_PLAYER1_NAME, player1DisplayName);
+        intent.putExtra(EXTRA_MATCH_PLAYER2_NAME, player2DisplayName);
+        int basePlayer1 = myPlayerNumber == 1 ? myScore : opponentScore;
+        int basePlayer2 = myPlayerNumber == 1 ? opponentScore : myScore;
+        intent.putExtra(EXTRA_MATCH_BASE_PLAYER1_SCORE, basePlayer1);
+        intent.putExtra(EXTRA_MATCH_BASE_PLAYER2_SCORE, basePlayer2);
         gameLauncher.launch(intent);
     }
 
@@ -573,7 +607,7 @@ public class MatchActivity extends AppCompatActivity {
             return;
         }
         realtimeClient.submitScore(roomId, myScore);
-        Toast.makeText(this, "Rezultat poslat serveru. Cekam protivnika...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "Rezultat poslat. Cekam protivnika...", Toast.LENGTH_SHORT).show();
     }
 
     private void finalizeSoloWinAfterForfeit() {
@@ -613,6 +647,14 @@ public class MatchActivity extends AppCompatActivity {
         }
     }
 
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
     private void applyRankedResult(boolean winner, int score) {
         economyRepository.applyRankedMatchResult(myUid, winner, score, new PlayerEconomyRepository.EconomyCallback() {
             @Override
@@ -631,6 +673,32 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show());
             }
         });
+    }
+
+    private void createOfflineInviteFallback(String targetUsername) {
+        String senderName = TextUtils.isEmpty(myUsername) ? "Igrac" : myUsername;
+        notificationsRepository.createOfflineInviteNotificationForUsername(
+                targetUsername,
+                senderName,
+                new NotificationsRepository.ActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            Toast.makeText(
+                                    MatchActivity.this,
+                                    "Prijatelj nije online. Poslata je sistemska notifikacija.",
+                                    Toast.LENGTH_LONG
+                            ).show();
+                            tvMatchInfo.setText("Offline poziv sacuvan kao notifikacija.");
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                }
+        );
     }
 
     private void showLeaveMatchDialog() {
