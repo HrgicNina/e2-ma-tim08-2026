@@ -1,13 +1,24 @@
 package com.example.slagalica;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 public class ConnectionsGameActivity extends AppCompatActivity {
+    private static final String GAME_ID = "connections";
 
     private final String[][] leftRounds = {
             {"Zeljko Joksimovic", "Marija Serifovic", "Bajaga", "Sasa Matic", "Zdravko Colic"},
@@ -41,18 +52,64 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     private int player2Score = 0;
     private int selectedLeft = -1;
     private int selectedRight = -1;
-    private boolean[] matchedLeft = new boolean[5];
-    private boolean[] matchedRight = new boolean[5];
-    private int[] matchOwnerLeft = new int[5];
-    private int[] matchOwnerRight = new int[5];
+    private final boolean[] matchedLeft = new boolean[5];
+    private final boolean[] matchedRight = new boolean[5];
+    private final int[] matchOwnerLeft = new int[5];
+    private final int[] matchOwnerRight = new int[5];
     private boolean stealPhase = false;
     private boolean roundFinished = false;
+    private boolean gameFinished = false;
+    private int lastTimerSeconds = 30;
     private CountDownTimer roundTimer;
+
+    private String matchRoomId = "";
+    private int myPlayerNumber = 1;
+    private boolean soloMode = false;
+    private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!MatchActivity.ACTION_GAME_EVENT.equals(intent.getAction())) {
+                return;
+            }
+            String room = intent.getStringExtra(MatchActivity.EXTRA_ROOM_ID);
+            String game = intent.getStringExtra(MatchActivity.EXTRA_GAME);
+            String event = intent.getStringExtra(MatchActivity.EXTRA_EVENT);
+            String raw = intent.getStringExtra(MatchActivity.EXTRA_DATA);
+            if (!GAME_ID.equals(game) || !matchRoomId.equals(room)) {
+                return;
+            }
+            if ("force_finish".equals(event)) {
+                try {
+                    applyForceFinish(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            if ("opponent_forfeit".equals(event)) {
+                enableSoloModeAfterForfeit();
+                return;
+            }
+            if (!"state".equals(event)) {
+                return;
+            }
+            try {
+                applyRemoteState(new JSONObject(raw == null ? "{}" : raw));
+            } catch (Exception ignored) {
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connections_game);
+
+        matchRoomId = getIntent().getStringExtra("match_room_id");
+        if (matchRoomId == null) {
+            matchRoomId = "";
+        }
+        myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
+        soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false) || TextUtils.isEmpty(matchRoomId);
 
         tvRound = findViewById(R.id.tvConnectionsRound);
         tvCurrentPlayer = findViewById(R.id.tvConnectionsCurrentPlayer);
@@ -84,8 +141,18 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         }
 
         btnContinue.setOnClickListener(v -> handleContinue());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showLeaveGameDialog();
+            }
+        });
 
         startRound();
+    }
+
+    private boolean isController() {
+        return soloMode || currentPlayer == myPlayerNumber;
     }
 
     private void startRound() {
@@ -95,38 +162,66 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         roundFinished = false;
         selectedLeft = -1;
         selectedRight = -1;
+        lastTimerSeconds = 30;
 
-        matchedLeft = new boolean[5];
-        matchedRight = new boolean[5];
-        matchOwnerLeft = new int[5];
-        matchOwnerRight = new int[5];
+        for (int i = 0; i < 5; i++) {
+            matchedLeft[i] = false;
+            matchedRight[i] = false;
+            matchOwnerLeft[i] = 0;
+            matchOwnerRight[i] = 0;
+        }
+
+        refreshUiFromState();
+        if (isController()) {
+            startTimer();
+        }
+        publishState();
+    }
+
+    private void refreshUiFromState() {
+        if (gameFinished) {
+            tvRound.setText(R.string.connections_title);
+            tvCurrentPlayer.setText("");
+            tvPhaseInfo.setText("");
+            tvTimer.setText(getString(R.string.connections_timer_seconds, 0));
+            btnContinue.setEnabled(false);
+            refreshButtons();
+            return;
+        }
 
         tvRound.setText(R.string.connections_title);
-        tvCurrentPlayer.setText(getString(R.string.connections_current_player, currentPlayer));
+        tvCurrentPlayer.setText(roundFinished ? "" : getString(R.string.connections_current_player, currentPlayer));
         tvPhaseInfo.setText("");
         tvScore.setText(getString(R.string.connections_score_format, player1Score, player2Score));
-        btnContinue.setEnabled(false);
-        btnContinue.setText(R.string.connections_finish_round);
+        tvTimer.setText(getString(R.string.connections_timer_seconds, Math.max(0, lastTimerSeconds)));
 
         for (int i = 0; i < 5; i++) {
             leftButtons[i].setText(leftRounds[currentRound][i]);
             rightButtons[i].setText(rightRounds[currentRound][i]);
         }
 
+        btnContinue.setText(R.string.connections_finish_round);
+        btnContinue.setEnabled(roundFinished && isController());
         refreshButtons();
-        startTimer();
     }
 
     private void startTimer() {
+        startTimerWithDuration(30000);
+    }
+
+    private void startTimerWithDuration(long durationMs) {
         cancelRoundTimer();
-        roundTimer = new CountDownTimer(30000, 1000) {
+        roundTimer = new CountDownTimer(durationMs, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                tvTimer.setText(getString(R.string.connections_timer_seconds, (int) (millisUntilFinished / 1000)));
+                lastTimerSeconds = (int) (millisUntilFinished / 1000);
+                tvTimer.setText(getString(R.string.connections_timer_seconds, lastTimerSeconds));
+                publishState();
             }
 
             @Override
             public void onFinish() {
+                lastTimerSeconds = 0;
                 tvTimer.setText(getString(R.string.connections_timer_seconds, 0));
                 if (!stealPhase && hasUnmatchedPairs()) {
                     openStealPhase();
@@ -138,21 +233,23 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     }
 
     private void selectLeft(int index) {
-        if (roundFinished || matchedLeft[index]) {
+        if (!isController() || roundFinished || matchedLeft[index] || gameFinished) {
             return;
         }
         selectedLeft = index;
         refreshButtons();
         attemptMatch();
+        publishState();
     }
 
     private void selectRight(int index) {
-        if (roundFinished || matchedRight[index]) {
+        if (!isController() || roundFinished || matchedRight[index] || gameFinished) {
             return;
         }
         selectedRight = index;
         refreshButtons();
         attemptMatch();
+        publishState();
     }
 
     private void attemptMatch() {
@@ -173,7 +270,6 @@ public class ConnectionsGameActivity extends AppCompatActivity {
             }
 
             tvScore.setText(getString(R.string.connections_score_format, player1Score, player2Score));
-            tvPhaseInfo.setText(getString(R.string.connections_status_correct, currentPlayer));
             selectedLeft = -1;
             selectedRight = -1;
             refreshButtons();
@@ -184,7 +280,6 @@ public class ConnectionsGameActivity extends AppCompatActivity {
             return;
         }
 
-        tvPhaseInfo.setText(getString(R.string.connections_status_wrong, currentPlayer));
         selectedLeft = -1;
         selectedRight = -1;
         refreshButtons();
@@ -195,11 +290,14 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         currentPlayer = currentPlayer == 1 ? 2 : 1;
         selectedLeft = -1;
         selectedRight = -1;
-        tvCurrentPlayer.setText(getString(R.string.connections_current_player, currentPlayer));
-        tvPhaseInfo.setText("");
-        btnContinue.setEnabled(false);
-        refreshButtons();
-        startTimer();
+        lastTimerSeconds = 30;
+        refreshUiFromState();
+        if (isController()) {
+            startTimer();
+        } else {
+            cancelRoundTimer();
+        }
+        publishState();
     }
 
     private void finishRound() {
@@ -207,16 +305,12 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         roundFinished = true;
         selectedLeft = -1;
         selectedRight = -1;
-        tvRound.setText(R.string.connections_title);
-        tvCurrentPlayer.setText("");
-        tvPhaseInfo.setText("");
-        btnContinue.setEnabled(true);
-        btnContinue.setText(R.string.connections_finish_round);
-        refreshButtons();
+        refreshUiFromState();
+        publishState();
     }
 
     private void handleContinue() {
-        if (!roundFinished) {
+        if (!roundFinished || gameFinished || !isController()) {
             return;
         }
 
@@ -226,10 +320,27 @@ public class ConnectionsGameActivity extends AppCompatActivity {
             return;
         }
 
-        tvRound.setText(R.string.connections_title);
-        tvCurrentPlayer.setText("");
-        tvPhaseInfo.setText("");
-        btnContinue.setEnabled(false);
+        finishGameWithResult();
+    }
+
+    private void finishGameWithResult() {
+        if (gameFinished) {
+            return;
+        }
+        gameFinished = true;
+        cancelRoundTimer();
+        refreshUiFromState();
+        publishState();
+        sendForceFinishEvent();
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        setResult(RESULT_OK, resultIntent);
+        btnContinue.postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                finish();
+            }
+        }, 500);
     }
 
     private boolean hasUnmatchedPairs() {
@@ -242,9 +353,10 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     }
 
     private void refreshButtons() {
+        boolean canInteract = isController() && !roundFinished && !gameFinished;
         for (int i = 0; i < 5; i++) {
-            leftButtons[i].setEnabled(!matchedLeft[i] && !roundFinished);
-            rightButtons[i].setEnabled(!matchedRight[i] && !roundFinished);
+            leftButtons[i].setEnabled(canInteract && !matchedLeft[i]);
+            rightButtons[i].setEnabled(canInteract && !matchedRight[i]);
 
             if (matchedLeft[i]) {
                 leftButtons[i].setBackgroundResource(matchOwnerLeft[i] == 1
@@ -268,11 +380,175 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         }
     }
 
+    private void publishState() {
+        if (soloMode || TextUtils.isEmpty(matchRoomId) || (!isController() && !roundFinished)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("round", currentRound);
+            data.put("currentPlayer", currentPlayer);
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            data.put("selectedLeft", selectedLeft);
+            data.put("selectedRight", selectedRight);
+            data.put("stealPhase", stealPhase);
+            data.put("roundFinished", roundFinished);
+            data.put("gameFinished", gameFinished);
+            data.put("timer", lastTimerSeconds);
+            data.put("matchedLeft", booleanArrayToJson(matchedLeft));
+            data.put("matchedRight", booleanArrayToJson(matchedRight));
+            data.put("ownerLeft", intArrayToJson(matchOwnerLeft));
+            data.put("ownerRight", intArrayToJson(matchOwnerRight));
+
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "state");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRemoteState(JSONObject data) {
+        if (soloMode) {
+            return;
+        }
+        currentRound = data.optInt("round", currentRound);
+        if (currentRound < 0 || currentRound >= leftRounds.length) {
+            return;
+        }
+        currentPlayer = data.optInt("currentPlayer", currentPlayer);
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        selectedLeft = data.optInt("selectedLeft", selectedLeft);
+        selectedRight = data.optInt("selectedRight", selectedRight);
+        stealPhase = data.optBoolean("stealPhase", stealPhase);
+        roundFinished = data.optBoolean("roundFinished", roundFinished);
+        gameFinished = data.optBoolean("gameFinished", gameFinished);
+        lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
+        jsonToBooleanArray(data.optJSONArray("matchedLeft"), matchedLeft);
+        jsonToBooleanArray(data.optJSONArray("matchedRight"), matchedRight);
+        jsonToIntArray(data.optJSONArray("ownerLeft"), matchOwnerLeft);
+        jsonToIntArray(data.optJSONArray("ownerRight"), matchOwnerRight);
+        cancelRoundTimer();
+        refreshUiFromState();
+        if (gameFinished) {
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+            setResult(RESULT_OK, resultIntent);
+            if (!isFinishing() && !isDestroyed()) {
+                finish();
+            }
+        }
+    }
+
+    private JSONArray booleanArrayToJson(boolean[] values) {
+        JSONArray out = new JSONArray();
+        for (boolean value : values) {
+            out.put(value);
+        }
+        return out;
+    }
+
+    private JSONArray intArrayToJson(int[] values) {
+        JSONArray out = new JSONArray();
+        for (int value : values) {
+            out.put(value);
+        }
+        return out;
+    }
+
+    private void jsonToBooleanArray(JSONArray values, boolean[] target) {
+        if (values == null) {
+            return;
+        }
+        for (int i = 0; i < target.length && i < values.length(); i++) {
+            target[i] = values.optBoolean(i, target[i]);
+        }
+    }
+
+    private void jsonToIntArray(JSONArray values, int[] target) {
+        if (values == null) {
+            return;
+        }
+        for (int i = 0; i < target.length && i < values.length(); i++) {
+            target[i] = values.optInt(i, target[i]);
+        }
+    }
+
+    private void showLeaveGameDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Napustanje partije")
+                .setMessage("Da li ste sigurni da zelite da napustite igru?")
+                .setPositiveButton("Da", (dialog, which) -> {
+                    Intent data = new Intent();
+                    data.putExtra(MatchActivity.EXTRA_MATCH_FORFEIT, true);
+                    setResult(RESULT_CANCELED, data);
+                    finish();
+                })
+                .setNegativeButton("Ne", null)
+                .show();
+    }
+
+    private void enableSoloModeAfterForfeit() {
+        soloMode = true;
+        refreshUiFromState();
+        if (!roundFinished && !gameFinished && roundTimer == null && lastTimerSeconds > 0) {
+            startTimerWithDuration(lastTimerSeconds * 1000L);
+        }
+    }
+
+    private void sendForceFinishEvent() {
+        if (TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "force_finish");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyForceFinish(JSONObject data) {
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
     private void cancelRoundTimer() {
         if (roundTimer != null) {
             roundTimer.cancel();
             roundTimer = null;
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        registerReceiver(gameEventReceiver, new IntentFilter(MatchActivity.ACTION_GAME_EVENT));
+    }
+
+    @Override
+    protected void onStop() {
+        try {
+            unregisterReceiver(gameEventReceiver);
+        } catch (Exception ignored) {
+        }
+        super.onStop();
     }
 
     @Override

@@ -18,11 +18,14 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
 import com.example.slagalica.domain.MastermindGameService;
 
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.Random;
@@ -30,7 +33,7 @@ import java.util.Random;
 public class MastermindGameActivity extends AppCompatActivity {
     private static final String GAME_ID = "master";
 
-    private enum Phase { ROUND, STEAL, FINISHED }
+    private enum Phase { ROUND, STEAL, ROUND_END, FINISHED }
 
     private static final int MAIN_ROWS = 6;
     private static final int TOTAL_ROWS = 8;
@@ -58,6 +61,8 @@ public class MastermindGameActivity extends AppCompatActivity {
 
     private final TextView[][] guessCells = new TextView[TOTAL_ROWS][COLS];
     private final View[][] pegCells = new View[TOTAL_ROWS][COLS];
+    private final int[][] boardGuessSymbols = new int[TOTAL_ROWS][COLS];
+    private final int[][] boardPegStates = new int[TOTAL_ROWS][COLS];
 
     private final int[] currentGuess = {-1, -1, -1, -1};
     private int activeRow = 0;
@@ -70,7 +75,9 @@ public class MastermindGameActivity extends AppCompatActivity {
     private CountDownTimer finishTimer;
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
+    private boolean soloMode = false;
     private int lastTimerSeconds = 30;
+    private boolean remoteFinishHandled = false;
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -80,10 +87,31 @@ public class MastermindGameActivity extends AppCompatActivity {
             String room = intent.getStringExtra(MatchActivity.EXTRA_ROOM_ID);
             String game = intent.getStringExtra(MatchActivity.EXTRA_GAME);
             String event = intent.getStringExtra(MatchActivity.EXTRA_EVENT);
-            if (!GAME_ID.equals(game) || !matchRoomId.equals(room) || !"state".equals(event)) {
+            String raw = intent.getStringExtra(MatchActivity.EXTRA_DATA);
+            if (!GAME_ID.equals(game) || !matchRoomId.equals(room)) {
                 return;
             }
-            String raw = intent.getStringExtra(MatchActivity.EXTRA_DATA);
+            if ("round_change".equals(event)) {
+                try {
+                    applyRoundChange(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            if ("force_finish".equals(event)) {
+                try {
+                    applyForceFinish(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            if ("opponent_forfeit".equals(event)) {
+                enableSoloModeAfterForfeit();
+                return;
+            }
+            if (!"state".equals(event)) {
+                return;
+            }
             try {
                 applyRemoteState(new JSONObject(raw == null ? "{}" : raw));
             } catch (Exception ignored) {
@@ -110,6 +138,7 @@ public class MastermindGameActivity extends AppCompatActivity {
             matchRoomId = "";
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
+        soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
 
         tvRound = findViewById(R.id.tvMasterRound);
         tvCurrentPlayer = findViewById(R.id.tvMasterCurrentPlayer);
@@ -124,6 +153,12 @@ public class MastermindGameActivity extends AppCompatActivity {
         buildSymbolBar();
 
         btnSubmit.setOnClickListener(v -> submitGuess());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showLeaveGameDialog();
+            }
+        });
 
         startRound();
     }
@@ -167,7 +202,9 @@ public class MastermindGameActivity extends AppCompatActivity {
                         return;
                     }
                     currentGuess[c] = -1;
+                    boardGuessSymbols[r][c] = -1;
                     guessCells[r][c].setText(" ");
+                    publishState();
                 });
 
                 guessCells[row][col] = cell;
@@ -228,8 +265,10 @@ public class MastermindGameActivity extends AppCompatActivity {
         for (int col = 0; col < COLS; col++) {
             if (currentGuess[col] == -1) {
                 currentGuess[col] = symbol;
+                boardGuessSymbols[activeRow][col] = symbol;
                 guessCells[activeRow][col].setText(SYMBOLS[symbol]);
                 guessCells[activeRow][col].setTextColor(symbolColor(symbol));
+                publishState();
                 return;
             }
         }
@@ -237,6 +276,7 @@ public class MastermindGameActivity extends AppCompatActivity {
 
     private void startRound() {
         phase = Phase.ROUND;
+        remoteFinishHandled = false;
         activeRow = 0;
         if (matchRoomId.isEmpty()) {
             currentSecret = gameService.generateSecretCode();
@@ -266,14 +306,22 @@ public class MastermindGameActivity extends AppCompatActivity {
                 tvPhaseInfo.setText(getString(R.string.master_round_starts_in_count, seconds));
                 tvTimer.setText(getString(R.string.master_timer_seconds, 30));
                 lastTimerSeconds = 30;
+                if (!soloMode && currentRound > 1) {
+                    sendRoundChangeEvent();
+                }
             }
 
             @Override
             public void onFinish() {
                 tvPhaseInfo.setText(R.string.master_phase_round);
                 tvTimer.setText(getString(R.string.master_timer_seconds, 30));
-                setInteractionEnabled(roundStarter == myPlayerNumber);
-                startRoundTimer();
+                boolean myTurn = soloMode || roundStarter == myPlayerNumber;
+                setInteractionEnabled(myTurn);
+                if (myTurn) {
+                    startRoundTimer(30000);
+                } else {
+                    cancelRoundAndStealTimers();
+                }
                 publishState();
             }
         }.start();
@@ -282,6 +330,8 @@ public class MastermindGameActivity extends AppCompatActivity {
     private void resetBoardVisuals() {
         for (int r = 0; r < TOTAL_ROWS; r++) {
             for (int c = 0; c < COLS; c++) {
+                boardGuessSymbols[r][c] = -1;
+                boardPegStates[r][c] = 0;
                 guessCells[r][c].setText(" ");
                 guessCells[r][c].setTextColor(Color.BLACK);
                 pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
@@ -290,9 +340,9 @@ public class MastermindGameActivity extends AppCompatActivity {
         clearCurrentGuess();
     }
 
-    private void startRoundTimer() {
-        cancelTimers();
-        roundTimer = new CountDownTimer(30000, 1000) {
+    private void startRoundTimer(long durationMs) {
+        cancelRoundAndStealTimers();
+        roundTimer = new CountDownTimer(durationMs, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
                 int sec = (int) (millisUntilFinished / 1000);
@@ -314,16 +364,28 @@ public class MastermindGameActivity extends AppCompatActivity {
             return;
         }
         phase = Phase.STEAL;
+        lastTimerSeconds = 10;
+        tvTimer.setText(getString(R.string.master_timer_seconds, 10));
         int stealPlayer = opponent(roundStarter);
         tvCurrentPlayer.setText(getString(R.string.master_current_player, stealPlayer));
         tvPhaseInfo.setText(getString(R.string.master_phase_steal, stealPlayer));
 
         activeRow = STEAL_ROW_INDEX;
         clearCurrentGuess();
-        setInteractionEnabled(stealPlayer == myPlayerNumber);
+        boolean myStealTurn = soloMode || stealPlayer == myPlayerNumber;
+        setInteractionEnabled(myStealTurn);
         publishState();
 
-        stealTimer = new CountDownTimer(10000, 1000) {
+        if (myStealTurn) {
+            startStealTimer(10000);
+        } else {
+            cancelRoundAndStealTimers();
+        }
+    }
+
+    private void startStealTimer(long durationMs) {
+        cancelRoundAndStealTimers();
+        stealTimer = new CountDownTimer(durationMs, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
                 int sec = (int) (millisUntilFinished / 1000);
@@ -358,7 +420,7 @@ public class MastermindGameActivity extends AppCompatActivity {
             int attemptNumber = activeRow + 1;
             if (result.solved) {
                 int points = gameService.pointsForSolvedAttempt(attemptNumber);
-                addPoints(roundStarter, points);
+                addPoints(soloMode ? myPlayerNumber : roundStarter, points);
                 Toast.makeText(this, getString(R.string.master_solved_points, points), Toast.LENGTH_SHORT).show();
                 finishRound();
                 return;
@@ -371,6 +433,7 @@ public class MastermindGameActivity extends AppCompatActivity {
 
             activeRow++;
             clearCurrentGuess();
+            publishState();
             return;
         }
 
@@ -383,7 +446,7 @@ public class MastermindGameActivity extends AppCompatActivity {
 
             if (result.solved) {
                 int stealPlayer = opponent(roundStarter);
-                addPoints(stealPlayer, 10);
+                addPoints(soloMode ? myPlayerNumber : stealPlayer, 10);
                 Toast.makeText(this, getString(R.string.master_steal_won_points, stealPlayer), Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, R.string.master_wrong_guess, Toast.LENGTH_SHORT).show();
@@ -395,12 +458,15 @@ public class MastermindGameActivity extends AppCompatActivity {
     private void paintFeedback(int row, int exact, int colorOnly) {
         int index = 0;
         for (int i = 0; i < exact; i++) {
+            boardPegStates[row][index] = 1;
             pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF3D3D")));
         }
         for (int i = 0; i < colorOnly; i++) {
+            boardPegStates[row][index] = 2;
             pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFD23F")));
         }
         while (index < COLS) {
+            boardPegStates[row][index] = 0;
             pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
         }
     }
@@ -411,18 +477,23 @@ public class MastermindGameActivity extends AppCompatActivity {
         setInteractionEnabled(false);
 
         if (currentRound == 1) {
+            phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.master_showing_secret);
+            publishState();
             roundTransitionTimer = new CountDownTimer(3000, 1000) {
                 @Override
                 public void onTick(long millisUntilFinished) {
                     int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
                     tvTimer.setText(getString(R.string.master_next_round_in, seconds));
+                    lastTimerSeconds = seconds;
+                    publishState();
                 }
 
                 @Override
                 public void onFinish() {
                     currentRound = 2;
                     roundStarter = 2;
+                    sendRoundChangeEvent();
                     startRound();
                 }
             }.start();
@@ -435,6 +506,7 @@ public class MastermindGameActivity extends AppCompatActivity {
         tvCurrentPlayer.setText(R.string.master_match_done_label);
         lastTimerSeconds = 0;
         publishState();
+        sendForceFinishEvent();
 
         String winner;
         if (player1Score > player2Score) {
@@ -454,7 +526,10 @@ public class MastermindGameActivity extends AppCompatActivity {
 
             @Override
             public void onFinish() {
-                setResult(RESULT_OK);
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+                resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                setResult(RESULT_OK, resultIntent);
                 finish();
             }
         }.start();
@@ -463,6 +538,7 @@ public class MastermindGameActivity extends AppCompatActivity {
     private void showSecretRow() {
         for (int i = 0; i < COLS; i++) {
             int symbol = currentSecret[i];
+            boardGuessSymbols[REVEAL_ROW_INDEX][i] = symbol;
             guessCells[REVEAL_ROW_INDEX][i].setText(SYMBOLS[symbol]);
             guessCells[REVEAL_ROW_INDEX][i].setTextColor(symbolColor(symbol));
         }
@@ -481,8 +557,61 @@ public class MastermindGameActivity extends AppCompatActivity {
         for (int i = 0; i < COLS; i++) {
             currentGuess[i] = -1;
             if (activeRow >= 0 && activeRow < TOTAL_ROWS) {
+                boardGuessSymbols[activeRow][i] = -1;
                 guessCells[activeRow][i].setText(" ");
                 guessCells[activeRow][i].setTextColor(Color.BLACK);
+            }
+        }
+    }
+
+    private JSONArray encodeMatrix(int[][] matrix) {
+        JSONArray outer = new JSONArray();
+        for (int r = 0; r < matrix.length; r++) {
+            JSONArray row = new JSONArray();
+            for (int c = 0; c < matrix[r].length; c++) {
+                row.put(matrix[r][c]);
+            }
+            outer.put(row);
+        }
+        return outer;
+    }
+
+    private void decodeMatrix(JSONArray source, int[][] target, int fallback) {
+        if (source == null) {
+            return;
+        }
+        int rows = Math.min(source.length(), target.length);
+        for (int r = 0; r < rows; r++) {
+            JSONArray row = source.optJSONArray(r);
+            if (row == null) {
+                continue;
+            }
+            int cols = Math.min(row.length(), target[r].length);
+            for (int c = 0; c < cols; c++) {
+                target[r][c] = row.optInt(c, fallback);
+            }
+        }
+    }
+
+    private void renderBoardFromState() {
+        for (int r = 0; r < TOTAL_ROWS; r++) {
+            for (int c = 0; c < COLS; c++) {
+                int symbol = boardGuessSymbols[r][c];
+                if (symbol >= 0 && symbol < SYMBOLS.length) {
+                    guessCells[r][c].setText(SYMBOLS[symbol]);
+                    guessCells[r][c].setTextColor(symbolColor(symbol));
+                } else {
+                    guessCells[r][c].setText(" ");
+                    guessCells[r][c].setTextColor(Color.BLACK);
+                }
+                int peg = boardPegStates[r][c];
+                if (peg == 1) {
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF3D3D")));
+                } else if (peg == 2) {
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFD23F")));
+                } else {
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
+                }
             }
         }
     }
@@ -523,6 +652,9 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private boolean isMyTurn() {
+        if (soloMode && phase != Phase.FINISHED) {
+            return true;
+        }
         if (phase == Phase.ROUND) {
             return roundStarter == myPlayerNumber;
         }
@@ -589,10 +721,16 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private void publishState() {
-        if (TextUtils.isEmpty(matchRoomId)) {
+        if (soloMode || TextUtils.isEmpty(matchRoomId)) {
             return;
         }
-        if (!isMyTurn()) {
+        boolean starterTurn = roundStarter == myPlayerNumber;
+        boolean stealTurn = opponent(roundStarter) == myPlayerNumber;
+        boolean shouldSend = starterTurn
+                || phase == Phase.FINISHED
+                || phase == Phase.ROUND_END
+                || (phase == Phase.STEAL && stealTurn);
+        if (!shouldSend) {
             return;
         }
         try {
@@ -601,6 +739,11 @@ public class MastermindGameActivity extends AppCompatActivity {
             data.put("starter", roundStarter);
             data.put("phase", phase.name());
             data.put("timer", lastTimerSeconds);
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            data.put("activeRow", activeRow);
+            data.put("guesses", encodeMatrix(boardGuessSymbols));
+            data.put("pegs", encodeMatrix(boardPegStates));
 
             Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
             i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
@@ -613,6 +756,9 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private void applyRemoteState(JSONObject data) {
+        if (soloMode) {
+            return;
+        }
         currentRound = data.optInt("round", currentRound);
         roundStarter = data.optInt("starter", roundStarter);
         String phaseName = data.optString("phase", phase.name());
@@ -621,19 +767,181 @@ public class MastermindGameActivity extends AppCompatActivity {
         } catch (Exception ignored) {
         }
         lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        activeRow = data.optInt("activeRow", activeRow);
+        decodeMatrix(data.optJSONArray("guesses"), boardGuessSymbols, -1);
+        decodeMatrix(data.optJSONArray("pegs"), boardPegStates, 0);
+        renderBoardFromState();
         tvRound.setText(getString(R.string.master_round_label, currentRound));
         tvTimer.setText(getString(R.string.master_timer_seconds, Math.max(0, lastTimerSeconds)));
-        if (!isMyTurn()) {
-            cancelTimers();
-            if (phase == Phase.ROUND) {
-                tvPhaseInfo.setText(R.string.master_phase_round);
-                tvCurrentPlayer.setText(getString(R.string.master_current_player, roundStarter));
-            } else if (phase == Phase.STEAL) {
-                int stealPlayer = opponent(roundStarter);
-                tvPhaseInfo.setText(getString(R.string.master_phase_steal, stealPlayer));
-                tvCurrentPlayer.setText(getString(R.string.master_current_player, stealPlayer));
+        updateScoreText();
+
+        if (phase == Phase.ROUND) {
+            tvPhaseInfo.setText(R.string.master_phase_round);
+            tvCurrentPlayer.setText(getString(R.string.master_current_player, roundStarter));
+            boolean myTurn = roundStarter == myPlayerNumber;
+            setInteractionEnabled(myTurn);
+            if (!myTurn) {
+                cancelRoundAndStealTimers();
+            } else if (roundTimer == null && lastTimerSeconds > 0) {
+                startRoundTimer(lastTimerSeconds * 1000L);
             }
+            return;
+        }
+
+        if (phase == Phase.STEAL) {
+            int stealPlayer = opponent(roundStarter);
+            tvPhaseInfo.setText(getString(R.string.master_phase_steal, stealPlayer));
+            tvCurrentPlayer.setText(getString(R.string.master_current_player, stealPlayer));
+            activeRow = STEAL_ROW_INDEX;
+            boolean myTurn = stealPlayer == myPlayerNumber;
+            setInteractionEnabled(myTurn);
+            if (!myTurn) {
+                cancelRoundAndStealTimers();
+            } else if (stealTimer == null && lastTimerSeconds > 0) {
+                startStealTimer(lastTimerSeconds * 1000L);
+            }
+            return;
+        }
+
+        if (phase == Phase.ROUND_END) {
+            cancelRoundAndStealTimers();
             setInteractionEnabled(false);
+            showSecretRow();
+            tvPhaseInfo.setText(R.string.master_showing_secret);
+            return;
+        }
+
+        if (phase == Phase.FINISHED && !remoteFinishHandled) {
+            cancelRoundAndStealTimers();
+            setInteractionEnabled(false);
+            showSecretRow();
+            remoteFinishHandled = true;
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+            setResult(RESULT_OK, resultIntent);
+            btnSubmit.postDelayed(() -> {
+                if (!isFinishing() && !isDestroyed()) {
+                    finish();
+                }
+            }, 500);
+        }
+    }
+
+    private void showLeaveGameDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Napustanje partije")
+                .setMessage("Da li ste sigurni da zelite da napustite igru?")
+                .setPositiveButton("Da", (dialog, which) -> {
+                    Intent data = new Intent();
+                    data.putExtra(MatchActivity.EXTRA_MATCH_FORFEIT, true);
+                    setResult(RESULT_CANCELED, data);
+                    finish();
+                })
+                .setNegativeButton("Ne", null)
+                .show();
+    }
+
+    private void enableSoloModeAfterForfeit() {
+        soloMode = true;
+        if (phase == Phase.FINISHED) {
+            return;
+        }
+        setInteractionEnabled(true);
+        if (phase == Phase.ROUND && roundTimer == null && lastTimerSeconds > 0) {
+            startRoundTimer(lastTimerSeconds * 1000L);
+        } else if (phase == Phase.STEAL && stealTimer == null && lastTimerSeconds > 0) {
+            startStealTimer(lastTimerSeconds * 1000L);
+        }
+    }
+
+    private void sendForceFinishEvent() {
+        if (TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "force_finish");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void sendRoundChangeEvent() {
+        if (soloMode || TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("round", currentRound);
+            data.put("starter", roundStarter);
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            data.put("phase", phase.name());
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "round_change");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRoundChange(JSONObject data) {
+        if (soloMode || remoteFinishHandled) {
+            return;
+        }
+        int remoteRound = data.optInt("round", currentRound);
+        int remoteStarter = data.optInt("starter", roundStarter);
+        if (remoteRound <= currentRound) {
+            return;
+        }
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        currentRound = remoteRound;
+        roundStarter = remoteStarter;
+        try {
+            phase = Phase.valueOf(data.optString("phase", Phase.ROUND.name()));
+        } catch (Exception ignored) {
+            phase = Phase.ROUND;
+        }
+        cancelTimers();
+        updateScoreText();
+        startRound();
+    }
+
+    private void applyForceFinish(JSONObject data) {
+        if (remoteFinishHandled) {
+            return;
+        }
+        remoteFinishHandled = true;
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        cancelTimers();
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
+    private void cancelRoundAndStealTimers() {
+        if (roundTimer != null) {
+            roundTimer.cancel();
+            roundTimer = null;
+        }
+        if (stealTimer != null) {
+            stealTimer.cancel();
+            stealTimer = null;
         }
     }
 }

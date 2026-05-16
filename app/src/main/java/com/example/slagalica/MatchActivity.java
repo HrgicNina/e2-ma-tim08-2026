@@ -13,12 +13,14 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 
 import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.data.PlayerEconomyRepository;
 import com.example.slagalica.domain.MatchRealtimeClient;
+import com.example.slagalica.domain.SessionManager;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
@@ -36,6 +38,10 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_DATA = "data";
     public static final String EXTRA_AUTO_START_QUEUE = "auto_start_queue";
     public static final String EXTRA_AUTO_INVITE_TARGET = "auto_invite_target";
+    public static final String EXTRA_GAME_PLAYER1_SCORE = "game_player1_score";
+    public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
+    public static final String EXTRA_MATCH_FORFEIT = "match_forfeit";
+    public static final String EXTRA_MATCH_SOLO_MODE = "match_solo_mode";
 
     private static final String[] GAME_NAMES = {
             "Korak po korak",
@@ -87,6 +93,8 @@ public class MatchActivity extends AppCompatActivity {
     private boolean resultApplied = false;
     private boolean autoStartQueueRequested = false;
     private String autoInviteTarget = null;
+    private boolean guestMode = false;
+    private boolean opponentForfeited = false;
 
     private final FirebaseAuthRepository authRepository = new FirebaseAuthRepository();
     private final PlayerEconomyRepository economyRepository = new PlayerEconomyRepository();
@@ -125,13 +133,20 @@ public class MatchActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_match);
 
+        SessionManager sessionManager = new SessionManager(this);
+        guestMode = sessionManager.isGuestMode();
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
+        if (user == null && !guestMode) {
             Toast.makeText(this, "Partija je trenutno dostupna samo registrovanim korisnicima.", Toast.LENGTH_LONG).show();
             finish();
             return;
         }
-        myUid = user.getUid();
+        if (guestMode) {
+            myUid = sessionManager.getOrCreateGuestUid();
+            myUsername = sessionManager.getGuestDisplayName();
+        } else if (user != null) {
+            myUid = user.getUid();
+        }
         autoStartQueueRequested = getIntent().getBooleanExtra(EXTRA_AUTO_START_QUEUE, false);
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
 
@@ -151,6 +166,23 @@ public class MatchActivity extends AppCompatActivity {
         Button btnGiveUp = findViewById(R.id.btnMatchGiveUp);
         gameLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
             if (!inRoom) return;
+            if (result.getResultCode() == RESULT_CANCELED
+                    && result.getData() != null
+                    && result.getData().getBooleanExtra(EXTRA_MATCH_FORFEIT, false)) {
+                forfeitMatchAndGoHome();
+                return;
+            }
+            if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                int player1GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER1_SCORE, 0);
+                int player2GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER2_SCORE, 0);
+                if (myPlayerNumber == 1) {
+                    myScore += player1GameScore;
+                    opponentScore += player2GameScore;
+                } else {
+                    myScore += player2GameScore;
+                    opponentScore += player1GameScore;
+                }
+            }
             if (currentGameIndex < GAME_NAMES.length - 1) {
                 currentGameIndex++;
                 renderMatch();
@@ -176,14 +208,31 @@ public class MatchActivity extends AppCompatActivity {
         btnOpenCurrentGame.setOnClickListener(v -> openCurrentGame());
         btnNextGame.setOnClickListener(v -> moveToNextGame());
         btnSubmitScore.setOnClickListener(v -> submitMatchScore());
-        btnGiveUp.setOnClickListener(v -> forfeitMatch());
+        btnGiveUp.setOnClickListener(v -> showLeaveMatchDialog());
 
-        authRepository.getCurrentUsername(username -> {
-            myUsername = username == null ? "" : username;
-            connectRealtime();
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showLeaveMatchDialog();
+            }
         });
+
+        if (guestMode) {
+            tvMatchTokens.setText("Tokeni\n-");
+            tvMatchStars.setText("Zvezde\n-");
+            tvMatchLeague.setText("Liga\nGost");
+            etInviteTarget.setEnabled(false);
+            btnInviteFriend.setEnabled(false);
+            autoInviteTarget = null;
+            connectRealtime();
+        } else {
+            authRepository.getCurrentUsername(username -> {
+                myUsername = username == null ? "" : username;
+                connectRealtime();
+            });
+            loadEconomy();
+        }
         registerReceiver(gameCommandReceiver, new IntentFilter(ACTION_GAME_COMMAND));
-        loadEconomy();
         renderMatch();
     }
 
@@ -265,6 +314,7 @@ public class MatchActivity extends AppCompatActivity {
                     opponentUid = oppUid;
                     opponentUsername = oppUsername;
                     resultApplied = false;
+                    opponentForfeited = false;
                     currentGameIndex = 0;
                     myScore = 0;
                     opponentScore = 0;
@@ -313,14 +363,26 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onMatchFinished(String winnerUid, int yourScore, int oppScore, boolean forfeit) {
                 runOnUiThread(() -> {
+                    boolean iAmWinner = myUid != null && myUid.equals(winnerUid);
+                    if (forfeit && iAmWinner) {
+                        opponentForfeited = true;
+                        notifyCurrentGameOpponentForfeit();
+                        if (currentGameIndex >= GAME_NAMES.length - 1) {
+                            finalizeSoloWinAfterForfeit();
+                        } else {
+                            Toast.makeText(MatchActivity.this, "Protivnik je napustio partiju. Nastavljate sami.", Toast.LENGTH_LONG).show();
+                            tvMatchInfo.setText("Protivnik je odustao. Nastavite igru.");
+                            renderMatch();
+                        }
+                        return;
+                    }
                     myScore = yourScore;
                     opponentScore = oppScore;
                     finishLocalRoom();
-                    if (!friendlyRoom && !resultApplied) {
-                        boolean winner = myUid != null && myUid.equals(winnerUid);
-                        applyRankedResult(winner, myScore);
+                    if (!guestMode && !friendlyRoom && !resultApplied) {
+                        applyRankedResult(iAmWinner, myScore);
                     }
-                    String msg = (myUid != null && myUid.equals(winnerUid))
+                    String msg = iAmWinner
                             ? "Pobedili ste partiju!"
                             : "Izgubili ste partiju.";
                     if (forfeit) {
@@ -352,26 +414,22 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void loadEconomy() {
-        economyRepository.grantDailyTokensIfNeeded(myUid, new PlayerEconomyRepository.EconomyCallback() {
+        if (guestMode) {
+            tvMatchTokens.setText("Tokeni\n-");
+            tvMatchStars.setText("Zvezde\n-");
+            tvMatchLeague.setText("Liga\nGost");
+            return;
+        }
+        economyRepository.getEconomy(myUid, new PlayerEconomyRepository.EconomyCallback() {
             @Override
-            public void onSuccess(Map<String, Long> values) {
-                economyRepository.getEconomy(myUid, new PlayerEconomyRepository.EconomyCallback() {
-                    @Override
-                    public void onSuccess(Map<String, Long> refreshed) {
-                        tokens = refreshed.get("tokens");
-                        stars = refreshed.get("stars");
-                        league = refreshed.get("league");
-                        runOnUiThread(() -> {
-                            tvMatchTokens.setText("Tokeni\n" + tokens);
-                            tvMatchStars.setText("Zvezde\n" + stars);
-                            tvMatchLeague.setText("Liga\n" + league);
-                        });
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        runOnUiThread(() -> Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show());
-                    }
+            public void onSuccess(Map<String, Long> refreshed) {
+                tokens = refreshed.get("tokens");
+                stars = refreshed.get("stars");
+                league = refreshed.get("league");
+                runOnUiThread(() -> {
+                    tvMatchTokens.setText("Tokeni\n" + tokens);
+                    tvMatchStars.setText("Zvezde\n" + stars);
+                    tvMatchLeague.setText("Liga\n" + league);
                 });
             }
 
@@ -388,6 +446,16 @@ public class MatchActivity extends AppCompatActivity {
             Toast.makeText(this, R.string.match_not_connected, Toast.LENGTH_SHORT).show();
             return;
         }
+        if (guestMode) {
+                if (wsAuthenticated) {
+                    realtimeClient.joinRandomQueue();
+                } else {
+                    pendingJoinRequest = true;
+                    tvMatchInfo.setText(getString(R.string.match_waiting));
+                    renderMatch();
+                }
+                return;
+            }
         economyRepository.reserveTokenForRankedMatch(myUid, new PlayerEconomyRepository.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> values) {
@@ -397,7 +465,7 @@ public class MatchActivity extends AppCompatActivity {
                     realtimeClient.joinRandomQueue();
                 } else {
                     pendingJoinRequest = true;
-                    tvMatchInfo.setText("Povezivanje sa serverom...");
+                    tvMatchInfo.setText(getString(R.string.match_waiting));
                 }
                 runOnUiThread(() -> {
                     tvMatchTokens.setText("Tokeni\n" + tokens);
@@ -439,6 +507,10 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void inviteFriend() {
+        if (guestMode) {
+            Toast.makeText(this, "Gost moze da igra samo nasumicnu partiju.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (inRoom || queueing) return;
         String target = etInviteTarget.getText().toString().trim();
         if (TextUtils.isEmpty(target)) {
@@ -460,7 +532,7 @@ public class MatchActivity extends AppCompatActivity {
         if (!TextUtils.isEmpty(autoInviteTarget)) {
             String target = autoInviteTarget;
             autoInviteTarget = null;
-            if (!inRoom && !queueing && wsAuthenticated) {
+            if (!guestMode && !inRoom && !queueing && wsAuthenticated) {
                 realtimeClient.sendInvite(target);
                 Toast.makeText(this, "Poziv poslat igracu: " + target, Toast.LENGTH_SHORT).show();
             }
@@ -485,6 +557,7 @@ public class MatchActivity extends AppCompatActivity {
         intent.putExtra("match_room_id", roomId == null ? "" : roomId);
         intent.putExtra("match_game_index", currentGameIndex);
         intent.putExtra("match_my_player_number", myPlayerNumber);
+        intent.putExtra(EXTRA_MATCH_SOLO_MODE, opponentForfeited);
         gameLauncher.launch(intent);
     }
 
@@ -495,8 +568,49 @@ public class MatchActivity extends AppCompatActivity {
 
     private void submitMatchScore() {
         if (!inRoom || roomId == null) return;
+        if (opponentForfeited) {
+            finalizeSoloWinAfterForfeit();
+            return;
+        }
         realtimeClient.submitScore(roomId, myScore);
         Toast.makeText(this, "Rezultat poslat serveru. Cekam protivnika...", Toast.LENGTH_SHORT).show();
+    }
+
+    private void finalizeSoloWinAfterForfeit() {
+        if (!resultApplied && !guestMode && !friendlyRoom) {
+            applyRankedResult(true, myScore);
+        }
+        finishLocalRoom();
+        Toast.makeText(this, "Partija zavrsena. Pobedili ste odustajanjem protivnika.", Toast.LENGTH_LONG).show();
+        renderMatch();
+    }
+
+    private void notifyCurrentGameOpponentForfeit() {
+        if (TextUtils.isEmpty(roomId)) {
+            return;
+        }
+        String gameId = currentGameEventId();
+        if (TextUtils.isEmpty(gameId)) {
+            return;
+        }
+        Intent i = new Intent(ACTION_GAME_EVENT);
+        i.putExtra(EXTRA_ROOM_ID, roomId);
+        i.putExtra(EXTRA_GAME, gameId);
+        i.putExtra(EXTRA_EVENT, "opponent_forfeit");
+        i.putExtra(EXTRA_DATA, "{}");
+        sendBroadcast(i);
+    }
+
+    private String currentGameEventId() {
+        switch (currentGameIndex) {
+            case 0: return "step";
+            case 1: return "master";
+            case 2: return "number";
+            case 3: return "quiz";
+            case 4: return "connections";
+            case 5: return "associations";
+            default: return "";
+        }
     }
 
     private void applyRankedResult(boolean winner, int score) {
@@ -519,7 +633,16 @@ public class MatchActivity extends AppCompatActivity {
         });
     }
 
-    private void forfeitMatch() {
+    private void showLeaveMatchDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Napustanje partije")
+                .setMessage("Da li ste sigurni da zelite da napustite igru?")
+                .setPositiveButton("Da", (dialog, which) -> forfeitMatchAndGoHome())
+                .setNegativeButton("Ne", null)
+                .show();
+    }
+
+    private void forfeitMatchAndGoHome() {
         if (inRoom && roomId != null) {
             realtimeClient.forfeit(roomId);
             finishLocalRoom();
@@ -527,6 +650,9 @@ public class MatchActivity extends AppCompatActivity {
                 rankedTokenReserved = false;
             }
         }
+        Intent intent = new Intent(this, HomeActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
         finish();
     }
 
@@ -538,6 +664,7 @@ public class MatchActivity extends AppCompatActivity {
         opponentUid = null;
         opponentUsername = "-";
         rankedTokenReserved = false;
+        opponentForfeited = false;
         currentGameIndex = 0;
         renderMatch();
     }
@@ -550,7 +677,7 @@ public class MatchActivity extends AppCompatActivity {
         } else if (queueing || pendingJoinRequest || (wsConnected && wsAuthenticated)) {
             info = getString(R.string.match_waiting);
         } else if (!wsConnected) {
-            info = getString(R.string.match_not_connected);
+            info = getString(R.string.match_waiting);
         } else {
             info = getString(R.string.match_waiting);
         }
@@ -581,7 +708,7 @@ public class MatchActivity extends AppCompatActivity {
         btnSubmitScore.setEnabled(inRoom);
         btnFindRandom.setEnabled(!inRoom && !queueing && !pendingJoinRequest && wsConnected);
         btnCancelQueue.setEnabled(queueing || pendingJoinRequest);
-        btnInviteFriend.setEnabled(!inRoom && !queueing && !pendingJoinRequest && wsAuthenticated);
+        btnInviteFriend.setEnabled(!guestMode && !inRoom && !queueing && !pendingJoinRequest && wsAuthenticated);
     }
 
     @Override

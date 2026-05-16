@@ -11,9 +11,14 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.data.FirebaseAuthRepository;
+import com.example.slagalica.data.PlayerEconomyRepository;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.SessionManager;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
+import java.util.Map;
 
 public class HomeActivity extends AppCompatActivity {
 
@@ -25,6 +30,7 @@ public class HomeActivity extends AppCompatActivity {
 
         AuthService authService = new AuthService(new FirebaseAuthRepository());
         SessionManager sessionManager = new SessionManager(this);
+        PlayerEconomyRepository economyRepository = new PlayerEconomyRepository();
 
         TextView btnProfile = findViewById(R.id.btnOpenProfile);
         TextView btnSettings = findViewById(R.id.btnOpenSettings);
@@ -57,7 +63,7 @@ public class HomeActivity extends AppCompatActivity {
             tvHomeStars.setText(R.string.home_stars_guest);
             tvHomeLeague.setText(R.string.home_league_guest);
 
-            btnStartGame.setVisibility(View.GONE);
+            btnStartGame.setVisibility(View.VISIBLE);
             tvFriendsLabel.setVisibility(View.GONE);
             friend1.setVisibility(View.GONE);
             friend2.setVisibility(View.GONE);
@@ -73,6 +79,7 @@ public class HomeActivity extends AppCompatActivity {
             tvHomeStars.setText(R.string.home_stars_value);
             tvHomeLeague.setText(R.string.home_league_value);
             btnGuestRegister.setVisibility(View.GONE);
+            grantDailyTokensOnStartup(economyRepository, tvHomeTokens, tvHomeStars, tvHomeLeague);
         }
 
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
@@ -95,6 +102,47 @@ public class HomeActivity extends AppCompatActivity {
             finish();
         });
 
+    }
+
+    private void grantDailyTokensOnStartup(
+            PlayerEconomyRepository economyRepository,
+            TextView tvHomeTokens,
+            TextView tvHomeStars,
+            TextView tvHomeLeague
+    ) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            return;
+        }
+
+        economyRepository.grantDailyTokensIfNeeded(user.getUid(), new PlayerEconomyRepository.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> values) {
+                economyRepository.getEconomy(user.getUid(), new PlayerEconomyRepository.EconomyCallback() {
+                    @Override
+                    public void onSuccess(Map<String, Long> refreshed) {
+                        Long tokens = refreshed.get("tokens");
+                        Long stars = refreshed.get("stars");
+                        Long league = refreshed.get("league");
+                        runOnUiThread(() -> {
+                            tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
+                            tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
+                            tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void sendInviteToHardcodedFriend(String username) {

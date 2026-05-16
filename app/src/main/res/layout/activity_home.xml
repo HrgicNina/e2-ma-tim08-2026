@@ -109,19 +109,20 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.65" />
+        android:layout_weight="0.25" />
 
     <Button
         android:id="@+id/btnStartGame"
-        android:layout_width="match_parent"
+        android:layout_width="280dp"
         android:layout_height="72dp"
+        android:layout_gravity="center_horizontal"
         android:text="@string/home_start_game"
         android:textSize="24sp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.35" />
+        android:layout_weight="0.75" />
 
     <TextView
         android:id="@+id/tvFriendsLabel"
