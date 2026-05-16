@@ -1,17 +1,28 @@
 package com.example.slagalica;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.os.Bundle;
 import android.os.CountDownTimer;
+import android.text.TextUtils;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.text.Normalizer;
 import java.util.Locale;
 
 public class AssociationsGameActivity extends AppCompatActivity {
+    private static final String GAME_ID = "associations";
 
     private final String[][][] roundClues = {
             {
@@ -54,15 +65,62 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private int player1Score = 0;
     private int player2Score = 0;
     private int selectedColumn = -1;
-    private boolean[] openedClues = new boolean[16];
-    private boolean[] solvedColumns = new boolean[4];
+    private final boolean[] openedClues = new boolean[16];
+    private final boolean[] solvedColumns = new boolean[4];
     private boolean finalSolved = false;
+    private boolean roundFinished = false;
+    private boolean gameFinished = false;
+    private int lastTimerSeconds = 120;
     private CountDownTimer roundTimer;
+
+    private String matchRoomId = "";
+    private int myPlayerNumber = 1;
+    private boolean soloMode = false;
+    private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (!MatchActivity.ACTION_GAME_EVENT.equals(intent.getAction())) {
+                return;
+            }
+            String room = intent.getStringExtra(MatchActivity.EXTRA_ROOM_ID);
+            String game = intent.getStringExtra(MatchActivity.EXTRA_GAME);
+            String event = intent.getStringExtra(MatchActivity.EXTRA_EVENT);
+            String raw = intent.getStringExtra(MatchActivity.EXTRA_DATA);
+            if (!GAME_ID.equals(game) || !matchRoomId.equals(room)) {
+                return;
+            }
+            if ("force_finish".equals(event)) {
+                try {
+                    applyForceFinish(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            if ("opponent_forfeit".equals(event)) {
+                enableSoloModeAfterForfeit();
+                return;
+            }
+            if (!"state".equals(event)) {
+                return;
+            }
+            try {
+                applyRemoteState(new JSONObject(raw == null ? "{}" : raw));
+            } catch (Exception ignored) {
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_associations_game);
+
+        matchRoomId = getIntent().getStringExtra("match_room_id");
+        if (matchRoomId == null) {
+            matchRoomId = "";
+        }
+        myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
+        soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false) || TextUtils.isEmpty(matchRoomId);
 
         tvRound = findViewById(R.id.tvAssociationsRound);
         tvCurrentPlayer = findViewById(R.id.tvAssociationsCurrentPlayer);
@@ -103,8 +161,18 @@ public class AssociationsGameActivity extends AppCompatActivity {
         btnSolveColumn.setOnClickListener(v -> solveSelectedColumn());
         btnSolveFinal.setOnClickListener(v -> solveFinal());
         btnContinue.setOnClickListener(v -> continueRound());
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showLeaveGameDialog();
+            }
+        });
 
         startRound();
+    }
+
+    private boolean isController() {
+        return soloMode || currentPlayer == myPlayerNumber;
     }
 
     private void startRound() {
@@ -112,50 +180,107 @@ public class AssociationsGameActivity extends AppCompatActivity {
         currentPlayer = currentRound == 0 ? 1 : 2;
         selectedColumn = -1;
         finalSolved = false;
-        openedClues = new boolean[16];
-        solvedColumns = new boolean[4];
+        roundFinished = false;
+        gameFinished = false;
+        lastTimerSeconds = 120;
+
+        for (int i = 0; i < openedClues.length; i++) {
+            openedClues[i] = false;
+        }
+        for (int i = 0; i < solvedColumns.length; i++) {
+            solvedColumns[i] = false;
+        }
+
+        refreshUiFromState();
+        if (isController()) {
+            startTimer();
+        }
+        publishState();
+    }
+
+    private void refreshUiFromState() {
+        if (gameFinished) {
+            tvRound.setText(R.string.associations_title);
+            tvCurrentPlayer.setText("");
+            tvPhaseInfo.setText(R.string.associations_round_finished);
+            tvTimer.setText(getString(R.string.associations_timer_format, 0, 0));
+            tvSelectedColumn.setText(R.string.associations_selected_none);
+            btnContinue.setEnabled(false);
+            return;
+        }
 
         tvRound.setText(R.string.associations_title);
-        tvCurrentPlayer.setText(getString(R.string.associations_current_player, currentPlayer));
-        tvPhaseInfo.setText(R.string.associations_status_idle);
+        tvCurrentPlayer.setText(roundFinished ? "" : getString(R.string.associations_current_player, currentPlayer));
         tvScore.setText(getString(R.string.associations_score_format, player1Score, player2Score));
-        tvSelectedColumn.setText(R.string.associations_selected_none);
-        tvFinalSolution.setText(R.string.associations_final_placeholder);
-        etGuess.setText("");
-        btnContinue.setEnabled(false);
-        btnContinue.setText(R.string.associations_finish_round);
+        tvSelectedColumn.setText(selectedColumn == -1
+                ? getString(R.string.associations_selected_none)
+                : getString(R.string.associations_selected_column, columnName(selectedColumn)));
+        tvFinalSolution.setText(finalSolved
+                ? getString(R.string.associations_final_label, finalSolutions[currentRound])
+                : getString(R.string.associations_final_placeholder));
 
+        int minutes = Math.max(0, lastTimerSeconds) / 60;
+        int seconds = Math.max(0, lastTimerSeconds) % 60;
+        tvTimer.setText(getString(R.string.associations_timer_format, minutes, seconds));
+
+        boolean canInteract = isController() && !roundFinished && !gameFinished;
         for (int i = 0; i < 16; i++) {
-            clueButtons[i].setText(getClueLabel(i));
-            clueButtons[i].setEnabled(true);
-            clueButtons[i].setBackgroundResource(R.drawable.associations_closed_bg);
+            int column = i / 4;
+            int row = i % 4;
+            if (openedClues[i]) {
+                clueButtons[i].setText(roundClues[currentRound][column][row]);
+                clueButtons[i].setBackgroundResource(R.drawable.associations_open_bg);
+            } else {
+                clueButtons[i].setText(getClueLabel(i));
+                clueButtons[i].setBackgroundResource(R.drawable.associations_closed_bg);
+            }
+            clueButtons[i].setEnabled(canInteract && !openedClues[i] && !finalSolved);
         }
 
         for (int i = 0; i < 4; i++) {
-            columnButtons[i].setText(getString(R.string.associations_column_placeholder, columnName(i)));
-            columnButtons[i].setEnabled(true);
-            columnButtons[i].setBackgroundResource(R.drawable.associations_solution_bg);
+            if (solvedColumns[i]) {
+                columnButtons[i].setText(columnSolutions[currentRound][i]);
+                columnButtons[i].setBackgroundResource(R.drawable.associations_solved_bg);
+            } else {
+                columnButtons[i].setText(getString(R.string.associations_column_placeholder, columnName(i)));
+                columnButtons[i].setBackgroundResource(R.drawable.associations_solution_bg);
+            }
+            columnButtons[i].setEnabled(canInteract && !solvedColumns[i] && !finalSolved);
         }
 
-        btnSolveColumn.setEnabled(true);
-        btnSolveColumn.setBackgroundResource(R.drawable.associations_solution_bg);
-        btnSolveFinal.setEnabled(true);
-        btnSolveFinal.setBackgroundResource(R.drawable.associations_solution_bg);
-        startTimer();
+        btnSolveColumn.setEnabled(canInteract && !finalSolved);
+        btnSolveFinal.setEnabled(canInteract && !finalSolved);
+        etGuess.setEnabled(canInteract && !roundFinished);
+        btnContinue.setEnabled(roundFinished && isController());
+
+        if (roundFinished) {
+            tvPhaseInfo.setText(R.string.associations_round_finished);
+        } else if (finalSolved) {
+            tvPhaseInfo.setText(R.string.associations_final_solved);
+        } else {
+            tvPhaseInfo.setText(R.string.associations_status_idle);
+        }
     }
 
     private void startTimer() {
-        roundTimer = new CountDownTimer(120000, 1000) {
+        startTimerWithDuration(120000);
+    }
+
+    private void startTimerWithDuration(long durationMs) {
+        cancelRoundTimer();
+        roundTimer = new CountDownTimer(durationMs, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
-                int totalSeconds = (int) (millisUntilFinished / 1000);
-                int minutes = totalSeconds / 60;
-                int seconds = totalSeconds % 60;
+                lastTimerSeconds = (int) (millisUntilFinished / 1000);
+                int minutes = lastTimerSeconds / 60;
+                int seconds = lastTimerSeconds % 60;
                 tvTimer.setText(getString(R.string.associations_timer_format, minutes, seconds));
+                publishState();
             }
 
             @Override
             public void onFinish() {
+                lastTimerSeconds = 0;
                 tvTimer.setText(getString(R.string.associations_timer_format, 0, 0));
                 finishRound();
             }
@@ -163,34 +288,26 @@ public class AssociationsGameActivity extends AppCompatActivity {
     }
 
     private void openClue(int index) {
-        if (openedClues[index] || finalSolved) {
+        if (!isController() || openedClues[index] || finalSolved || roundFinished || gameFinished) {
             return;
         }
-
         openedClues[index] = true;
-        int column = index / 4;
-        int row = index % 4;
-
-        clueButtons[index].setText(roundClues[currentRound][column][row]);
-        clueButtons[index].setBackgroundResource(R.drawable.associations_open_bg);
-        selectedColumn = column;
-        tvSelectedColumn.setText(getString(R.string.associations_selected_column, columnName(column)));
-        tvPhaseInfo.setText(getString(R.string.associations_opened_hint, columnName(column)));
+        selectedColumn = index / 4;
+        refreshUiFromState();
+        publishState();
     }
 
     private void selectColumn(int column) {
-        if (solvedColumns[column] || finalSolved) {
+        if (!isController() || solvedColumns[column] || finalSolved || roundFinished || gameFinished) {
             return;
         }
-
         selectedColumn = column;
-        tvSelectedColumn.setText(getString(R.string.associations_selected_column, columnName(column)));
-        tvPhaseInfo.setText(getString(R.string.associations_column_try, columnName(column)));
+        refreshUiFromState();
+        publishState();
     }
 
     private void solveSelectedColumn() {
-        if (selectedColumn == -1 || finalSolved) {
-            tvPhaseInfo.setText(R.string.associations_select_column_first);
+        if (!isController() || selectedColumn == -1 || finalSolved || roundFinished || gameFinished) {
             return;
         }
 
@@ -202,16 +319,11 @@ public class AssociationsGameActivity extends AppCompatActivity {
             solvedColumns[column] = true;
             int unopened = countUnopenedInColumn(column);
             addPoints(2 + unopened);
-            columnButtons[column].setText(columnSolutions[currentRound][column]);
-            columnButtons[column].setBackgroundResource(R.drawable.associations_solved_bg);
             revealColumn(column);
-            tvPhaseInfo.setText(getString(R.string.associations_column_solved, columnName(column)));
-            etGuess.setText("");
             selectedColumn = -1;
-            tvSelectedColumn.setText(R.string.associations_selected_none);
-            if (allColumnsSolved()) {
-                tvPhaseInfo.setText(R.string.associations_all_columns_open);
-            }
+            etGuess.setText("");
+            refreshUiFromState();
+            publishState();
             return;
         }
 
@@ -219,7 +331,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
     }
 
     private void solveFinal() {
-        if (finalSolved) {
+        if (!isController() || finalSolved || roundFinished || gameFinished) {
             return;
         }
 
@@ -242,11 +354,6 @@ public class AssociationsGameActivity extends AppCompatActivity {
             }
             addPoints(points);
             revealAll();
-            tvFinalSolution.setText(getString(R.string.associations_final_label, finalSolutions[currentRound]));
-            btnSolveFinal.setBackgroundResource(R.drawable.associations_solved_bg);
-            btnSolveFinal.setEnabled(false);
-            btnSolveColumn.setEnabled(false);
-            tvPhaseInfo.setText(R.string.associations_final_solved);
             etGuess.setText("");
             finishRound();
             return;
@@ -258,17 +365,13 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private void finishRound() {
         cancelRoundTimer();
         revealAll();
-        btnContinue.setEnabled(true);
-        btnSolveColumn.setEnabled(false);
-        btnSolveFinal.setEnabled(false);
-        tvCurrentPlayer.setText("");
-        tvSelectedColumn.setText(R.string.associations_selected_none);
-        tvPhaseInfo.setText(R.string.associations_round_finished);
-        btnContinue.setText(R.string.associations_finish_round);
+        roundFinished = true;
+        refreshUiFromState();
+        publishState();
     }
 
     private void continueRound() {
-        if (!btnContinue.isEnabled()) {
+        if (!isController() || !roundFinished || gameFinished) {
             return;
         }
 
@@ -278,39 +381,44 @@ public class AssociationsGameActivity extends AppCompatActivity {
             return;
         }
 
-        tvRound.setText(R.string.associations_title);
-        tvCurrentPlayer.setText("");
-        tvSelectedColumn.setText(R.string.associations_selected_none);
-        tvPhaseInfo.setText(R.string.associations_round_finished);
-        btnContinue.setEnabled(false);
+        finishGameWithResult();
+    }
+
+    private void finishGameWithResult() {
+        if (gameFinished) {
+            return;
+        }
+        gameFinished = true;
+        cancelRoundTimer();
+        refreshUiFromState();
+        publishState();
+        sendForceFinishEvent();
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        setResult(RESULT_OK, resultIntent);
+        btnContinue.postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed()) {
+                finish();
+            }
+        }, 500);
     }
 
     private void revealColumn(int column) {
         for (int row = 0; row < 4; row++) {
             int index = column * 4 + row;
-            if (!openedClues[index]) {
-                openedClues[index] = true;
-                clueButtons[index].setText(roundClues[currentRound][column][row]);
-                clueButtons[index].setBackgroundResource(R.drawable.associations_open_bg);
-            }
-            clueButtons[index].setEnabled(false);
+            openedClues[index] = true;
         }
     }
 
     private void revealAll() {
-        for (int column = 0; column < 4; column++) {
-            for (int row = 0; row < 4; row++) {
-                int index = column * 4 + row;
-                clueButtons[index].setText(roundClues[currentRound][column][row]);
-                clueButtons[index].setBackgroundResource(R.drawable.associations_open_bg);
-                clueButtons[index].setEnabled(false);
-            }
-            columnButtons[column].setText(columnSolutions[currentRound][column]);
-            columnButtons[column].setBackgroundResource(R.drawable.associations_solved_bg);
-            columnButtons[column].setEnabled(false);
+        for (int i = 0; i < openedClues.length; i++) {
+            openedClues[i] = true;
         }
-
-        tvFinalSolution.setText(getString(R.string.associations_final_label, finalSolutions[currentRound]));
+        for (int i = 0; i < solvedColumns.length; i++) {
+            solvedColumns[i] = true;
+        }
+        finalSolved = true;
     }
 
     private int countUnopenedInColumn(int column) {
@@ -330,15 +438,6 @@ public class AssociationsGameActivity extends AppCompatActivity {
             }
         }
         return false;
-    }
-
-    private boolean allColumnsSolved() {
-        for (boolean solved : solvedColumns) {
-            if (!solved) {
-                return false;
-            }
-        }
-        return true;
     }
 
     private void addPoints(int points) {
@@ -366,11 +465,152 @@ public class AssociationsGameActivity extends AppCompatActivity {
         return decomposed.replaceAll("\\p{M}+", "");
     }
 
+    private void publishState() {
+        if (soloMode || TextUtils.isEmpty(matchRoomId) || (!isController() && !roundFinished)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("round", currentRound);
+            data.put("currentPlayer", currentPlayer);
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            data.put("selectedColumn", selectedColumn);
+            data.put("finalSolved", finalSolved);
+            data.put("roundFinished", roundFinished);
+            data.put("gameFinished", gameFinished);
+            data.put("timer", lastTimerSeconds);
+            data.put("opened", booleanArrayToJson(openedClues));
+            data.put("solved", booleanArrayToJson(solvedColumns));
+
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "state");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRemoteState(JSONObject data) {
+        if (soloMode) {
+            return;
+        }
+        currentRound = data.optInt("round", currentRound);
+        if (currentRound < 0 || currentRound >= roundClues.length) {
+            return;
+        }
+        currentPlayer = data.optInt("currentPlayer", currentPlayer);
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        selectedColumn = data.optInt("selectedColumn", selectedColumn);
+        finalSolved = data.optBoolean("finalSolved", finalSolved);
+        roundFinished = data.optBoolean("roundFinished", roundFinished);
+        gameFinished = data.optBoolean("gameFinished", gameFinished);
+        lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
+        jsonToBooleanArray(data.optJSONArray("opened"), openedClues);
+        jsonToBooleanArray(data.optJSONArray("solved"), solvedColumns);
+        cancelRoundTimer();
+        refreshUiFromState();
+        if (gameFinished) {
+            Intent resultIntent = new Intent();
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+            setResult(RESULT_OK, resultIntent);
+            if (!isFinishing() && !isDestroyed()) {
+                finish();
+            }
+        }
+    }
+
+    private JSONArray booleanArrayToJson(boolean[] values) {
+        JSONArray out = new JSONArray();
+        for (boolean value : values) {
+            out.put(value);
+        }
+        return out;
+    }
+
+    private void jsonToBooleanArray(JSONArray values, boolean[] target) {
+        if (values == null) {
+            return;
+        }
+        for (int i = 0; i < target.length && i < values.length(); i++) {
+            target[i] = values.optBoolean(i, target[i]);
+        }
+    }
+
+    private void showLeaveGameDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Napustanje partije")
+                .setMessage("Da li ste sigurni da zelite da napustite igru?")
+                .setPositiveButton("Da", (dialog, which) -> {
+                    Intent data = new Intent();
+                    data.putExtra(MatchActivity.EXTRA_MATCH_FORFEIT, true);
+                    setResult(RESULT_CANCELED, data);
+                    finish();
+                })
+                .setNegativeButton("Ne", null)
+                .show();
+    }
+
+    private void enableSoloModeAfterForfeit() {
+        soloMode = true;
+        refreshUiFromState();
+        if (!roundFinished && !gameFinished && roundTimer == null && lastTimerSeconds > 0) {
+            startTimerWithDuration(lastTimerSeconds * 1000L);
+        }
+    }
+
+    private void sendForceFinishEvent() {
+        if (TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("p1", player1Score);
+            data.put("p2", player2Score);
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "force_finish");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyForceFinish(JSONObject data) {
+        player1Score = data.optInt("p1", player1Score);
+        player2Score = data.optInt("p2", player2Score);
+        Intent resultIntent = new Intent();
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+        resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        setResult(RESULT_OK, resultIntent);
+        finish();
+    }
+
     private void cancelRoundTimer() {
         if (roundTimer != null) {
             roundTimer.cancel();
             roundTimer = null;
         }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        registerReceiver(gameEventReceiver, new IntentFilter(MatchActivity.ACTION_GAME_EVENT));
+    }
+
+    @Override
+    protected void onStop() {
+        try {
+            unregisterReceiver(gameEventReceiver);
+        } catch (Exception ignored) {
+        }
+        super.onStop();
     }
 
     @Override

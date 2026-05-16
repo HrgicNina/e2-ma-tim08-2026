@@ -27,6 +27,8 @@
     <string name="btn_open_notifications">Notifikacije</string>
     <string name="btn_register_now">Registrujte se</string>
     <string name="games_label">Igre:</string>
+    <string name="home_start_game">Započni igru</string>
+    <string name="home_friends_label">Prijatelji</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>
@@ -271,6 +273,17 @@
     <string name="match_next_game">Predji na sledecu igru</string>
     <string name="match_finish_match">Zavrsi partiju</string>
     <string name="match_give_up">Odustani od partije</string>
+    <string name="match_find_random">Nadji random igraca</string>
+    <string name="match_cancel_search">Prekini trazenje</string>
+    <string name="match_invite_hint">Unesi username/uid prijatelja</string>
+    <string name="match_send_invite">Posalji poziv prijatelju</string>
+    <string name="match_submit_score">Posalji rezultat partije</string>
+    <string name="match_waiting">Trazi se protivnik...</string>
+    <string name="match_connected">Povezano na server za partije.</string>
+    <string name="match_not_connected">Nije povezano na server za partije.</string>
+    <string name="match_no_active_room">Nema aktivne partije.</string>
+    <string name="match_friendly_info">Prijateljska partija: ne trosi tokene i ne menja zvezde.</string>
+    <string name="match_ranked_info">Rang partija: trosi 1 token i menja zvezde na kraju.</string>
     <string name="match_finished_title">Partija je zavrsena</string>
     <string name="match_finished_message">Sve igre iz partije su prosle.</string>
 

@@ -19,6 +19,14 @@ public class MastermindGameService {
         return code;
     }
 
+    public int[] generateSecretCode(Random source) {
+        int[] code = new int[CODE_LENGTH];
+        for (int i = 0; i < CODE_LENGTH; i++) {
+            code[i] = source.nextInt(SYMBOL_COUNT);
+        }
+        return code;
+    }
+
     public GuessResult evaluateGuess(int[] secret, int[] guess) {
         boolean[] secretUsed = new boolean[CODE_LENGTH];
         boolean[] guessUsed = new boolean[CODE_LENGTH];
