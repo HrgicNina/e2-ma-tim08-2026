@@ -29,6 +29,10 @@
     <string name="games_label">Igre:</string>
     <string name="home_start_game">Započni igru</string>
     <string name="home_friends_label">Prijatelji</string>
+    <string name="chat_title">Regionalni cet</string>
+    <string name="chat_title_region">Cet regiona: %1$s</string>
+    <string name="chat_hint">Unesi poruku</string>
+    <string name="chat_send">Posalji</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>
@@ -54,13 +58,14 @@
     <string name="welcome_user">Dobrodosli, %1$s</string>
 
     <string name="step_round_label">Korak po korak - Runda %1$d/2</string>
+    <string name="step_title_simple">Korak po korak</string>
     <string name="step_current_player">Na potezu: Igrac %1$d</string>
     <string name="step_phase_main">Glavna runda (7 koraka po 10s)</string>
     <string name="step_round_starts_in">Runda pocinje za %1$d...</string>
     <string name="step_one_guess_per_step">Vec ste pokusali u ovom koraku. Sacekajte sledeci korak.</string>
     <string name="step_loading_data">Ucitavam podatke iz baze...</string>
     <string name="step_phase_steal">Igrac %1$d ima 10 sekundi za protivnicki pokusaj</string>
-    <string name="step_timer_seconds">Vreme: %1$ds</string>
+    <string name="step_timer_seconds">%1$ds</string>
     <string name="step_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="step_answer_hint">Unesi konacno resenje</string>
     <string name="step_submit">Potvrdi odgovor</string>
@@ -79,12 +84,13 @@
     <string name="step_final_score_message">Konacan rezultat: %1$d - %2$d. %3$s</string>
 
     <string name="master_round_label">Skocko - Runda %1$d/2</string>
+    <string name="master_title_simple">Skocko</string>
     <string name="master_current_player">Na potezu: Igrac %1$d</string>
     <string name="master_round_starts_in">Runda pocinje...</string>
     <string name="master_round_starts_in_count">Runda pocinje za %1$d...</string>
     <string name="master_phase_round">Pogodi kombinaciju od 4 simbola u 6 pokusaja</string>
     <string name="master_phase_steal">Igrac %1$d ima jednu sansu u 10 sekundi (+10)</string>
-    <string name="master_timer_seconds">Vreme: %1$ds</string>
+    <string name="master_timer_seconds">%1$ds</string>
     <string name="master_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="master_submit">Potvrdi pokusaj</string>
     <string name="master_attempts_empty">Pokusaji ce se prikazivati ovde.</string>
@@ -105,6 +111,7 @@
     <string name="master_fill_all_slots">Popuni sva 4 polja pre potvrde.</string>
 
     <string name="number_round_label">Moj broj - Runda %1$d/2</string>
+    <string name="number_title_simple">Moj broj</string>
     <string name="number_round_starts_in">Runda pocinje za %1$d...</string>
     <string name="number_current_player">Na potezu: Igrac %1$d</string>
     <string name="number_phase_stop_target">Klikni STOP za trazeni broj ili protresi telefon.</string>
@@ -113,7 +120,7 @@
     <string name="number_phase_main">Glavni pokusaj (60s)</string>
     <string name="number_phase_steal">Igrac %1$d ima 10s za protivnicki pokusaj.</string>
     <string name="number_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
-    <string name="number_timer_seconds">Vreme: %1$ds</string>
+    <string name="number_timer_seconds">%1$ds</string>
     <string name="number_target_label">Trazeni broj</string>
     <string name="number_unknown_target">?</string>
     <string name="number_unknown_value">?</string>
@@ -199,8 +206,9 @@
     <string name="home_league_guest">Liga\nGost</string>
     <string name="btn_open_quiz">Ko zna zna</string>
     <string name="quiz_question_index">Ko zna zna - Pitanje %1$d/5</string>
+    <string name="quiz_title_simple">Ko zna zna</string>
     <string name="quiz_current_player">Brzi igrac za bodove: Igrac %1$d</string>
-    <string name="quiz_timer_seconds">Vreme: %1$ds</string>
+    <string name="quiz_timer_seconds">%1$ds</string>
     <string name="quiz_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="quiz_question_label">Pitanje</string>
     <string name="quiz_next_question">Sledece pitanje</string>
@@ -219,7 +227,7 @@
     <string name="connections_current_player">Na potezu: Igrac %1$d</string>
     <string name="connections_phase_starter">Starter igra i povezuje svih 5 pojmova u 30 sekundi.</string>
     <string name="connections_phase_steal">Preostale pojmove povezuje Igrac %1$d u 30 sekundi.</string>
-    <string name="connections_timer_seconds">Vreme: %1$ds</string>
+    <string name="connections_timer_seconds">%1$ds</string>
     <string name="connections_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="connections_left_title">Leva kolona</string>
     <string name="connections_right_title">Desna kolona</string>
@@ -233,7 +241,7 @@
     <string name="btn_open_associations">Asocijacije</string>
     <string name="associations_title">Asocijacije</string>
     <string name="associations_current_player">Na potezu: Igrac %1$d</string>
-    <string name="associations_timer_format">Vreme: %1$d:%2$02d</string>
+    <string name="associations_timer_seconds">%1$ds</string>
     <string name="associations_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="associations_column_a">Kolona A</string>
     <string name="associations_column_b">Kolona B</string>
@@ -279,8 +287,8 @@
     <string name="match_send_invite">Posalji poziv prijatelju</string>
     <string name="match_submit_score">Posalji rezultat partije</string>
     <string name="match_waiting">Trazi se protivnik...</string>
-    <string name="match_connected">Povezano na server za partije.</string>
-    <string name="match_not_connected">Nije povezano na server za partije.</string>
+    <string name="match_connected">Povezano.</string>
+    <string name="match_not_connected">Povezivanje trenutno nije dostupno.</string>
     <string name="match_no_active_room">Nema aktivne partije.</string>
     <string name="match_friendly_info">Prijateljska partija: ne trosi tokene i ne menja zvezde.</string>
     <string name="match_ranked_info">Rang partija: trosi 1 token i menja zvezde na kraju.</string>

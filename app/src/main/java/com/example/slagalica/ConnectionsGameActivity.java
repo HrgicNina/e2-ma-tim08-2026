@@ -42,6 +42,13 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     private TextView tvPhaseInfo;
     private TextView tvTimer;
     private TextView tvScore;
+    private TextView tvHeaderLeftAvatar;
+    private TextView tvHeaderLeftName;
+    private TextView tvHeaderLeftScore;
+    private TextView tvHeaderRightAvatar;
+    private TextView tvHeaderRightName;
+    private TextView tvHeaderRightScore;
+    private TurnIndicatorAnimator turnIndicatorAnimator;
     private Button[] leftButtons;
     private Button[] rightButtons;
     private Button btnContinue;
@@ -65,6 +72,8 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -110,13 +119,29 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false) || TextUtils.isEmpty(matchRoomId);
+        player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
+        player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
+        player1DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_NAME),
+                "Igrac 1");
+        player2DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
+                "Igrac 2");
 
         tvRound = findViewById(R.id.tvConnectionsRound);
         tvCurrentPlayer = findViewById(R.id.tvConnectionsCurrentPlayer);
         tvPhaseInfo = findViewById(R.id.tvConnectionsPhaseInfo);
         tvTimer = findViewById(R.id.tvConnectionsTimer);
         tvScore = findViewById(R.id.tvConnectionsScore);
+        tvHeaderLeftAvatar = findViewById(R.id.tvHeaderLeftAvatar);
+        tvHeaderLeftName = findViewById(R.id.tvHeaderLeftName);
+        tvHeaderLeftScore = findViewById(R.id.tvHeaderLeftScore);
+        tvHeaderRightAvatar = findViewById(R.id.tvHeaderRightAvatar);
+        tvHeaderRightName = findViewById(R.id.tvHeaderRightName);
+        tvHeaderRightScore = findViewById(R.id.tvHeaderRightScore);
+        turnIndicatorAnimator = new TurnIndicatorAnimator(tvHeaderLeftAvatar, tvHeaderRightAvatar);
         btnContinue = findViewById(R.id.btnConnectionsContinue);
+        bindMatchHeader();
 
         leftButtons = new Button[]{
                 findViewById(R.id.btnLeft1),
@@ -175,6 +200,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         if (isController()) {
             startTimer();
         }
+        refreshTurnIndicator();
         publishState();
     }
 
@@ -192,7 +218,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         tvRound.setText(R.string.connections_title);
         tvCurrentPlayer.setText(roundFinished ? "" : getString(R.string.connections_current_player, currentPlayer));
         tvPhaseInfo.setText("");
-        tvScore.setText(getString(R.string.connections_score_format, player1Score, player2Score));
+        updateScoreText();
         tvTimer.setText(getString(R.string.connections_timer_seconds, Math.max(0, lastTimerSeconds)));
 
         for (int i = 0; i < 5; i++) {
@@ -203,6 +229,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         btnContinue.setText(R.string.connections_finish_round);
         btnContinue.setEnabled(roundFinished && isController());
         refreshButtons();
+        refreshTurnIndicator();
     }
 
     private void startTimer() {
@@ -269,7 +296,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
                 player2Score += 2;
             }
 
-            tvScore.setText(getString(R.string.connections_score_format, player1Score, player2Score));
+            updateScoreText();
             selectedLeft = -1;
             selectedRight = -1;
             refreshButtons();
@@ -380,6 +407,59 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         }
     }
 
+    private void updateScoreText() {
+        tvScore.setText(getString(R.string.connections_score_format, player1Score, player2Score));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void refreshTurnIndicator() {
+        if (gameFinished || roundFinished) {
+            turnIndicatorAnimator.setActivePlayer(null);
+            return;
+        }
+        turnIndicatorAnimator.setActivePlayer(currentPlayer);
+    }
+
+    private void bindMatchHeader() {
+        tvHeaderLeftName.setText(headerName(player1DisplayName));
+        tvHeaderRightName.setText(headerName(player2DisplayName));
+        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
+        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String initialForName(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return fallback;
+        }
+        return String.valueOf(Character.toUpperCase(trimmed.charAt(0)));
+    }
+
+    private String headerName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 9) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 9) + "...";
+    }
+
     private void publishState() {
         if (soloMode || TextUtils.isEmpty(matchRoomId) || (!isController() && !roundFinished)) {
             return;
@@ -443,6 +523,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
                 finish();
             }
         }
+        refreshTurnIndicator();
     }
 
     private JSONArray booleanArrayToJson(boolean[] values) {
@@ -555,5 +636,8 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         cancelRoundTimer();
+        turnIndicatorAnimator.clear();
     }
 }
+
+

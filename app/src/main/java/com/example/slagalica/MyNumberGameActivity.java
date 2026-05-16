@@ -33,13 +33,20 @@ import java.util.regex.Pattern;
 public class MyNumberGameActivity extends AppCompatActivity implements SensorEventListener {
     private static final String GAME_ID = "number";
 
-    private enum Phase { STOP_TARGET, STOP_NUMBERS, MAIN_ATTEMPT, STEAL_ATTEMPT, ROUND_END, FINISHED }
+    private enum Phase { STOP_TARGET, STOP_NUMBERS, MAIN_ATTEMPT, ROUND_END, FINISHED }
 
     private TextView tvRound;
     private TextView tvCurrentPlayer;
     private TextView tvPhase;
     private TextView tvTimer;
     private TextView tvScore;
+    private TextView tvHeaderLeftAvatar;
+    private TextView tvHeaderLeftName;
+    private TextView tvHeaderLeftScore;
+    private TextView tvHeaderRightAvatar;
+    private TextView tvHeaderRightName;
+    private TextView tvHeaderRightScore;
+    private TurnIndicatorAnimator turnIndicatorAnimator;
     private TextView tvTarget;
     private TextView[] numberViews;
     private EditText etExpression;
@@ -67,6 +74,8 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private boolean soloMode = false;
     private int lastTimerSeconds = 60;
     private boolean remoteFinishHandled = false;
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -98,6 +107,13 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 enableSoloModeAfterForfeit();
                 return;
             }
+            if ("main_submit".equals(event)) {
+                try {
+                    applyRemoteMainSubmit(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
             if (!"state".equals(event)) {
                 return;
             }
@@ -117,8 +133,15 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private Integer targetNumber = null;
     private List<Integer> availableNumbers = new ArrayList<>();
     private final boolean[] numberUsed = new boolean[6];
-    private Double starterValue = null;
-    private boolean starterEmpty = true;
+    private boolean player1Submitted = false;
+    private boolean player2Submitted = false;
+    private boolean player1AttemptEmpty = true;
+    private boolean player2AttemptEmpty = true;
+    private Double player1AttemptValue = null;
+    private Double player2AttemptValue = null;
+    private int outcomeSeq = 0;
+    private int lastShownOutcomeSeq = 0;
+    private String lastOutcomeMessage = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -132,6 +155,14 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
+        player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
+        player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
+        player1DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_NAME),
+                "Igrac 1");
+        player2DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
+                "Igrac 2");
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -142,9 +173,17 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         tvPhase = findViewById(R.id.tvNumberPhase);
         tvTimer = findViewById(R.id.tvNumberTimer);
         tvScore = findViewById(R.id.tvNumberScore);
+        tvHeaderLeftAvatar = findViewById(R.id.tvHeaderLeftAvatar);
+        tvHeaderLeftName = findViewById(R.id.tvHeaderLeftName);
+        tvHeaderLeftScore = findViewById(R.id.tvHeaderLeftScore);
+        tvHeaderRightAvatar = findViewById(R.id.tvHeaderRightAvatar);
+        tvHeaderRightName = findViewById(R.id.tvHeaderRightName);
+        tvHeaderRightScore = findViewById(R.id.tvHeaderRightScore);
+        turnIndicatorAnimator = new TurnIndicatorAnimator(tvHeaderLeftAvatar, tvHeaderRightAvatar);
         tvTarget = findViewById(R.id.tvTargetNumber);
         etExpression = findViewById(R.id.etExpression);
         btnStop = findViewById(R.id.btnStop);
+        bindMatchHeader();
         TextView btnDeleteChar = findViewById(R.id.btnDeleteChar);
 
         numberViews = new TextView[]{
@@ -176,10 +215,14 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         remoteFinishHandled = false;
         targetNumber = null;
         availableNumbers.clear();
-        starterValue = null;
-        starterEmpty = true;
+        player1Submitted = false;
+        player2Submitted = false;
+        player1AttemptEmpty = true;
+        player2AttemptEmpty = true;
+        player1AttemptValue = null;
+        player2AttemptValue = null;
 
-        tvRound.setText(getString(R.string.number_round_label, currentRound));
+        tvRound.setText("");
         tvCurrentPlayer.setText(getString(R.string.number_current_player, roundStarter));
         tvPhase.setText(R.string.number_phase_stop_target);
         tvTimer.setText(getString(R.string.number_timer_seconds, 60));
@@ -197,6 +240,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         btnStop.setEnabled(true);
         btnStop.setText(R.string.number_stop_target);
         btnStop.setEnabled(false);
+        refreshTurnIndicator();
 
         startPrepCountdown();
     }
@@ -223,23 +267,19 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 tvPhase.setText(R.string.number_phase_stop_target);
                 boolean myTurn = soloMode || roundStarter == myPlayerNumber;
                 btnStop.setEnabled(myTurn);
+                startTargetSpin();
                 if (myTurn) {
-                    startTargetSpin();
                     startAutoStopTimer(MyNumberGameActivity.this::revealTarget);
                 }
                 publishState();
+                refreshTurnIndicator();
             }
         }.start();
     }
 
     private void handleMainButtonClick() {
-        if (!soloMode && (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS || phase == Phase.MAIN_ATTEMPT)) {
+        if (!soloMode && (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS)) {
             if (roundStarter != myPlayerNumber) {
-                return;
-            }
-        }
-        if (!soloMode && phase == Phase.STEAL_ATTEMPT) {
-            if (opponent(roundStarter) != myPlayerNumber) {
                 return;
             }
         }
@@ -247,7 +287,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             revealTarget();
         } else if (phase == Phase.STOP_NUMBERS) {
             revealNumbers();
-        } else if (phase == Phase.MAIN_ATTEMPT || phase == Phase.STEAL_ATTEMPT) {
+        } else if (phase == Phase.MAIN_ATTEMPT) {
             submitExpression();
         }
     }
@@ -273,6 +313,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         startNumbersSpin();
         startAutoStopTimer(this::revealNumbers);
         publishState();
+        refreshTurnIndicator();
     }
 
     private void revealNumbers() {
@@ -297,20 +338,21 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
         phase = Phase.MAIN_ATTEMPT;
         tvPhase.setText(R.string.number_phase_main);
-        boolean myMainTurn = soloMode || roundStarter == myPlayerNumber;
-        btnStop.setEnabled(myMainTurn);
+        stopSpinTimers();
+        btnStop.setEnabled(!hasSubmitted(myPlayerNumber));
         btnStop.setText(R.string.number_confirm_expression);
-        etExpression.setEnabled(myMainTurn);
+        etExpression.setEnabled(!hasSubmitted(myPlayerNumber));
         etExpression.setText("");
         for (TextView view : numberViews) {
-            view.setEnabled(myMainTurn);
+            view.setEnabled(!hasSubmitted(myPlayerNumber));
         }
-        if (myMainTurn) {
+        if (soloMode || roundStarter == myPlayerNumber) {
             startMainRoundTimer(60000);
         } else {
             cancelRoundTimers();
         }
         publishState();
+        refreshTurnIndicator();
     }
 
     private void startTargetSpin() {
@@ -391,165 +433,102 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             @Override
             public void onFinish() {
                 tvTimer.setText(getString(R.string.number_timer_seconds, 0));
-                captureStarterAttemptAndOpenSteal();
-            }
-        }.start();
-    }
-
-    private void captureStarterAttemptAndOpenSteal() {
-        if (phase != Phase.MAIN_ATTEMPT) {
-            return;
-        }
-        if (roundTimer != null) {
-            roundTimer.cancel();
-            roundTimer = null;
-        }
-        if (stealTimer != null) {
-            stealTimer.cancel();
-            stealTimer = null;
-        }
-        phase = Phase.STEAL_ATTEMPT;
-
-        MyNumberGameService.EvalResult starterEval = gameService.evaluate(etExpression.getText().toString(), availableNumbers);
-        starterEmpty = starterEval.empty;
-        starterValue = starterEval.valid ? starterEval.value : null;
-
-        if (isExact(starterValue)) {
-            addPoints(scoreOwner(roundStarter), 10);
-            Toast.makeText(this, getString(R.string.number_exact_points, roundStarter), Toast.LENGTH_SHORT).show();
-            finishRound();
-            return;
-        }
-
-        int stealPlayer = opponent(roundStarter);
-        tvCurrentPlayer.setText(getString(R.string.number_current_player, stealPlayer));
-        tvPhase.setText(getString(R.string.number_phase_steal, stealPlayer));
-        etExpression.setText("");
-        boolean myStealTurn = soloMode || stealPlayer == myPlayerNumber;
-        etExpression.setEnabled(myStealTurn);
-        btnStop.setEnabled(myStealTurn);
-        btnStop.setText(R.string.number_confirm_expression);
-        resetNumberUsage();
-        for (TextView view : numberViews) {
-            view.setEnabled(myStealTurn);
-            view.setAlpha(1f);
-        }
-        if (myStealTurn) {
-            startStealTimer(10000);
-        } else {
-            cancelRoundTimers();
-        }
-        publishState();
-    }
-
-    private void startStealTimer(long durationMs) {
-        cancelRoundTimers();
-        stealTimer = new CountDownTimer(durationMs, 1000) {
-            @Override
-            public void onTick(long millisUntilFinished) {
-                int sec = (int) (millisUntilFinished / 1000);
-                tvTimer.setText(getString(R.string.number_timer_seconds, sec));
-                lastTimerSeconds = sec;
-                publishState();
-            }
-
-            @Override
-            public void onFinish() {
-                tvTimer.setText(getString(R.string.number_timer_seconds, 0));
-                resolveSteal();
+                lastTimerSeconds = 0;
+                finalizeMainAttemptRound();
             }
         }.start();
     }
 
     private void submitExpression() {
-        if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+        if (phase != Phase.MAIN_ATTEMPT) {
             return;
         }
-        if (!soloMode && phase == Phase.MAIN_ATTEMPT && roundStarter != myPlayerNumber) {
+        if (hasSubmitted(myPlayerNumber)) {
             return;
         }
-        if (!soloMode && phase == Phase.STEAL_ATTEMPT && opponent(roundStarter) != myPlayerNumber) {
-            return;
-        }
-
-        if (phase == Phase.MAIN_ATTEMPT) {
-            MyNumberGameService.EvalResult eval = gameService.evaluate(etExpression.getText().toString(), availableNumbers);
-            starterEmpty = eval.empty;
-            starterValue = eval.valid ? eval.value : null;
-
-            if (isExact(starterValue)) {
-                addPoints(scoreOwner(roundStarter), 10);
-                Toast.makeText(this, getString(R.string.number_exact_points, roundStarter), Toast.LENGTH_SHORT).show();
-                finishRound();
-                return;
-            }
-
-            captureStarterAttemptAndOpenSteal();
-            return;
-        }
-
-        if (phase == Phase.STEAL_ATTEMPT) {
-            resolveSteal();
+        MyNumberGameService.EvalResult eval = gameService.evaluate(etExpression.getText().toString(), availableNumbers);
+        setAttemptForPlayer(myPlayerNumber, eval);
+        lockLocalInputAfterSubmit();
+        sendMainSubmitEvent(myPlayerNumber, eval);
+        publishState();
+        if (soloMode || roundStarter == myPlayerNumber) {
+            maybeFinalizeRoundEarly();
         }
     }
 
-    private void resolveSteal() {
-        if (phase != Phase.STEAL_ATTEMPT) {
+    private void finalizeMainAttemptRound() {
+        if (phase != Phase.MAIN_ATTEMPT) {
             return;
         }
         cancelRoundTimers();
 
-        int stealPlayer = opponent(roundStarter);
-        MyNumberGameService.EvalResult stealEval = gameService.evaluate(etExpression.getText().toString(), availableNumbers);
-        boolean stealEmpty = stealEval.empty;
-        Double stealValue = stealEval.valid ? stealEval.value : null;
-
-        if (isExact(stealValue)) {
-            addPoints(scoreOwner(stealPlayer), 10);
-            Toast.makeText(this, getString(R.string.number_exact_points, stealPlayer), Toast.LENGTH_SHORT).show();
-            finishRound();
-            return;
-        }
-
-        if (starterEmpty && stealEmpty) {
-            Toast.makeText(this, R.string.number_both_empty, Toast.LENGTH_SHORT).show();
-            finishRound();
-            return;
-        }
-
-        if (starterValue == null && stealValue != null) {
-            addPoints(scoreOwner(stealPlayer), 5);
-            Toast.makeText(this, getString(R.string.number_closer_points, stealPlayer), Toast.LENGTH_SHORT).show();
-            finishRound();
-            return;
-        }
-
-        if (starterValue != null && stealValue == null) {
-            addPoints(scoreOwner(roundStarter), 5);
-            Toast.makeText(this, getString(R.string.number_closer_points, roundStarter), Toast.LENGTH_SHORT).show();
-            finishRound();
-            return;
-        }
-
-        if (starterValue == null) {
-            finishRound();
-            return;
-        }
-
-        int starterDistance = Math.abs((int) Math.round(starterValue - targetNumber));
-        int stealDistance = Math.abs((int) Math.round(stealValue - targetNumber));
-
-        if (starterDistance < stealDistance) {
-            addPoints(scoreOwner(roundStarter), 5);
-            Toast.makeText(this, getString(R.string.number_closer_points, roundStarter), Toast.LENGTH_SHORT).show();
-        } else if (stealDistance < starterDistance) {
-            addPoints(scoreOwner(stealPlayer), 5);
-            Toast.makeText(this, getString(R.string.number_closer_points, stealPlayer), Toast.LENGTH_SHORT).show();
-        } else {
-            if (Math.round(starterValue) != 0) {
-                addPoints(scoreOwner(roundStarter), 5);
-                Toast.makeText(this, getString(R.string.number_tie_starter_points, roundStarter), Toast.LENGTH_SHORT).show();
+        if (soloMode) {
+            if (isExact(attemptValueFor(myPlayerNumber))) {
+                addPoints(myPlayerNumber, 10);
+                announceRoundOutcome(getString(R.string.number_exact_points, myPlayerNumber));
+            } else if (attemptValueFor(myPlayerNumber) == null) {
+                announceRoundOutcome(getString(R.string.number_both_empty));
             }
+            finishRound();
+            return;
+        }
+
+        boolean p1Exact = isExact(player1AttemptValue);
+        boolean p2Exact = isExact(player2AttemptValue);
+        if (p1Exact && p2Exact) {
+            addPoints(roundStarter, 10);
+            announceRoundOutcome(getString(R.string.number_exact_points, roundStarter));
+            finishRound();
+            return;
+        }
+        if (p1Exact) {
+            addPoints(1, 10);
+            announceRoundOutcome(getString(R.string.number_exact_points, 1));
+            finishRound();
+            return;
+        }
+        if (p2Exact) {
+            addPoints(2, 10);
+            announceRoundOutcome(getString(R.string.number_exact_points, 2));
+            finishRound();
+            return;
+        }
+
+        if (player1AttemptEmpty && player2AttemptEmpty) {
+            announceRoundOutcome(getString(R.string.number_both_empty));
+            finishRound();
+            return;
+        }
+
+        if (player1AttemptValue == null && player2AttemptValue != null) {
+            addPoints(2, 5);
+            announceRoundOutcome(getString(R.string.number_closer_points, 2));
+            finishRound();
+            return;
+        }
+        if (player1AttemptValue != null && player2AttemptValue == null) {
+            addPoints(1, 5);
+            announceRoundOutcome(getString(R.string.number_closer_points, 1));
+            finishRound();
+            return;
+        }
+        if (player1AttemptValue == null) {
+            announceRoundOutcome(getString(R.string.number_both_empty));
+            finishRound();
+            return;
+        }
+
+        int p1Distance = Math.abs((int) Math.round(player1AttemptValue - targetNumber));
+        int p2Distance = Math.abs((int) Math.round(player2AttemptValue - targetNumber));
+        if (p1Distance < p2Distance) {
+            addPoints(1, 5);
+            announceRoundOutcome(getString(R.string.number_closer_points, 1));
+        } else if (p2Distance < p1Distance) {
+            addPoints(2, 5);
+            announceRoundOutcome(getString(R.string.number_closer_points, 2));
+        } else if (Math.round(player1AttemptValue) != 0) {
+            addPoints(roundStarter, 5);
+            announceRoundOutcome(getString(R.string.number_tie_starter_points, roundStarter));
         }
 
         finishRound();
@@ -571,7 +550,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 @Override
                 public void onTick(long millisUntilFinished) {
                     int seconds = (int) Math.ceil(millisUntilFinished / 1000.0);
-                    tvTimer.setText(getString(R.string.number_next_round_in, seconds));
+                    tvTimer.setText(getString(R.string.number_timer_seconds, seconds));
                     lastTimerSeconds = seconds;
                     publishState();
                 }
@@ -590,20 +569,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         phase = Phase.FINISHED;
         tvPhase.setText(R.string.number_game_finished);
         tvCurrentPlayer.setText(R.string.number_match_done);
-        String winner;
-        if (player1Score > player2Score) {
-            winner = getString(R.string.number_winner_player, 1);
-        } else if (player2Score > player1Score) {
-            winner = getString(R.string.number_winner_player, 2);
-        } else {
-            winner = getString(R.string.number_draw);
-        }
-
-        Toast.makeText(this,
-                getString(R.string.number_final_score_message, player1Score, player2Score, winner),
-                Toast.LENGTH_LONG).show();
         lastTimerSeconds = 0;
         publishState();
+        refreshTurnIndicator();
         sendForceFinishEvent();
         finishTimer = new CountDownTimer(1200, 1200) {
             @Override
@@ -640,7 +608,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 return;
             }
             etExpression.setText("");
-            if (phase == Phase.MAIN_ATTEMPT || phase == Phase.STEAL_ATTEMPT) {
+            if (phase == Phase.MAIN_ATTEMPT) {
                 resetNumberUsage();
                 for (TextView view : numberViews) {
                     if (!availableNumbers.isEmpty()) {
@@ -653,7 +621,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     }
 
     private void deleteOneCharacter() {
-        if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+        if (phase != Phase.MAIN_ATTEMPT) {
             return;
         }
         if (!isMyTurnForInput()) {
@@ -702,7 +670,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     }
 
     private void appendToExpression(String token) {
-        if (phase != Phase.MAIN_ATTEMPT && phase != Phase.STEAL_ATTEMPT) {
+        if (phase != Phase.MAIN_ATTEMPT) {
             return;
         }
         if (!isMyTurnForInput()) {
@@ -733,6 +701,61 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         return Math.abs(value - targetNumber) < 1e-9;
     }
 
+    private void setAttemptForPlayer(int player, MyNumberGameService.EvalResult eval) {
+        boolean empty = eval != null && eval.empty;
+        Double value = (eval != null && eval.valid) ? eval.value : null;
+        if (player == 1) {
+            player1Submitted = true;
+            player1AttemptEmpty = empty;
+            player1AttemptValue = value;
+        } else {
+            player2Submitted = true;
+            player2AttemptEmpty = empty;
+            player2AttemptValue = value;
+        }
+    }
+
+    private boolean hasSubmitted(int player) {
+        return player == 1 ? player1Submitted : player2Submitted;
+    }
+
+    private Double attemptValueFor(int player) {
+        return player == 1 ? player1AttemptValue : player2AttemptValue;
+    }
+
+    private void lockLocalInputAfterSubmit() {
+        etExpression.setEnabled(false);
+        btnStop.setEnabled(false);
+        for (TextView view : numberViews) {
+            view.setEnabled(false);
+        }
+    }
+
+    private void announceRoundOutcome(String message) {
+        if (TextUtils.isEmpty(message)) {
+            return;
+        }
+        lastOutcomeMessage = message;
+        outcomeSeq++;
+        lastShownOutcomeSeq = outcomeSeq;
+        Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    private void maybeFinalizeRoundEarly() {
+        if (phase != Phase.MAIN_ATTEMPT) {
+            return;
+        }
+        if (soloMode) {
+            if (hasSubmitted(myPlayerNumber)) {
+                finalizeMainAttemptRound();
+            }
+            return;
+        }
+        if (player1Submitted && player2Submitted) {
+            finalizeMainAttemptRound();
+        }
+    }
+
     private void addPoints(int player, int points) {
         if (player == 1) {
             player1Score += points;
@@ -744,25 +767,34 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     private void updateScoreText() {
         tvScore.setText(getString(R.string.number_score_format, player1Score, player2Score));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void refreshTurnIndicator() {
+        if (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS) {
+            turnIndicatorAnimator.setActivePlayer(roundStarter);
+            return;
+        }
+        turnIndicatorAnimator.setActivePlayer(null);
     }
 
     private int opponent(int player) {
         return player == 1 ? 2 : 1;
     }
 
-    private int scoreOwner(int normalOwner) {
-        return soloMode ? myPlayerNumber : normalOwner;
-    }
-
     private boolean isMyTurnForInput() {
         if (soloMode && phase != Phase.FINISHED) {
+            if (phase == Phase.MAIN_ATTEMPT) {
+                return !hasSubmitted(myPlayerNumber);
+            }
             return true;
         }
-        if (phase == Phase.MAIN_ATTEMPT || phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS) {
+        if (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS) {
             return roundStarter == myPlayerNumber;
         }
-        if (phase == Phase.STEAL_ATTEMPT) {
-            return opponent(roundStarter) == myPlayerNumber;
+        if (phase == Phase.MAIN_ATTEMPT) {
+            return !hasSubmitted(myPlayerNumber);
         }
         return false;
     }
@@ -811,6 +843,13 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         if (spinNumbersTimer != null) {
             spinNumbersTimer.cancel();
             spinNumbersTimer = null;
+        }
+    }
+
+    private void stopTargetSpinIfRunning() {
+        if (spinTargetTimer != null) {
+            spinTargetTimer.cancel();
+            spinTargetTimer = null;
         }
     }
 
@@ -891,6 +930,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     protected void onDestroy() {
         super.onDestroy();
         cancelTimers();
+        turnIndicatorAnimator.clear();
     }
 
     @Override
@@ -935,11 +975,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             return;
         }
         boolean starterTurn = roundStarter == myPlayerNumber;
-        boolean stealTurn = opponent(roundStarter) == myPlayerNumber;
-        boolean shouldSend = starterTurn
-                || phase == Phase.FINISHED
-                || phase == Phase.ROUND_END
-                || (phase == Phase.STEAL_ATTEMPT && stealTurn);
+        boolean shouldSend = starterTurn || phase == Phase.FINISHED || phase == Phase.ROUND_END;
         if (!shouldSend) {
             return;
         }
@@ -957,6 +993,14 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 numbers.put(n);
             }
             data.put("numbers", numbers);
+            data.put("p1Submitted", player1Submitted);
+            data.put("p2Submitted", player2Submitted);
+            data.put("p1Empty", player1AttemptEmpty);
+            data.put("p2Empty", player2AttemptEmpty);
+            data.put("p1Value", player1AttemptValue == null ? JSONObject.NULL : player1AttemptValue);
+            data.put("p2Value", player2AttemptValue == null ? JSONObject.NULL : player2AttemptValue);
+            data.put("outcomeSeq", outcomeSeq);
+            data.put("outcomeMessage", lastOutcomeMessage == null ? "" : lastOutcomeMessage);
 
             Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
             i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
@@ -972,7 +1016,18 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         if (soloMode) {
             return;
         }
+        int previousRound = currentRound;
         currentRound = data.optInt("round", currentRound);
+        if (currentRound != previousRound) {
+            player1Submitted = false;
+            player2Submitted = false;
+            player1AttemptEmpty = true;
+            player2AttemptEmpty = true;
+            player1AttemptValue = null;
+            player2AttemptValue = null;
+            etExpression.setText("");
+            resetNumberUsage();
+        }
         roundStarter = data.optInt("starter", roundStarter);
         String phaseName = data.optString("phase", phase.name());
         try {
@@ -982,30 +1037,53 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
         player1Score = data.optInt("p1", player1Score);
         player2Score = data.optInt("p2", player2Score);
+        player1Submitted = data.optBoolean("p1Submitted", player1Submitted);
+        player2Submitted = data.optBoolean("p2Submitted", player2Submitted);
+        player1AttemptEmpty = data.optBoolean("p1Empty", player1AttemptEmpty);
+        player2AttemptEmpty = data.optBoolean("p2Empty", player2AttemptEmpty);
+        player1AttemptValue = readNullableDouble(data, "p1Value", player1AttemptValue);
+        player2AttemptValue = readNullableDouble(data, "p2Value", player2AttemptValue);
+        int remoteOutcomeSeq = data.optInt("outcomeSeq", outcomeSeq);
+        String remoteOutcomeMessage = data.optString("outcomeMessage", "");
+        if (remoteOutcomeSeq > lastShownOutcomeSeq && !TextUtils.isEmpty(remoteOutcomeMessage)) {
+            lastShownOutcomeSeq = remoteOutcomeSeq;
+            outcomeSeq = Math.max(outcomeSeq, remoteOutcomeSeq);
+            lastOutcomeMessage = remoteOutcomeMessage;
+            Toast.makeText(this, remoteOutcomeMessage, Toast.LENGTH_SHORT).show();
+        }
         int remoteTarget = data.optInt("target", 0);
         if (remoteTarget > 0) {
             targetNumber = remoteTarget;
         }
         JSONArray nums = data.optJSONArray("numbers");
         if (nums != null && nums.length() == 6) {
+            boolean shouldResetUsageVisuals =
+                    phase == Phase.STOP_TARGET
+                            || phase == Phase.STOP_NUMBERS
+                            || availableNumbers.isEmpty();
             availableNumbers.clear();
             for (int i = 0; i < nums.length(); i++) {
                 availableNumbers.add(nums.optInt(i));
             }
-            resetNumberUsage();
+            if (shouldResetUsageVisuals) {
+                resetNumberUsage();
+            }
             for (int i = 0; i < numberViews.length; i++) {
                 numberViews[i].setText(String.valueOf(availableNumbers.get(i)));
-                numberViews[i].setAlpha(1f);
+                if (shouldResetUsageVisuals) {
+                    numberViews[i].setAlpha(1f);
+                }
             }
         }
 
-        tvRound.setText(getString(R.string.number_round_label, currentRound));
+        tvRound.setText("");
         tvTimer.setText(getString(R.string.number_timer_seconds, Math.max(0, lastTimerSeconds)));
         updateScoreText();
         tvTarget.setText(targetNumber == null ? getString(R.string.number_unknown_target) : String.valueOf(targetNumber));
 
         if (phase == Phase.STOP_TARGET) {
             cancelRoundTimers();
+            startTargetSpin();
             etExpression.setEnabled(false);
             btnStop.setEnabled(roundStarter == myPlayerNumber);
             btnStop.setText(R.string.number_stop_target);
@@ -1013,11 +1091,14 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             for (TextView view : numberViews) {
                 view.setEnabled(false);
             }
+            refreshTurnIndicator();
             return;
         }
 
         if (phase == Phase.STOP_NUMBERS) {
             cancelRoundTimers();
+            stopTargetSpinIfRunning();
+            startNumbersSpin();
             etExpression.setEnabled(false);
             btnStop.setEnabled(roundStarter == myPlayerNumber);
             btnStop.setText(R.string.number_stop_numbers);
@@ -1025,61 +1106,52 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             for (TextView view : numberViews) {
                 view.setEnabled(false);
             }
+            refreshTurnIndicator();
             return;
         }
 
         if (phase == Phase.MAIN_ATTEMPT) {
+            stopSpinTimers();
             tvPhase.setText(R.string.number_phase_main);
             btnStop.setText(R.string.number_confirm_expression);
-            boolean myTurn = roundStarter == myPlayerNumber;
+            boolean myTurn = !hasSubmitted(myPlayerNumber);
             etExpression.setEnabled(myTurn);
             btnStop.setEnabled(myTurn);
             for (TextView view : numberViews) {
                 view.setEnabled(myTurn);
             }
-            if (myTurn && roundTimer == null && lastTimerSeconds > 0) {
-                startMainRoundTimer(lastTimerSeconds * 1000L);
-            } else if (!myTurn) {
-                cancelRoundTimers();
-            }
-            return;
-        }
-
-        if (phase == Phase.STEAL_ATTEMPT) {
-            int stealPlayer = opponent(roundStarter);
-            tvCurrentPlayer.setText(getString(R.string.number_current_player, stealPlayer));
-            tvPhase.setText(getString(R.string.number_phase_steal, stealPlayer));
-            btnStop.setText(R.string.number_confirm_expression);
-            boolean myTurn = stealPlayer == myPlayerNumber;
-            etExpression.setEnabled(myTurn);
-            btnStop.setEnabled(myTurn);
-            for (TextView view : numberViews) {
-                view.setEnabled(myTurn);
-                if (view.getAlpha() < 1f) {
+            if (myTurn) {
+                refreshNumberUsageFromExpression();
+            } else {
+                for (TextView view : numberViews) {
                     view.setEnabled(false);
                 }
             }
-            if (myTurn && stealTimer == null && lastTimerSeconds > 0) {
-                startStealTimer(lastTimerSeconds * 1000L);
-            } else if (!myTurn) {
+            if ((soloMode || roundStarter == myPlayerNumber) && roundTimer == null && lastTimerSeconds > 0) {
+                startMainRoundTimer(lastTimerSeconds * 1000L);
+            } else if (!soloMode && roundStarter != myPlayerNumber) {
                 cancelRoundTimers();
             }
+            refreshTurnIndicator();
             return;
         }
 
         if (phase == Phase.ROUND_END) {
             cancelRoundTimers();
+            stopSpinTimers();
             etExpression.setEnabled(false);
             btnStop.setEnabled(false);
             tvPhase.setText(R.string.number_next_round_wait);
             for (TextView view : numberViews) {
                 view.setEnabled(false);
             }
+            refreshTurnIndicator();
             return;
         }
 
         if (phase == Phase.FINISHED && !remoteFinishHandled) {
             cancelRoundTimers();
+            stopSpinTimers();
             etExpression.setEnabled(false);
             btnStop.setEnabled(false);
             remoteFinishHandled = true;
@@ -1093,6 +1165,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 }
             }, 500);
         }
+        refreshTurnIndicator();
     }
 
     private void showLeaveGameDialog() {
@@ -1112,32 +1185,87 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
         if (phase == Phase.FINISHED) {
+            refreshTurnIndicator();
             return;
         }
         if (phase == Phase.MAIN_ATTEMPT) {
-            etExpression.setEnabled(true);
-            btnStop.setEnabled(true);
+            boolean canInput = !hasSubmitted(myPlayerNumber);
+            etExpression.setEnabled(canInput);
+            btnStop.setEnabled(canInput);
             for (TextView view : numberViews) {
-                view.setEnabled(true);
-                if (view.getAlpha() < 1f) {
-                    view.setEnabled(false);
-                }
+                view.setEnabled(canInput);
             }
             if (roundTimer == null && lastTimerSeconds > 0) {
                 startMainRoundTimer(lastTimerSeconds * 1000L);
             }
-        } else if (phase == Phase.STEAL_ATTEMPT) {
-            etExpression.setEnabled(true);
-            btnStop.setEnabled(true);
-            for (TextView view : numberViews) {
-                view.setEnabled(true);
-                if (view.getAlpha() < 1f) {
-                    view.setEnabled(false);
-                }
+        }
+        refreshTurnIndicator();
+    }
+
+    private void sendMainSubmitEvent(int player, MyNumberGameService.EvalResult eval) {
+        if (soloMode || TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("round", currentRound);
+            data.put("player", player);
+            data.put("empty", eval != null && eval.empty);
+            if (eval != null && eval.valid) {
+                data.put("value", eval.value);
+            } else {
+                data.put("value", JSONObject.NULL);
             }
-            if (stealTimer == null && lastTimerSeconds > 0) {
-                startStealTimer(lastTimerSeconds * 1000L);
-            }
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "main_submit");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRemoteMainSubmit(JSONObject data) {
+        if (soloMode || phase != Phase.MAIN_ATTEMPT) {
+            return;
+        }
+        int remoteRound = data.optInt("round", -1);
+        if (remoteRound != currentRound) {
+            return;
+        }
+        int player = data.optInt("player", 0);
+        if (player != 1 && player != 2) {
+            return;
+        }
+        boolean empty = data.optBoolean("empty", false);
+        Double value = readNullableDouble(data, "value", null);
+        if (player == 1) {
+            player1Submitted = true;
+            player1AttemptEmpty = empty;
+            player1AttemptValue = value;
+        } else {
+            player2Submitted = true;
+            player2AttemptEmpty = empty;
+            player2AttemptValue = value;
+        }
+        if (player == myPlayerNumber) {
+            lockLocalInputAfterSubmit();
+        }
+        if (roundStarter == myPlayerNumber) {
+            publishState();
+            maybeFinalizeRoundEarly();
+        }
+    }
+
+    private Double readNullableDouble(JSONObject data, String key, Double fallback) {
+        if (!data.has(key) || data.isNull(key)) {
+            return fallback;
+        }
+        try {
+            return data.getDouble(key);
+        } catch (Exception ignored) {
+            return fallback;
         }
     }
 
@@ -1217,4 +1345,48 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         setResult(RESULT_OK, resultIntent);
         finish();
     }
+
+    private void bindMatchHeader() {
+        tvHeaderLeftName.setText(headerName(player1DisplayName));
+        tvHeaderRightName.setText(headerName(player2DisplayName));
+        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
+        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String initialForName(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return fallback;
+        }
+        return String.valueOf(Character.toUpperCase(trimmed.charAt(0)));
+    }
+
+    private String headerName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 9) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 9) + "...";
+    }
 }
+
+
+
+
+

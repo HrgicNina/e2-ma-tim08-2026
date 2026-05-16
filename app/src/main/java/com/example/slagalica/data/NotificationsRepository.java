@@ -48,6 +48,8 @@ public class NotificationsRepository {
                         n.message = value(doc.getString("message"));
                         Boolean read = doc.getBoolean("read");
                         n.read = read != null && read;
+                        Boolean localShown = doc.getBoolean("localShown");
+                        n.localShown = localShown != null && localShown;
                         Timestamp createdAt = doc.getTimestamp("createdAt");
                         n.createdAtMillis = createdAt != null ? createdAt.toDate().getTime() : 0L;
                         n.actionType = value(doc.getString("actionType"));
@@ -77,6 +79,7 @@ public class NotificationsRepository {
         payload.put("title", title);
         payload.put("message", message);
         payload.put("read", false);
+        payload.put("localShown", false);
         payload.put("createdAt", Timestamp.now());
         payload.put("actionType", "open");
         payload.put("actionPayload", type);
@@ -87,6 +90,57 @@ public class NotificationsRepository {
                 .add(payload)
                 .addOnSuccessListener(doc -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError("Ne mogu da napravim test notifikaciju."));
+    }
+
+    public void createOfflineInviteNotificationForUsername(
+            String targetUsername,
+            String fromUsername,
+            ActionCallback callback
+    ) {
+        if (targetUsername == null || targetUsername.trim().isEmpty()) {
+            callback.onError("Nedostaje korisnicko ime primaoca.");
+            return;
+        }
+
+        db.collection("users")
+                .whereEqualTo("usernameLower", targetUsername.trim().toLowerCase())
+                .limit(1)
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot == null || snapshot.isEmpty()) {
+                        callback.onError("Prijatelj ne postoji.");
+                        return;
+                    }
+
+                    String targetUid = snapshot.getDocuments().get(0).getId();
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("type", "other");
+                    payload.put("title", "Poziv za prijateljsku partiju");
+                    payload.put("message", value(fromUsername) + " vas je pozvao/la na prijateljsku partiju.");
+                    payload.put("read", false);
+                    payload.put("localShown", false);
+                    payload.put("createdAt", Timestamp.now());
+                    payload.put("actionType", "open_match");
+                    payload.put("actionPayload", value(fromUsername));
+
+                    db.collection("users")
+                            .document(targetUid)
+                            .collection("notifications")
+                            .add(payload)
+                            .addOnSuccessListener(doc -> callback.onSuccess())
+                            .addOnFailureListener(e -> callback.onError("Ne mogu da posaljem offline notifikaciju."));
+                })
+                .addOnFailureListener(e -> callback.onError("Ne mogu da pronadjem primaoca poziva."));
+    }
+
+    public void markAsLocalShown(String uid, String notificationId, ActionCallback callback) {
+        db.collection("users")
+                .document(uid)
+                .collection("notifications")
+                .document(notificationId)
+                .update("localShown", true)
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onError("Ne mogu da oznacim lokalno prikazivanje notifikacije."));
     }
 
     private String value(String input) {

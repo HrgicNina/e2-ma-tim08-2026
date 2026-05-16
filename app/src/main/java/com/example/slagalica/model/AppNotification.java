@@ -6,6 +6,7 @@ public class AppNotification {
     public String title;
     public String message;
     public boolean read;
+    public boolean localShown;
     public long createdAtMillis;
     public String actionType;
     public String actionPayload;

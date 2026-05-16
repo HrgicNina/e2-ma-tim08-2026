@@ -51,6 +51,13 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private TextView tvPhaseInfo;
     private TextView tvTimer;
     private TextView tvScore;
+    private TextView tvHeaderLeftAvatar;
+    private TextView tvHeaderLeftName;
+    private TextView tvHeaderLeftScore;
+    private TextView tvHeaderRightAvatar;
+    private TextView tvHeaderRightName;
+    private TextView tvHeaderRightScore;
+    private TurnIndicatorAnimator turnIndicatorAnimator;
     private TextView tvSelectedColumn;
     private Button[] clueButtons;
     private Button[] columnButtons;
@@ -76,6 +83,8 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private String player1DisplayName = "Igrac 1";
+    private String player2DisplayName = "Igrac 2";
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -121,18 +130,34 @@ public class AssociationsGameActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false) || TextUtils.isEmpty(matchRoomId);
+        player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
+        player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
+        player1DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_NAME),
+                "Igrac 1");
+        player2DisplayName = displayNameOrFallback(
+                getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
+                "Igrac 2");
 
         tvRound = findViewById(R.id.tvAssociationsRound);
         tvCurrentPlayer = findViewById(R.id.tvAssociationsCurrentPlayer);
         tvPhaseInfo = findViewById(R.id.tvAssociationsPhaseInfo);
         tvTimer = findViewById(R.id.tvAssociationsTimer);
         tvScore = findViewById(R.id.tvAssociationsScore);
+        tvHeaderLeftAvatar = findViewById(R.id.tvHeaderLeftAvatar);
+        tvHeaderLeftName = findViewById(R.id.tvHeaderLeftName);
+        tvHeaderLeftScore = findViewById(R.id.tvHeaderLeftScore);
+        tvHeaderRightAvatar = findViewById(R.id.tvHeaderRightAvatar);
+        tvHeaderRightName = findViewById(R.id.tvHeaderRightName);
+        tvHeaderRightScore = findViewById(R.id.tvHeaderRightScore);
+        turnIndicatorAnimator = new TurnIndicatorAnimator(tvHeaderLeftAvatar, tvHeaderRightAvatar);
         tvSelectedColumn = findViewById(R.id.tvAssociationsSelectedColumn);
         etGuess = findViewById(R.id.etAssociationsGuess);
         btnSolveColumn = findViewById(R.id.btnAssociationsSolveColumn);
         btnSolveFinal = findViewById(R.id.btnAssociationsSolveFinal);
         btnContinue = findViewById(R.id.btnAssociationsContinue);
         tvFinalSolution = findViewById(R.id.tvAssociationsFinalSolution);
+        bindMatchHeader();
 
         clueButtons = new Button[]{
                 findViewById(R.id.btnA1), findViewById(R.id.btnA2), findViewById(R.id.btnA3), findViewById(R.id.btnA4),
@@ -195,6 +220,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         if (isController()) {
             startTimer();
         }
+        refreshTurnIndicator();
         publishState();
     }
 
@@ -203,15 +229,16 @@ public class AssociationsGameActivity extends AppCompatActivity {
             tvRound.setText(R.string.associations_title);
             tvCurrentPlayer.setText("");
             tvPhaseInfo.setText(R.string.associations_round_finished);
-            tvTimer.setText(getString(R.string.associations_timer_format, 0, 0));
+            tvTimer.setText(getString(R.string.associations_timer_seconds, 0));
             tvSelectedColumn.setText(R.string.associations_selected_none);
             btnContinue.setEnabled(false);
+            refreshTurnIndicator();
             return;
         }
 
         tvRound.setText(R.string.associations_title);
         tvCurrentPlayer.setText(roundFinished ? "" : getString(R.string.associations_current_player, currentPlayer));
-        tvScore.setText(getString(R.string.associations_score_format, player1Score, player2Score));
+        updateScoreText();
         tvSelectedColumn.setText(selectedColumn == -1
                 ? getString(R.string.associations_selected_none)
                 : getString(R.string.associations_selected_column, columnName(selectedColumn)));
@@ -221,7 +248,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
 
         int minutes = Math.max(0, lastTimerSeconds) / 60;
         int seconds = Math.max(0, lastTimerSeconds) % 60;
-        tvTimer.setText(getString(R.string.associations_timer_format, minutes, seconds));
+        tvTimer.setText(getString(R.string.associations_timer_seconds, Math.max(0, lastTimerSeconds)));
 
         boolean canInteract = isController() && !roundFinished && !gameFinished;
         for (int i = 0; i < 16; i++) {
@@ -252,6 +279,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         btnSolveFinal.setEnabled(canInteract && !finalSolved);
         etGuess.setEnabled(canInteract && !roundFinished);
         btnContinue.setEnabled(roundFinished && isController());
+        refreshTurnIndicator();
 
         if (roundFinished) {
             tvPhaseInfo.setText(R.string.associations_round_finished);
@@ -274,14 +302,14 @@ public class AssociationsGameActivity extends AppCompatActivity {
                 lastTimerSeconds = (int) (millisUntilFinished / 1000);
                 int minutes = lastTimerSeconds / 60;
                 int seconds = lastTimerSeconds % 60;
-                tvTimer.setText(getString(R.string.associations_timer_format, minutes, seconds));
+                tvTimer.setText(getString(R.string.associations_timer_seconds, Math.max(0, lastTimerSeconds)));
                 publishState();
             }
 
             @Override
             public void onFinish() {
                 lastTimerSeconds = 0;
-                tvTimer.setText(getString(R.string.associations_timer_format, 0, 0));
+                tvTimer.setText(getString(R.string.associations_timer_seconds, 0));
                 finishRound();
             }
         }.start();
@@ -446,7 +474,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         } else {
             player2Score += points;
         }
-        tvScore.setText(getString(R.string.associations_score_format, player1Score, player2Score));
+        updateScoreText();
     }
 
     private String getClueLabel(int index) {
@@ -463,6 +491,59 @@ public class AssociationsGameActivity extends AppCompatActivity {
         String lower = value.trim().toLowerCase(Locale.ROOT);
         String decomposed = Normalizer.normalize(lower, Normalizer.Form.NFD);
         return decomposed.replaceAll("\\p{M}+", "");
+    }
+
+    private void updateScoreText() {
+        tvScore.setText(getString(R.string.associations_score_format, player1Score, player2Score));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void refreshTurnIndicator() {
+        if (gameFinished || roundFinished) {
+            turnIndicatorAnimator.setActivePlayer(null);
+            return;
+        }
+        turnIndicatorAnimator.setActivePlayer(currentPlayer);
+    }
+
+    private void bindMatchHeader() {
+        tvHeaderLeftName.setText(headerName(player1DisplayName));
+        tvHeaderRightName.setText(headerName(player2DisplayName));
+        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
+        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        tvHeaderLeftScore.setText(String.valueOf(player1Score));
+        tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private String displayNameOrFallback(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? fallback : trimmed;
+    }
+
+    private String initialForName(String value, String fallback) {
+        if (value == null) {
+            return fallback;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return fallback;
+        }
+        return String.valueOf(Character.toUpperCase(trimmed.charAt(0)));
+    }
+
+    private String headerName(String value) {
+        if (value == null) {
+            return "";
+        }
+        String trimmed = value.trim();
+        if (trimmed.length() <= 9) {
+            return trimmed;
+        }
+        return trimmed.substring(0, 9) + "...";
     }
 
     private void publishState() {
@@ -522,6 +603,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
                 finish();
             }
         }
+        refreshTurnIndicator();
     }
 
     private JSONArray booleanArrayToJson(boolean[] values) {
@@ -617,5 +699,10 @@ public class AssociationsGameActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         cancelRoundTimer();
+        turnIndicatorAnimator.clear();
     }
 }
+
+
+
+
