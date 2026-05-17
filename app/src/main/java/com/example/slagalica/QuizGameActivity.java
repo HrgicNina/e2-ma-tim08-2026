@@ -14,12 +14,12 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.domain.EconomyService;
+
 import org.json.JSONObject;
 
 public class QuizGameActivity extends AppCompatActivity {
     private static final String GAME_ID = "quiz";
-
-    private static final int[] POINT_OWNER = {1, 2, 2, 1, 1};
 
     private final String[] questions = {
             "Koja reka prolazi kroz Beograd?",
@@ -67,6 +67,7 @@ public class QuizGameActivity extends AppCompatActivity {
     private int player2Score = 0;
     private boolean answered = false;
     private boolean noAnswerLock = false;
+    private boolean pendingLocalAnswer = false;
     private int selectedAnswerIndex = -1;
     private boolean gameFinished = false;
     private int lastTimerSeconds = 5;
@@ -77,6 +78,13 @@ public class QuizGameActivity extends AppCompatActivity {
     private boolean soloMode = false;
     private String player1DisplayName = "Igrac 1";
     private String player2DisplayName = "Igrac 2";
+    private long myTokens = 0L;
+    private long myStars = 0L;
+    private long myLeague = 0L;
+    private Long opponentTokens = null;
+    private Long opponentStars = null;
+    private Long opponentLeague = null;
+    private final EconomyService economyService = new EconomyService();
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -93,6 +101,13 @@ public class QuizGameActivity extends AppCompatActivity {
             if ("force_finish".equals(event)) {
                 try {
                     applyForceFinish(new JSONObject(raw == null ? "{}" : raw));
+                } catch (Exception ignored) {
+                }
+                return;
+            }
+            if ("answer".equals(event)) {
+                try {
+                    applyRemoteAnswerAttempt(new JSONObject(raw == null ? "{}" : raw));
                 } catch (Exception ignored) {
                 }
                 return;
@@ -130,6 +145,9 @@ public class QuizGameActivity extends AppCompatActivity {
         player2DisplayName = displayNameOrFallback(
                 getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
                 "Igrac 2");
+        myTokens = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_TOKENS, 0L);
+        myStars = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_STARS, 0L);
+        myLeague = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_LEAGUE, 0L);
 
         tvQuestionIndex = findViewById(R.id.tvQuizQuestionIndex);
         tvCurrentPlayer = findViewById(R.id.tvQuizCurrentPlayer);
@@ -146,6 +164,8 @@ public class QuizGameActivity extends AppCompatActivity {
         tvQuestion = findViewById(R.id.tvQuizQuestion);
         btnNextQuestion = findViewById(R.id.btnQuizNext);
         bindMatchHeader();
+        setupMyProfileTap();
+        loadOpponentStatus();
 
         answerButtons = new Button[]{
                 findViewById(R.id.btnQuizAnswer1),
@@ -170,17 +190,18 @@ public class QuizGameActivity extends AppCompatActivity {
         renderFreshQuestion();
     }
 
-    private boolean isControllerForCurrentQuestion() {
-        return soloMode || POINT_OWNER[currentQuestion] == myPlayerNumber;
+    private boolean isQuizController() {
+        return soloMode || myPlayerNumber == 1;
     }
 
     private void renderFreshQuestion() {
         answered = false;
         noAnswerLock = false;
+        pendingLocalAnswer = false;
         selectedAnswerIndex = -1;
         lastTimerSeconds = 5;
         refreshUiFromState();
-        if (isControllerForCurrentQuestion()) {
+        if (isQuizController()) {
             startQuestionTimer();
         } else {
             cancelQuestionTimer();
@@ -207,7 +228,7 @@ public class QuizGameActivity extends AppCompatActivity {
         }
 
         tvQuestionIndex.setText("");
-        tvCurrentPlayer.setText(getString(R.string.quiz_current_player, POINT_OWNER[currentQuestion]));
+        tvCurrentPlayer.setText(getString(R.string.quiz_current_player, 1));
         updateScoreText();
         tvQuestion.setText(questions[currentQuestion]);
         tvTimer.setText(getString(R.string.quiz_timer_seconds, Math.max(0, lastTimerSeconds)));
@@ -225,7 +246,7 @@ public class QuizGameActivity extends AppCompatActivity {
         for (int i = 0; i < answerButtons.length; i++) {
             answerButtons[i].setText(answers[currentQuestion][i]);
             answerButtons[i].setBackgroundResource(R.drawable.quiz_answer_default_bg);
-            answerButtons[i].setEnabled(isControllerForCurrentQuestion() && !answered && !noAnswerLock);
+            answerButtons[i].setEnabled(!answered && !noAnswerLock && !pendingLocalAnswer);
         }
 
         if (answered) {
@@ -241,40 +262,25 @@ public class QuizGameActivity extends AppCompatActivity {
         btnNextQuestion.setText(currentQuestion == questions.length - 1
                 ? getString(R.string.quiz_finish_round)
                 : getString(R.string.quiz_next_question));
-        btnNextQuestion.setEnabled(isControllerForCurrentQuestion());
+        btnNextQuestion.setEnabled(isQuizController());
         refreshTurnIndicator();
     }
 
     private void selectAnswer(int selectedIndex) {
-        if (!isControllerForCurrentQuestion() || answered || noAnswerLock || gameFinished) {
+        if (answered || noAnswerLock || gameFinished || pendingLocalAnswer) {
             return;
         }
-
-        answered = true;
-        selectedAnswerIndex = selectedIndex;
-        int correctIndex = correctAnswers[currentQuestion];
-
-        if (selectedIndex == correctIndex) {
-            if (POINT_OWNER[currentQuestion] == 1) {
-                player1Score += 10;
-            } else {
-                player2Score += 10;
-            }
-        } else {
-            if (POINT_OWNER[currentQuestion] == 1) {
-                player1Score -= 5;
-            } else {
-                player2Score -= 5;
-            }
+        if (isQuizController()) {
+            processAnswer(myPlayerNumber, selectedIndex);
+            return;
         }
-
-        cancelQuestionTimer();
+        pendingLocalAnswer = true;
         refreshUiFromState();
-        publishState();
+        sendAnswerAttemptEvent(selectedIndex);
     }
 
     private void goToNextQuestion() {
-        if (!isControllerForCurrentQuestion() || gameFinished) {
+        if (!isQuizController() || gameFinished) {
             return;
         }
         cancelQuestionTimer();
@@ -351,6 +357,7 @@ public class QuizGameActivity extends AppCompatActivity {
         player2Score = data.optInt("p2", player2Score);
         answered = data.optBoolean("answered", answered);
         noAnswerLock = data.optBoolean("noAnswer", noAnswerLock);
+        pendingLocalAnswer = false;
         selectedAnswerIndex = data.optInt("selected", selectedAnswerIndex);
         lastTimerSeconds = data.optInt("timer", lastTimerSeconds);
         gameFinished = data.optBoolean("finished", gameFinished);
@@ -369,7 +376,7 @@ public class QuizGameActivity extends AppCompatActivity {
     }
 
     private void publishState() {
-        if (soloMode || TextUtils.isEmpty(matchRoomId) || !isControllerForCurrentQuestion()) {
+        if (soloMode || TextUtils.isEmpty(matchRoomId) || !isQuizController()) {
             return;
         }
         try {
@@ -416,6 +423,7 @@ public class QuizGameActivity extends AppCompatActivity {
 
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
+        pendingLocalAnswer = false;
         if (gameFinished || answered || noAnswerLock) {
             return;
         }
@@ -448,7 +456,7 @@ public class QuizGameActivity extends AppCompatActivity {
             turnIndicatorAnimator.setActivePlayer(null);
             return;
         }
-        turnIndicatorAnimator.setActivePlayer(POINT_OWNER[currentQuestion]);
+        turnIndicatorAnimator.setActivePlayer(answered || noAnswerLock ? null : 1);
     }
 
     private void updateScoreText() {
@@ -464,6 +472,114 @@ public class QuizGameActivity extends AppCompatActivity {
         tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
         tvHeaderLeftScore.setText(String.valueOf(player1Score));
         tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void loadOpponentStatus() {
+        String opponentName = myPlayerNumber == 1 ? player2DisplayName : player1DisplayName;
+        if (isLikelyGuestName(opponentName)) {
+            opponentTokens = null;
+            opponentStars = null;
+            opponentLeague = null;
+            return;
+        }
+        economyService.getEconomyByUsername(opponentName, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(java.util.Map<String, Long> values) {
+                opponentTokens = values.get("tokens");
+                opponentStars = values.get("stars");
+                opponentLeague = values.get("league");
+            }
+
+            @Override
+            public void onError(String message) {
+                opponentTokens = null;
+                opponentStars = null;
+                opponentLeague = null;
+            }
+        });
+    }
+
+    private void setupMyProfileTap() {
+        TextView myAvatar = myPlayerNumber == 1 ? tvHeaderLeftAvatar : tvHeaderRightAvatar;
+        TextView myName = myPlayerNumber == 1 ? tvHeaderLeftName : tvHeaderRightName;
+        TextView opponentAvatar = myPlayerNumber == 1 ? tvHeaderRightAvatar : tvHeaderLeftAvatar;
+        TextView opponentName = myPlayerNumber == 1 ? tvHeaderRightName : tvHeaderLeftName;
+
+        myAvatar.setOnClickListener(v -> showMyStatusDialog());
+        myName.setOnClickListener(v -> showMyStatusDialog());
+        opponentAvatar.setOnClickListener(v -> showOpponentStatusDialog());
+        opponentName.setOnClickListener(v -> showOpponentStatusDialog());
+    }
+
+    private void showMyStatusDialog() {
+        String myDisplay = myPlayerNumber == 1 ? player1DisplayName : player2DisplayName;
+        showStatusDialog(
+                "Moj status",
+                myDisplay,
+                myTokens,
+                myStars,
+                myLeague,
+                false
+        );
+    }
+
+    private void showOpponentStatusDialog() {
+        String opponentName = myPlayerNumber == 1 ? player2DisplayName : player1DisplayName;
+        showStatusDialog(
+                "Status protivnika",
+                opponentName,
+                opponentTokens,
+                opponentStars,
+                opponentLeague,
+                isLikelyGuestName(opponentName)
+        );
+    }
+
+    private void showStatusDialog(
+            String title,
+            String username,
+            Long tokens,
+            Long stars,
+            Long league,
+            boolean guest
+    ) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(statusMessage(username, tokens, stars, league, guest))
+                .setPositiveButton("Zatvori", null)
+                .create();
+        dialog.show();
+
+        TextView messageView = dialog.findViewById(android.R.id.message);
+        if (messageView != null) {
+            messageView.setTextSize(17f);
+            messageView.setLineSpacing(6f, 1.15f);
+        }
+    }
+
+    private boolean isLikelyGuestName(String name) {
+        if (name == null) {
+            return true;
+        }
+        String trimmed = name.trim();
+        return trimmed.isEmpty() || trimmed.toLowerCase(java.util.Locale.ROOT).startsWith("gost");
+    }
+
+    private String statusMessage(
+            String username,
+            Long tokens,
+            Long stars,
+            Long league,
+            boolean guest
+    ) {
+        String safeName = (username == null || username.trim().isEmpty()) ? "-" : username.trim();
+        if (guest) {
+            return "Igrac: " + safeName + "\n\nNeregistrovan igrac";
+        }
+        String t = tokens == null ? "-" : String.valueOf(tokens);
+        String s = stars == null ? "-" : String.valueOf(stars);
+        String l = league == null ? "-" : String.valueOf(league);
+        return "Igrac: " + safeName + "\n\nTokeni: " + t + "\nZvezde: " + s + "\nLiga: " + l;
     }
 
     private String displayNameOrFallback(String value, String fallback) {
@@ -494,6 +610,73 @@ public class QuizGameActivity extends AppCompatActivity {
             return trimmed;
         }
         return trimmed.substring(0, 9) + "...";
+    }
+
+    private void processAnswer(int player, int selectedIndex) {
+        if (answered || noAnswerLock || gameFinished) {
+            return;
+        }
+        answered = true;
+        selectedAnswerIndex = selectedIndex;
+        pendingLocalAnswer = false;
+
+        if (selectedIndex == correctAnswers[currentQuestion]) {
+            if (player == 1) {
+                player1Score += 10;
+            } else {
+                player2Score += 10;
+            }
+        } else {
+            if (player == 1) {
+                player1Score -= 5;
+            } else {
+                player2Score -= 5;
+            }
+        }
+
+        cancelQuestionTimer();
+        refreshUiFromState();
+        publishState();
+        btnNextQuestion.postDelayed(() -> {
+            if (!isFinishing() && !isDestroyed() && !gameFinished) {
+                goToNextQuestion();
+            }
+        }, 900);
+    }
+
+    private void sendAnswerAttemptEvent(int selectedIndex) {
+        if (soloMode || TextUtils.isEmpty(matchRoomId)) {
+            return;
+        }
+        try {
+            JSONObject data = new JSONObject();
+            data.put("q", currentQuestion);
+            data.put("player", myPlayerNumber);
+            data.put("selected", selectedIndex);
+            Intent i = new Intent(MatchActivity.ACTION_GAME_COMMAND);
+            i.putExtra(MatchActivity.EXTRA_ROOM_ID, matchRoomId);
+            i.putExtra(MatchActivity.EXTRA_GAME, GAME_ID);
+            i.putExtra(MatchActivity.EXTRA_EVENT, "answer");
+            i.putExtra(MatchActivity.EXTRA_DATA, data.toString());
+            sendBroadcast(i);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private void applyRemoteAnswerAttempt(JSONObject data) {
+        if (!isQuizController()) {
+            return;
+        }
+        int q = data.optInt("q", -1);
+        if (q != currentQuestion) {
+            return;
+        }
+        int player = data.optInt("player", 0);
+        int selected = data.optInt("selected", -1);
+        if ((player != 1 && player != 2) || selected < 0 || selected >= answerButtons.length) {
+            return;
+        }
+        processAnswer(player, selected);
     }
 
     private void applyForceFinish(JSONObject data) {

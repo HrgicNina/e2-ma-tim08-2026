@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.data.NotificationsRepository;
 import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.AppNotification;
@@ -34,7 +33,6 @@ public class NotificationsActivity extends AppCompatActivity {
     private Button btnTypeReward;
     private Button btnTypeOther;
     private List<AppNotification> latestLoadedItems = new ArrayList<>();
-    private boolean seedAttempted = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,7 +45,7 @@ public class NotificationsActivity extends AppCompatActivity {
         }
         setContentView(R.layout.activity_notifications);
 
-        service = new NotificationService(new NotificationsRepository());
+        service = new NotificationService();
         notificationsContainer = findViewById(R.id.notificationsContainer);
         tvEmpty = findViewById(R.id.tvNotificationsEmpty);
         TextView btnOpenFilterMenu = findViewById(R.id.btnOpenFilterMenu);
@@ -64,7 +62,17 @@ public class NotificationsActivity extends AppCompatActivity {
         btnTypeReward.setOnClickListener(v -> toggleTypeFilter("rewards"));
         btnTypeOther.setOnClickListener(v -> toggleTypeFilter("other"));
 
-        loadNotifications();
+        service.deleteHardcodedSeedNotifications(new NotificationService.UiActionCallback() {
+            @Override
+            public void onSuccess() {
+                loadNotifications();
+            }
+
+            @Override
+            public void onError(String message) {
+                loadNotifications();
+            }
+        });
     }
 
     private void changeFilter(NotificationService.Filter filter) {
@@ -133,13 +141,6 @@ public class NotificationsActivity extends AppCompatActivity {
         service.load(currentFilter, new NotificationService.UiLoadCallback() {
             @Override
             public void onSuccess(List<AppNotification> items) {
-                if (!seedAttempted
-                        && currentFilter == NotificationService.Filter.ALL
-                        && (items == null || items.isEmpty())) {
-                    seedAttempted = true;
-                    seedDemoNotifications();
-                    return;
-                }
                 latestLoadedItems = items;
                 renderNotifications(items);
             }
@@ -147,26 +148,6 @@ public class NotificationsActivity extends AppCompatActivity {
             @Override
             public void onError(String message) {
                 Toast.makeText(NotificationsActivity.this, message, Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void seedDemoNotifications() {
-        createTestSilently("chat", "Nova poruka", "Marko ti je poslao poruku u cetu.");
-        createTestSilently("ranking", "Rang lista", "Zavrsena je nedeljna rang lista.");
-        createTestSilently("rewards", "Nagrada", "Dobila si 3 tokena za plasman.");
-        createTestSilently("other", "Sistemsko obavestenje", "Presla si u novu ligu.");
-        loadNotifications();
-    }
-
-    private void createTestSilently(String type, String title, String message) {
-        service.createTest(type, title, message, new NotificationService.UiActionCallback() {
-            @Override
-            public void onSuccess() {
-            }
-
-            @Override
-            public void onError(String error) {
             }
         });
     }
@@ -195,7 +176,6 @@ public class NotificationsActivity extends AppCompatActivity {
             TextView tvMessage = row.findViewById(R.id.tvNotMessage);
             TextView tvMeta = row.findViewById(R.id.tvNotMeta);
             Button btnRead = row.findViewById(R.id.btnMarkRead);
-            Button btnReact = row.findViewById(R.id.btnReact);
 
             tvType.setText(typeLabel(item.type));
             tvTitle.setText(item.title);
@@ -219,10 +199,7 @@ public class NotificationsActivity extends AppCompatActivity {
                 }
             }));
 
-            btnReact.setOnClickListener(v -> {
-                String reaction = "Reakcija: " + reactLabel(item);
-                Toast.makeText(NotificationsActivity.this, reaction, Toast.LENGTH_SHORT).show();
-            });
+            row.setOnClickListener(v -> openNotificationDestination(item));
 
             notificationsContainer.addView(row);
         }
@@ -243,10 +220,17 @@ public class NotificationsActivity extends AppCompatActivity {
         return "Ostalo";
     }
 
-    private String reactLabel(AppNotification item) {
-        if ("chat".equals(item.type)) return "otvori cet";
-        if ("ranking".equals(item.type)) return "otvori rang listu";
-        if ("rewards".equals(item.type)) return "otvori nagrade";
-        return "otvori detalje";
+    private void openNotificationDestination(AppNotification item) {
+        if (item == null) {
+            return;
+        }
+        android.content.Intent intent = NotificationIntentRouter.buildOpenIntent(
+                this,
+                item.type,
+                item.actionType,
+                item.actionPayload,
+                item.id
+        );
+        startActivity(intent);
     }
 }

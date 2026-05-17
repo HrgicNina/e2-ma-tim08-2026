@@ -20,6 +20,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.slagalica.domain.EconomyService;
+
 import com.example.slagalica.domain.MyNumberGameService;
 
 import org.json.JSONArray;
@@ -76,6 +78,13 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private boolean remoteFinishHandled = false;
     private String player1DisplayName = "Igrac 1";
     private String player2DisplayName = "Igrac 2";
+    private long myTokens = 0L;
+    private long myStars = 0L;
+    private long myLeague = 0L;
+    private Long opponentTokens = null;
+    private Long opponentStars = null;
+    private Long opponentLeague = null;
+    private final EconomyService economyService = new EconomyService();
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -163,6 +172,9 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         player2DisplayName = displayNameOrFallback(
                 getIntent().getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_NAME),
                 "Igrac 2");
+        myTokens = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_TOKENS, 0L);
+        myStars = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_STARS, 0L);
+        myLeague = getIntent().getLongExtra(MatchActivity.EXTRA_MATCH_MY_LEAGUE, 0L);
         sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -184,6 +196,8 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         etExpression = findViewById(R.id.etExpression);
         btnStop = findViewById(R.id.btnStop);
         bindMatchHeader();
+        setupMyProfileTap();
+        loadOpponentStatus();
         TextView btnDeleteChar = findViewById(R.id.btnDeleteChar);
 
         numberViews = new TextView[]{
@@ -1353,6 +1367,114 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
         tvHeaderLeftScore.setText(String.valueOf(player1Score));
         tvHeaderRightScore.setText(String.valueOf(player2Score));
+    }
+
+    private void loadOpponentStatus() {
+        String opponentName = myPlayerNumber == 1 ? player2DisplayName : player1DisplayName;
+        if (isLikelyGuestName(opponentName)) {
+            opponentTokens = null;
+            opponentStars = null;
+            opponentLeague = null;
+            return;
+        }
+        economyService.getEconomyByUsername(opponentName, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(java.util.Map<String, Long> values) {
+                opponentTokens = values.get("tokens");
+                opponentStars = values.get("stars");
+                opponentLeague = values.get("league");
+            }
+
+            @Override
+            public void onError(String message) {
+                opponentTokens = null;
+                opponentStars = null;
+                opponentLeague = null;
+            }
+        });
+    }
+
+    private void setupMyProfileTap() {
+        TextView myAvatar = myPlayerNumber == 1 ? tvHeaderLeftAvatar : tvHeaderRightAvatar;
+        TextView myName = myPlayerNumber == 1 ? tvHeaderLeftName : tvHeaderRightName;
+        TextView opponentAvatar = myPlayerNumber == 1 ? tvHeaderRightAvatar : tvHeaderLeftAvatar;
+        TextView opponentName = myPlayerNumber == 1 ? tvHeaderRightName : tvHeaderLeftName;
+
+        myAvatar.setOnClickListener(v -> showMyStatusDialog());
+        myName.setOnClickListener(v -> showMyStatusDialog());
+        opponentAvatar.setOnClickListener(v -> showOpponentStatusDialog());
+        opponentName.setOnClickListener(v -> showOpponentStatusDialog());
+    }
+
+    private void showMyStatusDialog() {
+        String myDisplay = myPlayerNumber == 1 ? player1DisplayName : player2DisplayName;
+        showStatusDialog(
+                "Moj status",
+                myDisplay,
+                myTokens,
+                myStars,
+                myLeague,
+                false
+        );
+    }
+
+    private void showOpponentStatusDialog() {
+        String opponentName = myPlayerNumber == 1 ? player2DisplayName : player1DisplayName;
+        showStatusDialog(
+                "Status protivnika",
+                opponentName,
+                opponentTokens,
+                opponentStars,
+                opponentLeague,
+                isLikelyGuestName(opponentName)
+        );
+    }
+
+    private void showStatusDialog(
+            String title,
+            String username,
+            Long tokens,
+            Long stars,
+            Long league,
+            boolean guest
+    ) {
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(statusMessage(username, tokens, stars, league, guest))
+                .setPositiveButton("Zatvori", null)
+                .create();
+        dialog.show();
+
+        TextView messageView = dialog.findViewById(android.R.id.message);
+        if (messageView != null) {
+            messageView.setTextSize(17f);
+            messageView.setLineSpacing(6f, 1.15f);
+        }
+    }
+
+    private boolean isLikelyGuestName(String name) {
+        if (name == null) {
+            return true;
+        }
+        String trimmed = name.trim();
+        return trimmed.isEmpty() || trimmed.toLowerCase(java.util.Locale.ROOT).startsWith("gost");
+    }
+
+    private String statusMessage(
+            String username,
+            Long tokens,
+            Long stars,
+            Long league,
+            boolean guest
+    ) {
+        String safeName = (username == null || username.trim().isEmpty()) ? "-" : username.trim();
+        if (guest) {
+            return "Igrac: " + safeName + "\n\nNeregistrovan igrac";
+        }
+        String t = tokens == null ? "-" : String.valueOf(tokens);
+        String s = stars == null ? "-" : String.valueOf(stars);
+        String l = league == null ? "-" : String.valueOf(league);
+        return "Igrac: " + safeName + "\n\nTokeni: " + t + "\nZvezde: " + s + "\nLiga: " + l;
     }
 
     private String displayNameOrFallback(String value, String fallback) {

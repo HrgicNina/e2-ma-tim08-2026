@@ -4,33 +4,51 @@ import android.Manifest;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.media.AudioManager;
+import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Bundle;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.LinearLayout;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.content.ContextCompat;
 
-import com.example.slagalica.data.FirebaseAuthRepository;
-import com.example.slagalica.data.NotificationsRepository;
-import com.example.slagalica.data.PlayerEconomyRepository;
 import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.BackgroundNotificationScheduler;
+import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.NotificationChannelHelper;
+import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.AppNotification;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.util.List;
 import java.util.Map;
 
 public class HomeActivity extends AppCompatActivity {
+    public static final String EXTRA_OPEN_REWARD_NOTIFICATION_ID = "open_reward_notification_id";
+    private static final int REQUEST_CODE_NOTIFICATIONS = 1201;
+    private SessionManager sessionManager;
+    private AuthService authService;
+    private EconomyService economyService;
+    private TextView tvHomeTokens;
+    private TextView tvHomeStars;
+    private TextView tvHomeLeague;
+    private ListenerRegistration economyListener;
+    private final LeaderboardService leaderboardService = new LeaderboardService();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -38,19 +56,21 @@ public class HomeActivity extends AppCompatActivity {
         setContentView(R.layout.activity_home);
         NotificationChannelHelper.createChannels(this);
 
-        AuthService authService = new AuthService(new FirebaseAuthRepository());
-        SessionManager sessionManager = new SessionManager(this);
-        PlayerEconomyRepository economyRepository = new PlayerEconomyRepository();
-        NotificationsRepository notificationsRepository = new NotificationsRepository();
+        authService = new AuthService();
+        sessionManager = new SessionManager(this);
+        economyService = new EconomyService();
+        NotificationService notificationService = new NotificationService();
+        String rewardNotificationIdFromIntent = getIntent().getStringExtra(EXTRA_OPEN_REWARD_NOTIFICATION_ID);
 
         TextView btnProfile = findViewById(R.id.btnOpenProfile);
         TextView btnOpenChat = findViewById(R.id.btnOpenChat);
+        TextView btnOpenRankings = findViewById(R.id.btnOpenRankings);
         TextView btnSettings = findViewById(R.id.btnOpenSettings);
         TextView btnNotifications = findViewById(R.id.btnOpenNotifications);
         TextView tvHomeUsername = findViewById(R.id.tvHomeUsername);
-        TextView tvHomeTokens = findViewById(R.id.tvHomeTokens);
-        TextView tvHomeStars = findViewById(R.id.tvHomeStars);
-        TextView tvHomeLeague = findViewById(R.id.tvHomeLeague);
+        tvHomeTokens = findViewById(R.id.tvHomeTokens);
+        tvHomeStars = findViewById(R.id.tvHomeStars);
+        tvHomeLeague = findViewById(R.id.tvHomeLeague);
         View homeStatsRow = findViewById(R.id.homeStatsRow);
         Button btnStartGame = findViewById(R.id.btnStartGame);
         View friend1 = findViewById(R.id.friendItem1);
@@ -61,6 +81,7 @@ public class HomeActivity extends AppCompatActivity {
 
         btnNotifications.setText("\uD83D\uDD14");
         btnOpenChat.setText("\uD83D\uDCAC");
+        btnOpenRankings.setText("\uD83C\uDFC6");
         btnSettings.setText("\u2699\uFE0F");
         authService.getCurrentUsername(username -> {
             if (username != null && !username.trim().isEmpty()) {
@@ -83,22 +104,26 @@ public class HomeActivity extends AppCompatActivity {
 
             btnNotifications.setVisibility(View.GONE);
             btnOpenChat.setVisibility(View.GONE);
+            btnOpenRankings.setVisibility(View.GONE);
             btnSettings.setVisibility(View.GONE);
             btnProfile.setVisibility(View.GONE);
             tvHomeUsername.setVisibility(View.GONE);
             btnGuestRegister.setVisibility(View.VISIBLE);
         } else {
+            requestPostNotificationsIfNeeded();
+            BackgroundNotificationScheduler.ensureScheduled(this);
             homeStatsRow.setVisibility(View.VISIBLE);
             tvHomeTokens.setText(R.string.home_tokens_value);
             tvHomeStars.setText(R.string.home_stars_value);
             tvHomeLeague.setText(R.string.home_league_value);
             btnGuestRegister.setVisibility(View.GONE);
-            grantDailyTokensOnStartup(economyRepository, tvHomeTokens, tvHomeStars, tvHomeLeague);
-            showUnreadSystemNotificationsOnStartup(notificationsRepository);
+            grantDailyTokensOnStartup(economyService, tvHomeTokens, tvHomeStars, tvHomeLeague);
+            bootstrapNotificationsAndRewards(notificationService, rewardNotificationIdFromIntent);
         }
 
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
+        btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnSettings.setOnClickListener(v -> showSettingsMenu(btnSettings));
 
@@ -120,21 +145,150 @@ public class HomeActivity extends AppCompatActivity {
 
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshEconomyOnHomeIfRegistered();
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        startEconomyRealtimeListenerIfRegistered();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        stopEconomyRealtimeListener();
+    }
+
+    private void showRewardDialogIfNeeded(NotificationService notificationService) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+        notificationService.load(NotificationService.Filter.UNREAD, new NotificationService.UiLoadCallback() {
+            @Override
+            public void onSuccess(List<AppNotification> items) {
+                if (items == null || items.isEmpty()) {
+                    return;
+                }
+                for (AppNotification item : items) {
+                    if (!"rewards".equalsIgnoreCase(item.type) || item.read) {
+                        continue;
+                    }
+                    runOnUiThread(() -> openRewardDialog(item, notificationService, uid));
+                    return;
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void showSpecificRewardDialogIfPresent(NotificationService notificationService, String notificationId) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+        notificationService.load(NotificationService.Filter.UNREAD, new NotificationService.UiLoadCallback() {
+            @Override
+            public void onSuccess(List<AppNotification> items) {
+                if (items == null || items.isEmpty()) {
+                    return;
+                }
+                for (AppNotification item : items) {
+                    if (!notificationId.equals(item.id) || !"rewards".equalsIgnoreCase(item.type)) {
+                        continue;
+                    }
+                    runOnUiThread(() -> openRewardDialog(item, notificationService, uid));
+                    return;
+                }
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void openRewardDialog(AppNotification item, NotificationService notificationService, String uid) {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(24), dp(18), dp(24), dp(10));
+        box.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        TextView trophy = new TextView(this);
+        trophy.setText("\uD83C\uDFC6");
+        trophy.setTextSize(54f);
+        trophy.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        TextView message = new TextView(this);
+        message.setText(item.message);
+        message.setTextSize(16f);
+        message.setPadding(0, dp(10), 0, dp(2));
+        message.setGravity(Gravity.CENTER);
+
+        box.addView(trophy);
+        box.addView(message);
+
+        PropertyValuesHolder sx = PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.2f, 1f);
+        PropertyValuesHolder sy = PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.2f, 1f);
+        ObjectAnimator pulse = ObjectAnimator.ofPropertyValuesHolder(trophy, sx, sy);
+        pulse.setDuration(800);
+        pulse.setRepeatCount(3);
+        pulse.start();
+
+        ToneGenerator tg = new ToneGenerator(AudioManager.STREAM_NOTIFICATION, 85);
+        tg.startTone(ToneGenerator.TONE_PROP_ACK, 220);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setTitle("Nagrada")
+                .setView(box)
+                .setPositiveButton("Preuzmi", (d, w) -> {
+                    notificationService.markAsRead(item.id, new NotificationService.UiActionCallback() {
+                        @Override
+                        public void onSuccess() {
+                        }
+
+                        @Override
+                        public void onError(String message) {
+                        }
+                    });
+                    tg.release();
+                })
+                .create();
+        dialog.setOnDismissListener(d -> {
+            try {
+                tg.release();
+            } catch (Exception ignored) {
+            }
+        });
+        dialog.show();
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
+    }
+
     private void grantDailyTokensOnStartup(
-            PlayerEconomyRepository economyRepository,
+            EconomyService economyService,
             TextView tvHomeTokens,
             TextView tvHomeStars,
             TextView tvHomeLeague
     ) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
             return;
         }
 
-        economyRepository.grantDailyTokensIfNeeded(user.getUid(), new PlayerEconomyRepository.EconomyCallback() {
+        economyService.grantDailyTokensIfNeeded(uid, new EconomyService.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> values) {
-                economyRepository.getEconomy(user.getUid(), new PlayerEconomyRepository.EconomyCallback() {
+                economyService.getEconomy(uid, new EconomyService.EconomyCallback() {
                     @Override
                     public void onSuccess(Map<String, Long> refreshed) {
                         Long tokens = refreshed.get("tokens");
@@ -161,6 +315,68 @@ public class HomeActivity extends AppCompatActivity {
         });
     }
 
+    private void refreshEconomyOnHomeIfRegistered() {
+        if (sessionManager == null || sessionManager.isGuestMode()) {
+            return;
+        }
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+        economyService.getEconomy(uid, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> refreshed) {
+                Long tokens = refreshed.get("tokens");
+                Long stars = refreshed.get("stars");
+                Long league = refreshed.get("league");
+                runOnUiThread(() -> {
+                    tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
+                    tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
+                    tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void startEconomyRealtimeListenerIfRegistered() {
+        if (sessionManager == null || sessionManager.isGuestMode()) {
+            return;
+        }
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+        stopEconomyRealtimeListener();
+        economyListener = economyService.observeEconomy(uid, new EconomyService.EconomyObserver() {
+            @Override
+            public void onChanged(Map<String, Long> values) {
+                Long tokens = values.get("tokens");
+                Long stars = values.get("stars");
+                Long league = values.get("league");
+                runOnUiThread(() -> {
+                    tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
+                    tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
+                    tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void stopEconomyRealtimeListener() {
+        if (economyListener != null) {
+            economyListener.remove();
+            economyListener = null;
+        }
+    }
+
     private void sendInviteToHardcodedFriend(String username) {
         Intent intent = new Intent(this, MatchActivity.class);
         intent.putExtra("auto_invite_target", username);
@@ -181,13 +397,13 @@ public class HomeActivity extends AppCompatActivity {
         popupMenu.show();
     }
 
-    private void showUnreadSystemNotificationsOnStartup(NotificationsRepository notificationsRepository) {
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
+    private void showUnreadSystemNotificationsOnStartup(NotificationService notificationService) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
             return;
         }
 
-        notificationsRepository.loadForUser(user.getUid(), false, new NotificationsRepository.LoadCallback() {
+        notificationService.load(NotificationService.Filter.UNREAD, new NotificationService.UiLoadCallback() {
             @Override
             public void onSuccess(List<AppNotification> items) {
                 runOnUiThread(() -> {
@@ -196,7 +412,7 @@ public class HomeActivity extends AppCompatActivity {
                             continue;
                         }
                         showLocalSystemNotification(item);
-                        notificationsRepository.markAsLocalShown(user.getUid(), item.id, new NotificationsRepository.ActionCallback() {
+                        notificationService.markAsLocalShown(item.id, new NotificationService.UiActionCallback() {
                             @Override
                             public void onSuccess() {
                             }
@@ -230,8 +446,13 @@ public class HomeActivity extends AppCompatActivity {
             channelId = NotificationChannelHelper.CHANNEL_REWARDS;
         }
 
-        Intent openIntent = new Intent(this, NotificationsActivity.class);
-        openIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        Intent openIntent = NotificationIntentRouter.buildOpenIntent(
+                this,
+                item.type,
+                item.actionType,
+                item.actionPayload,
+                item.id
+        );
         PendingIntent pendingIntent = PendingIntent.getActivity(
                 this,
                 ("notif_open_" + item.id).hashCode(),
@@ -250,5 +471,42 @@ public class HomeActivity extends AppCompatActivity {
 
         NotificationManagerCompat.from(this)
                 .notify(("local_" + item.id).hashCode(), builder.build());
+    }
+
+    private void requestPostNotificationsIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+        ActivityCompat.requestPermissions(
+                this,
+                new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                REQUEST_CODE_NOTIFICATIONS
+        );
+    }
+
+    private void bootstrapNotificationsAndRewards(NotificationService notificationService, String rewardNotificationIdFromIntent) {
+        leaderboardService.processCycleRolloverAndRewards(new LeaderboardService.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> openRewardAndSystemNotifications(notificationService, rewardNotificationIdFromIntent));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> openRewardAndSystemNotifications(notificationService, rewardNotificationIdFromIntent));
+            }
+        });
+    }
+
+    private void openRewardAndSystemNotifications(NotificationService notificationService, String rewardNotificationIdFromIntent) {
+        if (rewardNotificationIdFromIntent != null && !rewardNotificationIdFromIntent.trim().isEmpty()) {
+            showSpecificRewardDialogIfPresent(notificationService, rewardNotificationIdFromIntent);
+        } else {
+            showRewardDialogIfNeeded(notificationService);
+        }
+        showUnreadSystemNotificationsOnStartup(notificationService);
     }
 }

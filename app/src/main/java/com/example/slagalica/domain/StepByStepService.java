@@ -14,8 +14,16 @@ public class StepByStepService {
         void onLoaded(StepByStepPuzzle puzzle);
     }
 
+    public interface PuzzlesCallback {
+        void onLoaded(List<StepByStepPuzzle> puzzles);
+    }
+
     private final StepByStepRepository repository;
     private final Random random;
+
+    public StepByStepService() {
+        this(new StepByStepRepository());
+    }
 
     public StepByStepService(StepByStepRepository repository) {
         this.repository = repository;
@@ -31,8 +39,8 @@ public class StepByStepService {
         });
     }
 
-    public void getPuzzles(StepByStepRepository.PuzzlesCallback callback) {
-        repository.getPuzzles(callback);
+    public void getPuzzles(PuzzlesCallback callback) {
+        repository.getPuzzles(callback::onLoaded);
     }
 
     public boolean isCorrectAnswer(String input, String correctAnswer) {

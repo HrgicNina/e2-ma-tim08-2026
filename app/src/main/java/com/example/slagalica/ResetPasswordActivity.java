@@ -7,7 +7,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.ResultCallback;
 
@@ -23,7 +22,7 @@ public class ResetPasswordActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_reset_password);
 
-        authService = new AuthService(new FirebaseAuthRepository());
+        authService = new AuthService();
 
         etOldPassword = findViewById(R.id.etOldPassword);
         etNewPassword = findViewById(R.id.etNewPassword);

@@ -33,6 +33,16 @@
     <string name="chat_title_region">Cet regiona: %1$s</string>
     <string name="chat_hint">Unesi poruku</string>
     <string name="chat_send">Posalji</string>
+    <string name="rankings_title">Rang lista</string>
+    <string name="rankings_weekly">Nedeljna</string>
+    <string name="rankings_monthly">Mesecna</string>
+    <string name="rankings_col_player">Korisnik</string>
+    <string name="rankings_col_league">Liga</string>
+    <string name="rankings_col_icon">Ikonica</string>
+    <string name="rankings_col_stars">Zvezde</string>
+    <string name="rankings_cycle_range">Ciklus: %1$s</string>
+    <string name="rankings_refreshed_at">Osvezeno: %1$s</string>
+    <string name="rankings_empty">Nema igraca u tekucoj rang listi.</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>
@@ -161,9 +171,9 @@
     <string name="profile_title">Profil</string>
     <string name="profile_username_placeholder">Korisnik</string>
     <string name="profile_change_avatar">Izmeni avatar</string>
-    <string name="profile_league_value">Liga: Zlato I</string>
-    <string name="profile_tokens_value">Tokeni\n18</string>
-    <string name="profile_stars_value">Zvezde\n246</string>
+    <string name="profile_league_value">Liga: -</string>
+    <string name="profile_tokens_value">Tokeni\n-</string>
+    <string name="profile_stars_value">Zvezde\n-</string>
     <string name="profile_region_value">Region\nBeograd</string>
     <string name="profile_region_placeholder">Region\n-</string>
     <string name="profile_region_label">Region\n%1$s</string>
@@ -198,9 +208,9 @@
     <string name="profile_mastermind_6">Pokusaj 6: 61%</string>
     <string name="profile_matches_total">Ukupno odigranih partija: 38</string>
     <string name="profile_win_percent">Pobede: 63% | Porazi: 37%</string>
-    <string name="home_tokens_value">Tokeni\n18</string>
-    <string name="home_stars_value">Zvezde\n246</string>
-    <string name="home_league_value">Liga\nZlato I</string>
+    <string name="home_tokens_value">Tokeni\n-</string>
+    <string name="home_stars_value">Zvezde\n-</string>
+    <string name="home_league_value">Liga\n-</string>
     <string name="home_tokens_guest">Tokeni\n-</string>
     <string name="home_stars_guest">Zvezde\n-</string>
     <string name="home_league_guest">Liga\nGost</string>

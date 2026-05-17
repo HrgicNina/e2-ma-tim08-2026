@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.domain.AuthResultCallback;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.SessionManager;
@@ -29,7 +28,7 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        authService = new AuthService(new FirebaseAuthRepository());
+        authService = new AuthService();
         sessionManager = new SessionManager(this);
 
         etLoginIdentity = findViewById(R.id.etLoginIdentity);

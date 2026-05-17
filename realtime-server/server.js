@@ -9,6 +9,7 @@ const socketsMeta = new Map();
 const queue = [];
 const invites = new Map();
 const matches = new Map();
+const INVITE_TIMEOUT_MS = 10_000;
 
 function send(ws, type, payload = {}) {
   if (ws.readyState === ws.OPEN) {
@@ -218,7 +219,30 @@ function handleInviteSend(ws, payload) {
   if (targetMeta.roomId) return error(ws, "Prijatelj je vec u partiji.");
 
   const inviteId = crypto.randomUUID();
-  invites.set(inviteId, { fromUid: meta.uid, toUid: targetMeta.uid });
+  const timeoutHandle = setTimeout(() => {
+    const activeInvite = invites.get(inviteId);
+    if (!activeInvite) return;
+    invites.delete(inviteId);
+
+    const fromWs = clientsByUid.get(activeInvite.fromUid);
+    if (fromWs) {
+      send(fromWs, "invite.expired", {
+        inviteId,
+      });
+    }
+    const toWs = clientsByUid.get(activeInvite.toUid);
+    if (toWs) {
+      send(toWs, "invite.expired", {
+        inviteId,
+      });
+    }
+  }, INVITE_TIMEOUT_MS);
+
+  invites.set(inviteId, { fromUid: meta.uid, toUid: targetMeta.uid, timeoutHandle });
+  send(ws, "invite.sent", {
+    inviteId,
+    expiresInSeconds: INVITE_TIMEOUT_MS / 1000,
+  });
   send(targetWs, "invite.received", {
     inviteId,
     fromUid: meta.uid,
@@ -235,6 +259,9 @@ function handleInviteRespond(ws, payload) {
   const invite = invites.get(inviteId);
   if (!invite) return error(ws, "Poziv vise ne postoji.");
   invites.delete(inviteId);
+  if (invite.timeoutHandle) {
+    clearTimeout(invite.timeoutHandle);
+  }
 
   if (invite.toUid !== meta.uid) return error(ws, "Nije vas poziv.");
 
@@ -249,6 +276,30 @@ function handleInviteRespond(ws, payload) {
     return;
   }
   startMatch(invite.fromUid, invite.toUid, true);
+}
+
+function handleInviteCancel(ws, payload) {
+  const meta = socketsMeta.get(ws);
+  if (!meta) return error(ws, "Niste autentikovani.");
+  const inviteId = payload.inviteId;
+  const invite = invites.get(inviteId);
+  if (!invite) return error(ws, "Poziv vise ne postoji.");
+  if (invite.fromUid !== meta.uid) return error(ws, "Mozete otkazati samo svoj poziv.");
+
+  invites.delete(inviteId);
+  if (invite.timeoutHandle) {
+    clearTimeout(invite.timeoutHandle);
+  }
+
+  const toWs = clientsByUid.get(invite.toUid);
+  if (toWs) {
+    send(toWs, "invite.cancelled", {
+      inviteId,
+      byUid: meta.uid,
+      byUsername: meta.username || meta.uid,
+    });
+  }
+  info(ws, "Poziv je otkazan.");
 }
 
 function handleSubmitScore(ws, payload) {
@@ -337,6 +388,8 @@ wss.on("connection", (ws) => {
         return handleInviteSend(ws, payload);
       case "invite.respond":
         return handleInviteRespond(ws, payload);
+      case "invite.cancel":
+        return handleInviteCancel(ws, payload);
       case "match.submit_score":
         return handleSubmitScore(ws, payload);
       case "match.forfeit":
@@ -354,6 +407,25 @@ wss.on("connection", (ws) => {
 
     removeFromQueue(meta.uid);
     clientsByUid.delete(meta.uid);
+
+    for (const [inviteId, invite] of invites.entries()) {
+      if (invite.fromUid === meta.uid || invite.toUid === meta.uid) {
+        if (invite.timeoutHandle) {
+          clearTimeout(invite.timeoutHandle);
+        }
+        invites.delete(inviteId);
+        if (invite.fromUid === meta.uid) {
+          const toWs = clientsByUid.get(invite.toUid);
+          if (toWs) {
+            send(toWs, "invite.cancelled", {
+              inviteId,
+              byUid: meta.uid,
+              byUsername: meta.username || meta.uid,
+            });
+          }
+        }
+      }
+    }
 
     if (meta.roomId) {
       const room = matches.get(meta.roomId);

@@ -1,6 +1,8 @@
 package com.example.slagalica;
 
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.TextUtils;
 import android.view.KeyEvent;
 import android.view.inputmethod.EditorInfo;
@@ -15,22 +17,14 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 
-import com.google.firebase.Timestamp;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentSnapshot;
-import com.google.firebase.firestore.FirebaseFirestore;
+import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.ChatService;
 import com.google.firebase.firestore.ListenerRegistration;
-import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 public class ChatActivity extends AppCompatActivity {
 
@@ -40,7 +34,8 @@ public class ChatActivity extends AppCompatActivity {
     private EditText etMessage;
     private Button btnSend;
 
-    private FirebaseFirestore db;
+    private ChatService chatService;
+    private AuthService authService;
     private ListenerRegistration messagesListener;
     private String myUid = "";
     private String myUsername = "";
@@ -48,26 +43,37 @@ public class ChatActivity extends AppCompatActivity {
     private String roomId = "";
     private boolean sendingMessage = false;
     private final SimpleDateFormat timeFormat = new SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.getDefault());
+    private final Handler presenceHandler = new Handler(Looper.getMainLooper());
+    private final Runnable presenceHeartbeatRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!TextUtils.isEmpty(myUid)) {
+                setChatPresence(true);
+                presenceHandler.postDelayed(this, 30_000L);
+            }
+        }
+    };
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        db = FirebaseFirestore.getInstance();
+        authService = new AuthService();
+        chatService = new ChatService();
         tvChatTitle = findViewById(R.id.tvChatTitle);
         svMessages = findViewById(R.id.svChatMessages);
         llMessages = findViewById(R.id.llChatMessages);
         etMessage = findViewById(R.id.etChatMessage);
         btnSend = findViewById(R.id.btnChatSend);
 
-        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-        if (user == null) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
             Toast.makeText(this, "Cet je dostupan samo registrovanim igracima.", Toast.LENGTH_SHORT).show();
             finish();
             return;
         }
-        myUid = user.getUid();
+        myUid = uid;
         btnSend.setEnabled(false);
 
         btnSend.setOnClickListener(v -> sendMessage());
@@ -100,11 +106,14 @@ public class ChatActivity extends AppCompatActivity {
         super.onStart();
         if (!TextUtils.isEmpty(myUid)) {
             setChatPresence(true);
+            presenceHandler.removeCallbacks(presenceHeartbeatRunnable);
+            presenceHandler.postDelayed(presenceHeartbeatRunnable, 30_000L);
         }
     }
 
     @Override
     protected void onStop() {
+        presenceHandler.removeCallbacks(presenceHeartbeatRunnable);
         if (!TextUtils.isEmpty(myUid)) {
             setChatPresence(false);
         }
@@ -116,27 +125,23 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void loadProfileAndStart() {
-        db.collection("users")
-                .document(myUid)
-                .get()
-                .addOnSuccessListener(doc -> {
-                    myUsername = value(doc.getString("username"));
-                    myRegion = value(doc.getString("region"));
-                    if (TextUtils.isEmpty(myUsername)) {
-                        myUsername = "Igrac";
-                    }
-                    if (TextUtils.isEmpty(myRegion)) {
-                        myRegion = "Srbija";
-                    }
-                    roomId = normalizeRegionRoom(myRegion);
-                    tvChatTitle.setText(getString(R.string.chat_title_region, myRegion));
-                    btnSend.setEnabled(true);
-                    attachRealtimeMessages();
-                })
-                .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Ne mogu da ucitam korisnicke podatke za cet.", Toast.LENGTH_SHORT).show();
-                    finish();
-                });
+        chatService.loadProfileAndResolveRoom(myUid, new ChatService.InitCallback() {
+            @Override
+            public void onSuccess(ChatService.ChatInitData data) {
+                myUsername = data.username;
+                myRegion = data.region;
+                roomId = data.roomId;
+                tvChatTitle.setText(getString(R.string.chat_title_region, myRegion));
+                btnSend.setEnabled(true);
+                attachRealtimeMessages();
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(ChatActivity.this, message, Toast.LENGTH_SHORT).show();
+                finish();
+            }
+        });
     }
 
     private void attachRealtimeMessages() {
@@ -144,47 +149,28 @@ public class ChatActivity extends AppCompatActivity {
             messagesListener.remove();
             messagesListener = null;
         }
-        messagesListener = db.collection("regionChats")
-                .document(roomId)
-                .collection("messages")
-                .orderBy("createdAt", Query.Direction.ASCENDING)
-                .limit(300)
-                .addSnapshotListener((snapshot, error) -> {
-                    if (error != null) {
-                        Toast.makeText(ChatActivity.this, "Greska pri osvezavanju poruka.", Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    if (snapshot == null) {
-                        return;
-                    }
-                    List<ChatMessage> items = new ArrayList<>();
-                    for (DocumentSnapshot doc : snapshot.getDocuments()) {
-                        ChatMessage message = new ChatMessage();
-                        message.senderUid = value(doc.getString("senderUid"));
-                        message.senderName = value(doc.getString("senderName"));
-                        message.text = value(doc.getString("text"));
-                        Timestamp ts = doc.getTimestamp("createdAt");
-                        if (ts != null) {
-                            message.createdAtMillis = ts.toDate().getTime();
-                        } else {
-                            Long fallback = doc.getLong("createdAtMillis");
-                            message.createdAtMillis = fallback == null ? 0L : fallback;
-                        }
-                        items.add(message);
-                    }
-                    renderMessages(items);
-                });
+        messagesListener = chatService.listenMessages(roomId, new ChatService.MessagesCallback() {
+            @Override
+            public void onSuccess(List<ChatService.ChatMessage> messages) {
+                renderMessages(messages);
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(ChatActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
-    private void renderMessages(List<ChatMessage> messages) {
+    private void renderMessages(List<ChatService.ChatMessage> messages) {
         llMessages.removeAllViews();
-        for (ChatMessage message : messages) {
+        for (ChatService.ChatMessage message : messages) {
             llMessages.addView(buildMessageView(message));
         }
         svMessages.post(() -> svMessages.fullScroll(ScrollView.FOCUS_DOWN));
     }
 
-    private LinearLayout buildMessageView(ChatMessage message) {
+    private LinearLayout buildMessageView(ChatService.ChatMessage message) {
         boolean mine = myUid.equals(message.senderUid);
 
         LinearLayout row = new LinearLayout(this);
@@ -244,88 +230,32 @@ public class ChatActivity extends AppCompatActivity {
             return;
         }
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("senderUid", myUid);
-        payload.put("senderName", myUsername);
-        payload.put("text", text);
-        payload.put("createdAt", Timestamp.now());
-        payload.put("createdAtMillis", System.currentTimeMillis());
-
         sendingMessage = true;
         btnSend.setEnabled(false);
-        db.collection("regionChats")
-                .document(roomId)
-                .collection("messages")
-                .add(payload)
-                .addOnSuccessListener(doc -> {
+        chatService.sendMessage(roomId, myUid, myUsername, text, new ChatService.ActionCallback() {
+            @Override
+            public void onSuccess() {
                     etMessage.setText("");
                     sendingMessage = false;
                     btnSend.setEnabled(true);
                     notifyRegionMembersIfNeeded(text);
-                })
-                .addOnFailureListener(e -> {
-                    sendingMessage = false;
-                    btnSend.setEnabled(true);
-                    Toast.makeText(ChatActivity.this, "Poruka nije poslata.", Toast.LENGTH_SHORT).show();
-                });
+            }
+
+            @Override
+            public void onError(String message) {
+                sendingMessage = false;
+                btnSend.setEnabled(true);
+                Toast.makeText(ChatActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void notifyRegionMembersIfNeeded(String messageText) {
-        if (TextUtils.isEmpty(myRegion)) {
-            return;
-        }
-        db.collection("users")
-                .whereEqualTo("region", myRegion)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    if (snapshot == null || snapshot.isEmpty()) {
-                        return;
-                    }
-                    WriteBatch batch = db.batch();
-                    int count = 0;
-                    for (DocumentSnapshot userDoc : snapshot.getDocuments()) {
-                        String targetUid = userDoc.getId();
-                        if (TextUtils.isEmpty(targetUid) || myUid.equals(targetUid)) {
-                            continue;
-                        }
-                        Boolean chatActive = userDoc.getBoolean("chatActive");
-                        if (chatActive != null && chatActive) {
-                            continue;
-                        }
-                        Map<String, Object> payload = new HashMap<>();
-                        payload.put("type", "chat");
-                        payload.put("title", "Nova poruka u cetu");
-                        payload.put("message", myUsername + ": " + trimPreview(messageText));
-                        payload.put("read", false);
-                        payload.put("localShown", false);
-                        payload.put("createdAt", Timestamp.now());
-                        payload.put("actionType", "open_chat");
-                        payload.put("actionPayload", roomId);
-                        batch.set(
-                                db.collection("users")
-                                        .document(targetUid)
-                                        .collection("notifications")
-                                        .document(),
-                                payload
-                        );
-                        count++;
-                    }
-                    if (count > 0) {
-                        batch.commit();
-                    }
-                });
+        chatService.notifyRegionMembersIfNeeded(myUid, myUsername, myRegion, roomId, messageText);
     }
 
     private void setChatPresence(boolean active) {
-        if (TextUtils.isEmpty(myUid)) {
-            return;
-        }
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("chatActive", active);
-        payload.put("chatLastSeenAt", Timestamp.now());
-        db.collection("users")
-                .document(myUid)
-                .update(payload);
+        chatService.setChatPresence(myUid, active);
     }
 
     private int dp(int value) {
@@ -339,34 +269,7 @@ public class ChatActivity extends AppCompatActivity {
         return timeFormat.format(new Date(millis));
     }
 
-    private String normalizeRegionRoom(String region) {
-        String normalized = value(region).trim().toLowerCase(Locale.ROOT);
-        normalized = normalized.replaceAll("[^a-z0-9]+", "_");
-        if (normalized.isEmpty()) {
-            return "srbija";
-        }
-        return normalized;
-    }
-
-    private String trimPreview(String text) {
-        if (text == null) {
-            return "";
-        }
-        String trimmed = text.trim();
-        if (trimmed.length() <= 90) {
-            return trimmed;
-        }
-        return trimmed.substring(0, 90) + "...";
-    }
-
     private String value(String text) {
         return text == null ? "" : text;
-    }
-
-    private static class ChatMessage {
-        String senderUid;
-        String senderName;
-        String text;
-        long createdAtMillis;
     }
 }

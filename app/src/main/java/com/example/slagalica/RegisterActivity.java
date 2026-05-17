@@ -11,7 +11,6 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.ResultCallback;
 import com.example.slagalica.model.RegistrationData;
@@ -30,7 +29,7 @@ public class RegisterActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_register);
 
-        authService = new AuthService(new FirebaseAuthRepository());
+        authService = new AuthService();
 
         etEmail = findViewById(R.id.etRegEmail);
         etUsername = findViewById(R.id.etRegUsername);

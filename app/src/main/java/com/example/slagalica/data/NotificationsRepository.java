@@ -5,6 +5,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -73,23 +74,26 @@ public class NotificationsRepository {
                 .addOnFailureListener(e -> callback.onError("Ne mogu da oznacim notifikaciju."));
     }
 
-    public void createTestNotification(String uid, String type, String title, String message, ActionCallback callback) {
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("type", type);
-        payload.put("title", title);
-        payload.put("message", message);
-        payload.put("read", false);
-        payload.put("localShown", false);
-        payload.put("createdAt", Timestamp.now());
-        payload.put("actionType", "open");
-        payload.put("actionPayload", type);
-
+    public void deleteHardcodedSeedNotifications(String uid, ActionCallback callback) {
         db.collection("users")
                 .document(uid)
                 .collection("notifications")
-                .add(payload)
-                .addOnSuccessListener(doc -> callback.onSuccess())
-                .addOnFailureListener(e -> callback.onError("Ne mogu da napravim test notifikaciju."));
+                .whereEqualTo("actionType", "open")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot == null || snapshot.isEmpty()) {
+                        callback.onSuccess();
+                        return;
+                    }
+                    WriteBatch batch = db.batch();
+                    for (QueryDocumentSnapshot doc : snapshot) {
+                        batch.delete(doc.getReference());
+                    }
+                    batch.commit()
+                            .addOnSuccessListener(unused -> callback.onSuccess())
+                            .addOnFailureListener(e -> callback.onError("Ne mogu da obrisem test notifikacije."));
+                })
+                .addOnFailureListener(e -> callback.onError("Ne mogu da pronadjem test notifikacije."));
     }
 
     public void createOfflineInviteNotificationForUsername(

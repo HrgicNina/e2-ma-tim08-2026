@@ -9,7 +9,11 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 
 public class FirebaseAuthRepository {
@@ -107,6 +111,13 @@ public class FirebaseAuthRepository {
                                 userDoc.put("tokens", 5);
                                 userDoc.put("stars", 0);
                                 userDoc.put("league", 0);
+                                userDoc.put("lastDailyTokenGrantAt", System.currentTimeMillis());
+                                userDoc.put("weeklyCycleId", currentWeeklyCycleId());
+                                userDoc.put("monthlyCycleId", currentMonthlyCycleId());
+                                userDoc.put("weeklyCycleStars", 0);
+                                userDoc.put("monthlyCycleStars", 0);
+                                userDoc.put("weeklyCycleMatches", 0);
+                                userDoc.put("monthlyCycleMatches", 0);
 
                                 db.collection("users")
                                         .document(user.getUid())
@@ -152,6 +163,11 @@ public class FirebaseAuthRepository {
     public String getCurrentUserEmail() {
         FirebaseUser user = auth.getCurrentUser();
         return user != null ? user.getEmail() : null;
+    }
+
+    public String getCurrentUserId() {
+        FirebaseUser user = auth.getCurrentUser();
+        return user != null ? user.getUid() : null;
     }
 
     public void getCurrentUsername(UsernameCallback callback) {
@@ -235,5 +251,26 @@ public class FirebaseAuthRepository {
                 callback.onError("Neuspesno slanje verifikacionog emaila.");
             }
         });
+    }
+
+    private String currentWeeklyCycleId() {
+        Calendar start = Calendar.getInstance();
+        start.setFirstDayOfWeek(Calendar.MONDAY);
+        start.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        start.set(Calendar.MILLISECOND, 0);
+        return "W_" + new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
+    }
+
+    private String currentMonthlyCycleId() {
+        Calendar start = Calendar.getInstance();
+        start.set(Calendar.DAY_OF_MONTH, 1);
+        start.set(Calendar.HOUR_OF_DAY, 0);
+        start.set(Calendar.MINUTE, 0);
+        start.set(Calendar.SECOND, 0);
+        start.set(Calendar.MILLISECOND, 0);
+        return "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
     }
 }
