@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:allowBackup="true"
@@ -33,6 +34,9 @@
             android:exported="false" />
         <activity
             android:name=".ProfileActivity"
+            android:exported="false" />
+        <activity
+            android:name=".RankingsActivity"
             android:exported="false" />
         <activity
             android:name=".NotificationsActivity"
@@ -69,6 +73,7 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
     </application>
 
 </manifest>

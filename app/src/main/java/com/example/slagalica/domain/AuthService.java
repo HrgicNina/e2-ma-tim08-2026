@@ -10,6 +10,10 @@ public class AuthService {
 
     private final FirebaseAuthRepository repository;
 
+    public AuthService() {
+        this(new FirebaseAuthRepository());
+    }
+
     public AuthService(FirebaseAuthRepository repository) {
         this.repository = repository;
     }
@@ -82,6 +86,10 @@ public class AuthService {
 
     public String getCurrentUserEmail() {
         return repository.getCurrentUserEmail();
+    }
+
+    public String getCurrentUserId() {
+        return repository.getCurrentUserId();
     }
 
     public void getCurrentUsername(FirebaseAuthRepository.UsernameCallback callback) {

@@ -5,11 +5,12 @@ import android.os.Bundle;
 import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.slagalica.data.FirebaseAuthRepository;
 import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.SessionManager;
 
 public class ProfileActivity extends AppCompatActivity {
@@ -23,13 +24,16 @@ public class ProfileActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
-        authService = new AuthService(new FirebaseAuthRepository());
+        authService = new AuthService();
         sessionManager = new SessionManager(this);
 
         tvAvatar = findViewById(R.id.tvProfileAvatar);
         TextView tvUsername = findViewById(R.id.tvProfileUsername);
         TextView tvEmail = findViewById(R.id.tvProfileEmail);
         TextView tvRegion = findViewById(R.id.tvProfileRegion);
+        TextView tvLeague = findViewById(R.id.tvProfileLeague);
+        TextView tvTokens = findViewById(R.id.tvProfileTokens);
+        TextView tvStars = findViewById(R.id.tvProfileStars);
         Button btnAvatarA = findViewById(R.id.btnAvatarA);
         Button btnAvatarB = findViewById(R.id.btnAvatarB);
         Button btnAvatarC = findViewById(R.id.btnAvatarC);
@@ -49,6 +53,7 @@ public class ProfileActivity extends AppCompatActivity {
                 tvRegion.setText(getString(R.string.profile_region_label, profile.region));
             }
         });
+        loadEconomy(tvTokens, tvStars, tvLeague);
 
         setProgress(R.id.pbAvgQuiz, 72);
         setProgress(R.id.pbAvgConnections, 64);
@@ -92,5 +97,31 @@ public class ProfileActivity extends AppCompatActivity {
     private void setProgress(int id, int value) {
         ProgressBar progressBar = findViewById(id);
         progressBar.setProgress(value);
+    }
+
+    private void loadEconomy(TextView tvTokens, TextView tvStars, TextView tvLeague) {
+        String uid = authService.getCurrentUserId();
+        if (uid == null || uid.trim().isEmpty()) {
+            return;
+        }
+        EconomyService economyService = new EconomyService();
+        economyService.getEconomy(uid, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(java.util.Map<String, Long> values) {
+                Long tokens = values.get("tokens");
+                Long stars = values.get("stars");
+                Long league = values.get("league");
+                runOnUiThread(() -> {
+                    tvTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
+                    tvStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
+                    tvLeague.setText("Liga: " + (league == null ? 0 : league));
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 }

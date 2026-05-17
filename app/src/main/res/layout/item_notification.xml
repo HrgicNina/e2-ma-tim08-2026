@@ -40,23 +40,13 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:orientation="horizontal"
-        android:weightSum="2">
+        android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnMarkRead"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
-            android:layout_weight="1"
             android:text="@string/notifications_mark_read" />
-
-        <Button
-            android:id="@+id/btnReact"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/notifications_react" />
     </LinearLayout>
 
 </LinearLayout>

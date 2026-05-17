@@ -22,8 +22,11 @@ public class MatchRealtimeClient {
         void onMatchFound(String roomId, boolean friendly, int playerNumber, String opponentUid, String opponentUsername);
 
         void onInviteReceived(String inviteId, String fromUid, String fromUsername);
+        void onInviteSent(String inviteId, int expiresInSeconds);
 
         void onInviteDeclined(String byUsername);
+        void onInviteExpired(String inviteId);
+        void onInviteCancelled(String inviteId, String byUsername);
 
         void onInfo(String message);
         void onQueueJoined();
@@ -102,6 +105,15 @@ public class MatchRealtimeClient {
         } catch (JSONException ignored) {
         }
         send("invite.respond", payload);
+    }
+
+    public void cancelInvite(String inviteId) {
+        JSONObject payload = new JSONObject();
+        try {
+            payload.put("inviteId", inviteId);
+        } catch (JSONException ignored) {
+        }
+        send("invite.cancel", payload);
     }
 
     public void submitScore(String roomId, int score) {
@@ -190,8 +202,23 @@ public class MatchRealtimeClient {
                             payload.optString("fromUsername")
                     );
                     break;
+                case "invite.sent":
+                    listener.onInviteSent(
+                            payload.optString("inviteId"),
+                            payload.optInt("expiresInSeconds", 10)
+                    );
+                    break;
                 case "invite.declined":
                     listener.onInviteDeclined(payload.optString("byUsername"));
+                    break;
+                case "invite.expired":
+                    listener.onInviteExpired(payload.optString("inviteId"));
+                    break;
+                case "invite.cancelled":
+                    listener.onInviteCancelled(
+                            payload.optString("inviteId"),
+                            payload.optString("byUsername")
+                    );
                     break;
                 case "info":
                     listener.onInfo(payload.optString("message"));

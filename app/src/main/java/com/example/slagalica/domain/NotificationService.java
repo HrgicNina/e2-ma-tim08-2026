@@ -29,6 +29,10 @@ public class NotificationService {
 
     private final NotificationsRepository repository;
 
+    public NotificationService() {
+        this(new NotificationsRepository());
+    }
+
     public NotificationService(NotificationsRepository repository) {
         this.repository = repository;
     }
@@ -77,13 +81,13 @@ public class NotificationService {
         });
     }
 
-    public void createTest(String type, String title, String message, UiActionCallback callback) {
+    public void markAsLocalShown(String notificationId, UiActionCallback callback) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {
             callback.onError("Niste ulogovani.");
             return;
         }
-        repository.createTestNotification(user.getUid(), type, title, message, new NotificationsRepository.ActionCallback() {
+        repository.markAsLocalShown(user.getUid(), notificationId, new NotificationsRepository.ActionCallback() {
             @Override
             public void onSuccess() {
                 callback.onSuccess();
@@ -95,4 +99,42 @@ public class NotificationService {
             }
         });
     }
+
+    public void deleteHardcodedSeedNotifications(UiActionCallback callback) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            callback.onError("Niste ulogovani.");
+            return;
+        }
+        repository.deleteHardcodedSeedNotifications(user.getUid(), new NotificationsRepository.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                callback.onSuccess();
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
+    public void createOfflineInviteNotificationForUsername(
+            String targetUsername,
+            String fromUsername,
+            UiActionCallback callback
+    ) {
+        repository.createOfflineInviteNotificationForUsername(targetUsername, fromUsername, new NotificationsRepository.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                callback.onSuccess();
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
 }
