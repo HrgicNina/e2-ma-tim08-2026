@@ -63,17 +63,16 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_RESULT_TOTAL_TOKENS = "result_total_tokens";
 
     private static final String[] GAME_NAMES = {
-            "Skocko",
-            "Korak po korak",
-            "Moj broj",
             "Ko zna zna",
             "Spojnice",
-            "Asocijacije"
+            "Asocijacije",
+            "Skocko",
+            "Korak po korak",
+            "Moj broj"
     };
 
     private static final String WS_URL = "ws://10.0.2.2:8080";
     private static final long RANDOM_QUEUE_TIMEOUT_MS = 30_000L;
-    private static final long UNSUPPORTED_GAME_SPLASH_MS = 2_000L;
 
     private TextView tvMatchStage;
     private TextView tvMatchInfo;
@@ -821,21 +820,14 @@ public class MatchActivity extends AppCompatActivity {
             return;
         }
         showMatchFoundInfoOnce = false;
-        if (shouldAutoSkipUnsupportedGame()) {
-            Intent splash = new Intent(this, UnsupportedGameSplashActivity.class);
-            splash.putExtra(EXTRA_GAME, GAME_NAMES[currentGameIndex]);
-            splash.putExtra("duration_ms", UNSUPPORTED_GAME_SPLASH_MS);
-            gameLauncher.launch(splash);
-            return;
-        }
         Class<?> target;
         switch (currentGameIndex) {
-            case 0: target = MastermindGameActivity.class; break;
-            case 1: target = StepByStepActivity.class; break;
-            case 2: target = MyNumberGameActivity.class; break;
-            case 3: target = QuizGameActivity.class; break;
-            case 4: target = ConnectionsGameActivity.class; break;
-            default: target = AssociationsGameActivity.class; break;
+            case 0: target = QuizGameActivity.class; break;
+            case 1: target = ConnectionsGameActivity.class; break;
+            case 2: target = AssociationsGameActivity.class; break;
+            case 3: target = MastermindGameActivity.class; break;
+            case 4: target = StepByStepActivity.class; break;
+            default: target = MyNumberGameActivity.class; break;
         }
         Intent intent = new Intent(this, target);
         intent.putExtra("match_room_id", roomId == null ? "" : roomId);
@@ -945,18 +937,14 @@ public class MatchActivity extends AppCompatActivity {
 
     private String currentGameEventId() {
         switch (currentGameIndex) {
-            case 0: return "master";
-            case 1: return "step";
-            case 2: return "number";
-            case 3: return "quiz";
-            case 4: return "connections";
-            case 5: return "associations";
+            case 0: return "quiz";
+            case 1: return "connections";
+            case 2: return "associations";
+            case 3: return "master";
+            case 4: return "step";
+            case 5: return "number";
             default: return "";
         }
-    }
-
-    private boolean shouldAutoSkipUnsupportedGame() {
-        return currentGameIndex >= 3;
     }
 
     private String displayNameOrFallback(String value, String fallback) {
