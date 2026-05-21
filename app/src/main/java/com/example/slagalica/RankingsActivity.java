@@ -152,7 +152,7 @@ public class RankingsActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(6), dp(8), dp(6), dp(8));
+        row.setPadding(dp(6), dp(10), dp(6), dp(10));
 
         TextView tvRank = buildCell(rankLabel(rank), 0.16f, Gravity.START);
         TextView tvUser = buildCell(entry.username == null || entry.username.trim().isEmpty() ? "-" : entry.username, 0.44f, Gravity.START);
@@ -176,7 +176,7 @@ public class RankingsActivity extends AppCompatActivity {
     private TextView buildCell(String text, float weight, int gravity) {
         TextView tv = new TextView(this);
         tv.setText(text);
-        tv.setTextSize(19f);
+        tv.setTextSize(21f);
         tv.setTextColor(getColor(R.color.app_on_surface));
         tv.setGravity(gravity);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, weight);

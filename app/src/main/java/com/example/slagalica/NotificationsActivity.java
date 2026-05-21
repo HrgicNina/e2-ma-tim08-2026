@@ -33,6 +33,7 @@ public class NotificationsActivity extends AppCompatActivity {
     private Button btnTypeReward;
     private Button btnTypeOther;
     private List<AppNotification> latestLoadedItems = new ArrayList<>();
+    private boolean initialized = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,14 +66,24 @@ public class NotificationsActivity extends AppCompatActivity {
         service.deleteHardcodedSeedNotifications(new NotificationService.UiActionCallback() {
             @Override
             public void onSuccess() {
+                initialized = true;
                 loadNotifications();
             }
 
             @Override
             public void onError(String message) {
+                initialized = true;
                 loadNotifications();
             }
         });
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (initialized) {
+            loadNotifications();
+        }
     }
 
     private void changeFilter(NotificationService.Filter filter) {
@@ -223,6 +234,18 @@ public class NotificationsActivity extends AppCompatActivity {
     private void openNotificationDestination(AppNotification item) {
         if (item == null) {
             return;
+        }
+        if (!item.read) {
+            item.read = true;
+            service.markAsRead(item.id, new NotificationService.UiActionCallback() {
+                @Override
+                public void onSuccess() {
+                }
+
+                @Override
+                public void onError(String message) {
+                }
+            });
         }
         android.content.Intent intent = NotificationIntentRouter.buildOpenIntent(
                 this,

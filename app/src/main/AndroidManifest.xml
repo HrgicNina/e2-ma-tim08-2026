@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
+        android:name=".SlagalicaApp"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -25,6 +26,12 @@
             android:exported="false" />
         <activity
             android:name=".AssociationsGameActivity"
+            android:exported="false" />
+        <activity
+            android:name=".MatchResultSplashActivity"
+            android:exported="false" />
+        <activity
+            android:name=".UnsupportedGameSplashActivity"
             android:exported="false" />
         <activity
             android:name=".MatchActivity"

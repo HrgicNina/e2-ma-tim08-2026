@@ -155,6 +155,15 @@ public class LeaderboardRepository {
             callback.onSuccess();
             return;
         }
+        CycleWindow cycle = cycleFromId(monthly, cycleId);
+        if (cycle == null) {
+            callback.onSuccess();
+            return;
+        }
+        if (System.currentTimeMillis() <= cycle.endMs) {
+            callback.onSuccess();
+            return;
+        }
         String cycleIdField = monthly ? "monthlyCycleId" : "weeklyCycleId";
         String cycleStarsField = monthly ? "monthlyCycleStars" : "weeklyCycleStars";
         String cycleMatchesField = monthly ? "monthlyCycleMatches" : "weeklyCycleMatches";
@@ -166,7 +175,7 @@ public class LeaderboardRepository {
                 .addOnSuccessListener(snapshot -> {
                     List<LeaderboardEntry> ranked = mapEntries(snapshot, cycleStarsField, cycleMatchesField);
                     ranked.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
-                    List<WinnerReward> rewards = buildRewards(ranked, monthly, cycleId);
+                    List<WinnerReward> rewards = buildRewards(ranked, monthly, cycleId, cycle.label());
                     applyRewardsSequentially(rewards, 0, callback);
                 })
                 .addOnFailureListener(e -> callback.onError("Ne mogu da rasporedim nagrade za rang listu."));
@@ -244,7 +253,7 @@ public class LeaderboardRepository {
                 .addOnFailureListener(e -> callback.onError("Ne mogu da dodelim nagradu pobedniku rang liste."));
     }
 
-    private List<WinnerReward> buildRewards(List<LeaderboardEntry> ranked, boolean monthly, String cycleId) {
+    private List<WinnerReward> buildRewards(List<LeaderboardEntry> ranked, boolean monthly, String cycleId, String cycleLabel) {
         List<WinnerReward> out = new ArrayList<>();
         int rank = 1;
         for (LeaderboardEntry entry : ranked) {
@@ -261,7 +270,7 @@ public class LeaderboardRepository {
                 reward.tokens = tokens;
                 reward.message = "Osvojeno mesto #" + rank + " na "
                         + (monthly ? "mesecnoj" : "nedeljnoj")
-                        + " rang listi. Dobijas " + tokens + " tokena.";
+                        + " rang listi (ciklus: " + cycleLabel + "). Dobijas " + tokens + " tokena.";
                 out.add(reward);
             }
             rank++;
@@ -368,6 +377,53 @@ public class LeaderboardRepository {
 
         String id = "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
         return new CycleWindow(id, start.getTimeInMillis(), end.getTimeInMillis());
+    }
+
+    private CycleWindow cycleFromId(boolean monthly, String cycleId) {
+        try {
+            if (monthly) {
+                if (!cycleId.startsWith("M_") || cycleId.length() < 8) {
+                    return null;
+                }
+                int year = Integer.parseInt(cycleId.substring(2, 6));
+                int month = Integer.parseInt(cycleId.substring(6, 8));
+                Calendar start = Calendar.getInstance();
+                start.set(Calendar.YEAR, year);
+                start.set(Calendar.MONTH, month - 1);
+                start.set(Calendar.DAY_OF_MONTH, 1);
+                start.set(Calendar.HOUR_OF_DAY, 0);
+                start.set(Calendar.MINUTE, 0);
+                start.set(Calendar.SECOND, 0);
+                start.set(Calendar.MILLISECOND, 0);
+                Calendar end = (Calendar) start.clone();
+                end.add(Calendar.MONTH, 1);
+                end.add(Calendar.MILLISECOND, -1);
+                return new CycleWindow(cycleId, start.getTimeInMillis(), end.getTimeInMillis());
+            }
+            if (!cycleId.startsWith("W_") || cycleId.length() < 10) {
+                return null;
+            }
+            int year = Integer.parseInt(cycleId.substring(2, 6));
+            int month = Integer.parseInt(cycleId.substring(6, 8));
+            int day = Integer.parseInt(cycleId.substring(8, 10));
+            Calendar start = Calendar.getInstance();
+            start.set(Calendar.YEAR, year);
+            start.set(Calendar.MONTH, month - 1);
+            start.set(Calendar.DAY_OF_MONTH, day);
+            start.set(Calendar.HOUR_OF_DAY, 0);
+            start.set(Calendar.MINUTE, 0);
+            start.set(Calendar.SECOND, 0);
+            start.set(Calendar.MILLISECOND, 0);
+            Calendar end = (Calendar) start.clone();
+            end.add(Calendar.DAY_OF_MONTH, 6);
+            end.set(Calendar.HOUR_OF_DAY, 23);
+            end.set(Calendar.MINUTE, 59);
+            end.set(Calendar.SECOND, 59);
+            end.set(Calendar.MILLISECOND, 999);
+            return new CycleWindow(cycleId, start.getTimeInMillis(), end.getTimeInMillis());
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private static class WinnerReward {

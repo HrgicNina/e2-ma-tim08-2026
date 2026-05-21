@@ -11,7 +11,7 @@ import java.util.Locale;
 
 public class ChatService {
 
-    private static final long CHAT_ACTIVE_STALE_MS = 90_000L;
+    private static final long APP_ACTIVE_STALE_MS = 90_000L;
 
     public interface InitCallback {
         void onSuccess(ChatInitData data);
@@ -128,7 +128,7 @@ public class ChatService {
                     if (TextUtils.isEmpty(user.uid) || myUid.equals(user.uid)) {
                         continue;
                     }
-                    if (isUserChatCurrentlyActive(user)) {
+                    if (isUserCurrentlyInApp(user)) {
                         continue;
                     }
                     targets.add(user.uid);
@@ -170,14 +170,14 @@ public class ChatService {
         return text == null ? "" : text;
     }
 
-    private boolean isUserChatCurrentlyActive(ChatRepository.RegionUserEntity user) {
-        if (user == null || !user.chatActive) {
+    private boolean isUserCurrentlyInApp(ChatRepository.RegionUserEntity user) {
+        if (user == null || !user.appActive) {
             return false;
         }
-        if (user.chatLastSeenAtMillis <= 0L) {
+        if (user.appLastSeenAtMillis <= 0L) {
             return true;
         }
-        long age = System.currentTimeMillis() - user.chatLastSeenAtMillis;
-        return age >= 0L && age <= CHAT_ACTIVE_STALE_MS;
+        long age = System.currentTimeMillis() - user.appLastSeenAtMillis;
+        return age >= 0L && age <= APP_ACTIVE_STALE_MS;
     }
 }

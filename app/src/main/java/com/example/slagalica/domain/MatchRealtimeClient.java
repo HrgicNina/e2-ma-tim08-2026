@@ -32,7 +32,7 @@ public class MatchRealtimeClient {
         void onQueueJoined();
         void onQueueCancelled();
 
-        void onMatchFinished(String winnerUid, int yourScore, int opponentScore, boolean forfeit);
+        void onMatchFinished(String winnerUid, int yourScore, int opponentScore, boolean forfeit, boolean draw);
         void onGameEvent(String roomId, String game, String event, String fromUid, JSONObject data);
     }
 
@@ -228,7 +228,8 @@ public class MatchRealtimeClient {
                             payload.optString("winnerUid"),
                             payload.optInt("yourScore"),
                             payload.optInt("opponentScore"),
-                            payload.optBoolean("forfeit")
+                            payload.optBoolean("forfeit"),
+                            payload.optBoolean("draw")
                     );
                     break;
                 case "game.event":
