@@ -51,6 +51,10 @@ public class EconomyService {
         repository.applyRankedMatchResult(uid, winner, score, adapt(callback));
     }
 
+    public void applyRankedDrawResult(String uid, EconomyCallback callback) {
+        repository.applyRankedDrawResult(uid, adapt(callback));
+    }
+
     public void applyForfeitLoserPenalty(String uid, EconomyCallback callback) {
         repository.applyForfeitLoserPenalty(uid, adapt(callback));
     }

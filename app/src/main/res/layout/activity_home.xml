@@ -14,14 +14,14 @@
 
         <TextView
             android:id="@+id/btnOpenProfile"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/profile_avatar_bg"
             android:gravity="center"
             android:text="U"
             android:textColor="@color/app_on_primary"
-            android:textSize="20sp"
+            android:textSize="22sp"
             android:textStyle="bold" />
 
         <TextView
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:text="korisnik"
             android:textColor="@color/app_on_surface"
-            android:textSize="22sp"
+            android:textSize="26sp"
             android:textStyle="bold" />
 
         <View
@@ -40,69 +40,69 @@
 
         <TextView
             android:id="@+id/btnOpenChat"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/master_symbol_btn_bg"
             android:gravity="center"
             android:textColor="@color/app_on_primary"
-            android:textSize="22sp" />
+            android:textSize="24sp" />
 
         <TextView
             android:id="@+id/btnOpenRankings"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/master_symbol_btn_bg"
             android:gravity="center"
             android:textColor="@color/app_on_primary"
-            android:textSize="22sp" />
+            android:textSize="24sp" />
 
         <TextView
             android:id="@+id/btnOpenSettings"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="10dp"
             android:background="@drawable/master_symbol_btn_bg"
             android:gravity="center"
             android:text="?"
             android:textColor="@color/app_on_primary"
-            android:textSize="22sp" />
+            android:textSize="24sp" />
 
         <TextView
             android:id="@+id/btnOpenNotifications"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/master_symbol_btn_bg"
             android:gravity="center"
             android:textColor="@color/app_on_primary"
-            android:textSize="22sp" />
+            android:textSize="24sp" />
     </LinearLayout>
 
     <LinearLayout
         android:id="@+id/homeStatsRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="34dp"
         android:orientation="horizontal">
 
         <TextView
             android:id="@+id/tvHomeTokens"
             android:layout_width="0dp"
-            android:layout_height="72dp"
+            android:layout_height="84dp"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
             android:background="@drawable/profile_card_bg"
             android:gravity="center"
             android:text="@string/home_tokens_value"
             android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvHomeStars"
             android:layout_width="0dp"
-            android:layout_height="72dp"
+            android:layout_height="84dp"
             android:layout_marginStart="6dp"
             android:layout_marginEnd="6dp"
             android:layout_weight="1"
@@ -110,56 +110,56 @@
             android:gravity="center"
             android:text="@string/home_stars_value"
             android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvHomeLeague"
             android:layout_width="0dp"
-            android:layout_height="72dp"
+            android:layout_height="84dp"
             android:layout_marginStart="6dp"
             android:layout_weight="1"
             android:background="@drawable/profile_card_bg"
             android:gravity="center"
             android:text="@string/home_league_value"
             android:textColor="@color/app_on_surface"
-            android:textSize="16sp"
+            android:textSize="20sp"
             android:textStyle="bold" />
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.25" />
+        android:layout_weight="0.14" />
 
     <Button
         android:id="@+id/btnStartGame"
-        android:layout_width="280dp"
-        android:layout_height="72dp"
+        android:layout_width="300dp"
+        android:layout_height="78dp"
         android:layout_gravity="center_horizontal"
         android:text="@string/home_start_game"
-        android:textSize="24sp" />
+        android:textSize="30sp" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="0.75" />
+        android:layout_weight="0.38" />
 
     <TextView
         android:id="@+id/tvFriendsLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="26dp"
+        android:layout_marginTop="8dp"
         android:text="@string/home_friends_label"
         android:textColor="@color/app_on_surface"
-        android:textSize="22sp"
+        android:textSize="26sp"
         android:textStyle="bold" />
 
     <LinearLayout
         android:id="@+id/friendsContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:gravity="center"
         android:orientation="horizontal">
 
@@ -173,8 +173,8 @@
             android:padding="6dp">
 
             <ImageView
-                android:layout_width="54dp"
-                android:layout_height="54dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:background="@drawable/profile_avatar_bg"
                 android:padding="6dp"
                 android:src="@drawable/owl_icon" />
@@ -185,7 +185,7 @@
                 android:layout_marginTop="6dp"
                 android:text="marko"
                 android:textColor="@color/app_on_surface"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -199,8 +199,8 @@
             android:padding="6dp">
 
             <ImageView
-                android:layout_width="54dp"
-                android:layout_height="54dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:background="@drawable/profile_avatar_bg"
                 android:padding="6dp"
                 android:src="@drawable/owl_icon" />
@@ -211,7 +211,7 @@
                 android:layout_marginTop="6dp"
                 android:text="ana"
                 android:textColor="@color/app_on_surface"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -225,8 +225,8 @@
             android:padding="6dp">
 
             <ImageView
-                android:layout_width="54dp"
-                android:layout_height="54dp"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
                 android:background="@drawable/profile_avatar_bg"
                 android:padding="6dp"
                 android:src="@drawable/owl_icon" />
@@ -237,7 +237,7 @@
                 android:layout_marginTop="6dp"
                 android:text="milica"
                 android:textColor="@color/app_on_surface"
-                android:textSize="15sp"
+                android:textSize="18sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </LinearLayout>
@@ -248,7 +248,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="10dp"
         android:text="@string/btn_register_now"
-        android:textSize="18sp"
+        android:textSize="20sp"
         android:visibility="gone" />
 
 </LinearLayout>

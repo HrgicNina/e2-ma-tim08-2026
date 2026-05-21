@@ -556,7 +556,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             view.setEnabled(false);
         }
 
-        if (currentRound == 1) {
+        if (currentRound == 1 && !soloMode) {
             phase = Phase.ROUND_END;
             tvPhase.setText(R.string.number_next_round_wait);
             publishState();
@@ -572,7 +572,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStarter = 2;
+                    roundStarter = soloMode ? myPlayerNumber : 2;
                     sendRoundChangeEvent();
                     startRound();
                 }
@@ -786,6 +786,10 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     }
 
     private void refreshTurnIndicator() {
+        if (soloMode && phase != Phase.FINISHED) {
+            turnIndicatorAnimator.setActivePlayer(myPlayerNumber);
+            return;
+        }
         if (phase == Phase.STOP_TARGET || phase == Phase.STOP_NUMBERS) {
             turnIndicatorAnimator.setActivePlayer(roundStarter);
             return;
@@ -1198,7 +1202,32 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
 
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
+        if (roundStarter != myPlayerNumber) {
+            cancelTimers();
+            currentRound = 2;
+            roundStarter = myPlayerNumber;
+            startRound();
+            return;
+        }
+        roundStarter = myPlayerNumber;
+        tvCurrentPlayer.setText(getString(R.string.number_current_player, roundStarter));
         if (phase == Phase.FINISHED) {
+            refreshTurnIndicator();
+            return;
+        }
+        if (phase == Phase.STOP_TARGET) {
+            btnStop.setEnabled(true);
+            if (autoStopTimer == null) {
+                startAutoStopTimer(this::revealTarget);
+            }
+            refreshTurnIndicator();
+            return;
+        }
+        if (phase == Phase.STOP_NUMBERS) {
+            btnStop.setEnabled(true);
+            if (autoStopTimer == null) {
+                startAutoStopTimer(this::revealNumbers);
+            }
             refreshTurnIndicator();
             return;
         }

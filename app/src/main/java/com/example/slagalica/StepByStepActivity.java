@@ -308,6 +308,10 @@ public class StepByStepActivity extends AppCompatActivity {
     }
 
     private void openStealPhase() {
+        if (soloMode) {
+            finishRound();
+            return;
+        }
         phase = Phase.STEAL;
         lastTimerSeconds = 10;
         tvTimer.setText(getString(R.string.step_timer_seconds, 10));
@@ -406,7 +410,7 @@ public class StepByStepActivity extends AppCompatActivity {
         btnSubmit.setEnabled(false);
         etAnswer.setEnabled(false);
 
-        if (currentRound == 1) {
+        if (currentRound == 1 && !soloMode) {
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.step_next_round_waiting);
             publishState(false);
@@ -423,7 +427,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStartingPlayer = 2;
+                    roundStartingPlayer = soloMode ? myPlayerNumber : 2;
                     sendRoundChangeEvent();
                     etAnswer.setEnabled(true);
                     startRound();
@@ -836,17 +840,24 @@ public class StepByStepActivity extends AppCompatActivity {
 
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
+        if (roundStartingPlayer != myPlayerNumber) {
+            cancelTimers();
+            currentRound = 2;
+            roundStartingPlayer = myPlayerNumber;
+            startRound();
+            return;
+        }
+        roundStartingPlayer = myPlayerNumber;
+        tvCurrentPlayer.setText(getString(R.string.step_current_player, roundStartingPlayer));
+        if (phase == Phase.STEAL) {
+            finishRound();
+            return;
+        }
         if (phase == Phase.MAIN) {
             etAnswer.setEnabled(true);
             btnSubmit.setEnabled(true);
             if (mainTimer == null && lastTimerSeconds > 0) {
                 startMainTimer(lastTimerSeconds * 1000L);
-            }
-        } else if (phase == Phase.STEAL) {
-            etAnswer.setEnabled(true);
-            btnSubmit.setEnabled(true);
-            if (stealTimer == null && lastTimerSeconds > 0) {
-                startStealTimer(lastTimerSeconds * 1000L);
             }
         }
         refreshTurnIndicator();
@@ -864,6 +875,10 @@ public class StepByStepActivity extends AppCompatActivity {
     }
 
     private void refreshTurnIndicator() {
+        if (soloMode && phase != Phase.FINISHED) {
+            turnIndicatorAnimator.setActivePlayer(myPlayerNumber);
+            return;
+        }
         if (phase == Phase.MAIN) {
             turnIndicatorAnimator.setActivePlayer(roundStartingPlayer);
             return;

@@ -34,6 +34,10 @@ import java.util.Random;
 
 public class MastermindGameActivity extends AppCompatActivity {
     private static final String GAME_ID = "master";
+    private static final int PEG_COLOR_DEFAULT = Color.parseColor("#9EC6EA");
+    private static final int PEG_COLOR_EXACT = Color.parseColor("#FF3D3D");
+    private static final int PEG_COLOR_MISPLACED = Color.parseColor("#FFD23F");
+    private static final int PEG_COLOR_NO_MATCH = Color.parseColor("#8794A3");
 
     private enum Phase { ROUND, STEAL, ROUND_END, FINISHED }
 
@@ -266,7 +270,7 @@ public class MastermindGameActivity extends AppCompatActivity {
                 p.setMargins(dp(4), dp(2), dp(4), dp(2));
                 peg.setLayoutParams(p);
                 peg.setBackground(ContextCompat.getDrawable(this, R.drawable.master_peg_bg));
-                peg.setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
+                peg.setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_DEFAULT));
                 pegCells[row][i] = peg;
                 pegPart.addView(peg);
             }
@@ -375,7 +379,7 @@ public class MastermindGameActivity extends AppCompatActivity {
                 boardPegStates[r][c] = 0;
                 guessCells[r][c].setText(" ");
                 guessCells[r][c].setTextColor(Color.BLACK);
-                pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
+                pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_DEFAULT));
             }
         }
         clearCurrentGuess();
@@ -402,6 +406,10 @@ public class MastermindGameActivity extends AppCompatActivity {
 
     private void openStealPhase() {
         if (phase == Phase.STEAL || phase == Phase.FINISHED) {
+            return;
+        }
+        if (soloMode) {
+            finishRound();
             return;
         }
         phase = Phase.STEAL;
@@ -498,18 +506,25 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private void paintFeedback(int row, int exact, int colorOnly) {
+        if (exact == 0 && colorOnly == 0) {
+            for (int i = 0; i < COLS; i++) {
+                boardPegStates[row][i] = 3;
+                pegCells[row][i].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_NO_MATCH));
+            }
+            return;
+        }
         int index = 0;
         for (int i = 0; i < exact; i++) {
             boardPegStates[row][index] = 1;
-            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF3D3D")));
+            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_EXACT));
         }
         for (int i = 0; i < colorOnly; i++) {
             boardPegStates[row][index] = 2;
-            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFD23F")));
+            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_MISPLACED));
         }
         while (index < COLS) {
-            boardPegStates[row][index] = 0;
-            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
+            boardPegStates[row][index] = 3;
+            pegCells[row][index++].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_NO_MATCH));
         }
     }
 
@@ -518,7 +533,7 @@ public class MastermindGameActivity extends AppCompatActivity {
         showSecretRow();
         setInteractionEnabled(false);
 
-        if (currentRound == 1) {
+        if (currentRound == 1 && !soloMode) {
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.master_showing_secret);
             publishState();
@@ -535,7 +550,7 @@ public class MastermindGameActivity extends AppCompatActivity {
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStarter = 2;
+                    roundStarter = soloMode ? myPlayerNumber : 2;
                     sendRoundChangeEvent();
                     startRound();
                 }
@@ -638,11 +653,13 @@ public class MastermindGameActivity extends AppCompatActivity {
                 }
                 int peg = boardPegStates[r][c];
                 if (peg == 1) {
-                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FF3D3D")));
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_EXACT));
                 } else if (peg == 2) {
-                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#FFD23F")));
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_MISPLACED));
+                } else if (peg == 3) {
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_NO_MATCH));
                 } else {
-                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(Color.parseColor("#9EC6EA")));
+                    pegCells[r][c].setBackgroundTintList(ColorStateList.valueOf(PEG_COLOR_DEFAULT));
                 }
             }
         }
@@ -1035,11 +1052,22 @@ public class MastermindGameActivity extends AppCompatActivity {
         if (phase == Phase.FINISHED) {
             return;
         }
+        if (roundStarter != myPlayerNumber) {
+            cancelTimers();
+            currentRound = 2;
+            roundStarter = myPlayerNumber;
+            startRound();
+            return;
+        }
+        roundStarter = myPlayerNumber;
+        tvCurrentPlayer.setText(getString(R.string.master_current_player, roundStarter));
+        if (phase == Phase.STEAL) {
+            finishRound();
+            return;
+        }
         setInteractionEnabled(true);
         if (phase == Phase.ROUND && roundTimer == null && lastTimerSeconds > 0) {
             startRoundTimer(lastTimerSeconds * 1000L);
-        } else if (phase == Phase.STEAL && stealTimer == null && lastTimerSeconds > 0) {
-            startStealTimer(lastTimerSeconds * 1000L);
         }
         refreshTurnIndicator();
     }
@@ -1133,6 +1161,10 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private void refreshTurnIndicator() {
+        if (soloMode && phase != Phase.FINISHED) {
+            turnIndicatorAnimator.setActivePlayer(myPlayerNumber);
+            return;
+        }
         if (phase == Phase.ROUND) {
             turnIndicatorAnimator.setActivePlayer(roundStarter);
             return;

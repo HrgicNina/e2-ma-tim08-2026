@@ -52,6 +52,8 @@ public class ChatRepository {
         public String uid;
         public boolean chatActive;
         public long chatLastSeenAtMillis;
+        public boolean appActive;
+        public long appLastSeenAtMillis;
     }
 
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
@@ -136,6 +138,15 @@ public class ChatRepository {
                             } else {
                                 Long lastSeenMs = userDoc.getLong("chatLastSeenAtMillis");
                                 entity.chatLastSeenAtMillis = lastSeenMs == null ? 0L : lastSeenMs;
+                            }
+                            Boolean appActive = userDoc.getBoolean("appActive");
+                            entity.appActive = appActive != null && appActive;
+                            Timestamp appLastSeen = userDoc.getTimestamp("appLastSeenAt");
+                            if (appLastSeen != null) {
+                                entity.appLastSeenAtMillis = appLastSeen.toDate().getTime();
+                            } else {
+                                Long appLastSeenMs = userDoc.getLong("appLastSeenAtMillis");
+                                entity.appLastSeenAtMillis = appLastSeenMs == null ? 0L : appLastSeenMs;
                             }
                             out.add(entity);
                         }

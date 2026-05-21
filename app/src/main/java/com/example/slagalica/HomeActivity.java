@@ -407,11 +407,16 @@ public class HomeActivity extends AppCompatActivity {
             @Override
             public void onSuccess(List<AppNotification> items) {
                 runOnUiThread(() -> {
+                    boolean shownInAppPopup = false;
                     for (AppNotification item : items) {
                         if (item.localShown) {
                             continue;
                         }
                         showLocalSystemNotification(item);
+                        if (!shownInAppPopup && shouldShowImmediateInAppPopup(item)) {
+                            showImmediateInAppPopup(item, notificationService);
+                            shownInAppPopup = true;
+                        }
                         notificationService.markAsLocalShown(item.id, new NotificationService.UiActionCallback() {
                             @Override
                             public void onSuccess() {
@@ -429,6 +434,118 @@ public class HomeActivity extends AppCompatActivity {
             public void onError(String message) {
             }
         });
+    }
+
+    private boolean shouldShowImmediateInAppPopup(AppNotification item) {
+        if (item == null) {
+            return false;
+        }
+        // Reward notifications already have a dedicated reward dialog.
+        return !"rewards".equalsIgnoreCase(item.type);
+    }
+
+    private void showImmediateInAppPopup(AppNotification item, NotificationService notificationService) {
+        String title = (item.title == null || item.title.trim().isEmpty()) ? "Novo obavestenje" : item.title;
+        String message = item.message == null ? "" : item.message;
+
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(20), dp(18), dp(20), dp(14));
+        card.setBackgroundResource(R.drawable.profile_card_bg);
+
+        TextView tvBadge = new TextView(this);
+        tvBadge.setText(notificationBadge(item.type));
+        tvBadge.setTextSize(22f);
+        tvBadge.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        TextView tvTitle = new TextView(this);
+        tvTitle.setText(title);
+        tvTitle.setTextColor(ContextCompat.getColor(this, R.color.app_on_surface));
+        tvTitle.setTextSize(20f);
+        tvTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        tvTitle.setGravity(Gravity.CENTER_HORIZONTAL);
+        tvTitle.setPadding(0, dp(6), 0, dp(4));
+
+        TextView tvMessage = new TextView(this);
+        tvMessage.setText(message);
+        tvMessage.setTextColor(ContextCompat.getColor(this, R.color.app_on_surface));
+        tvMessage.setTextSize(16f);
+        tvMessage.setGravity(Gravity.CENTER_HORIZONTAL);
+
+        LinearLayout actions = new LinearLayout(this);
+        actions.setOrientation(LinearLayout.HORIZONTAL);
+        actions.setGravity(Gravity.END);
+        actions.setPadding(0, dp(16), 0, 0);
+
+        Button btnLater = new Button(this);
+        btnLater.setText("Kasnije");
+        btnLater.setAllCaps(false);
+        btnLater.setTextSize(15f);
+        btnLater.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.app_surface_light_blue));
+        btnLater.setTextColor(ContextCompat.getColor(this, R.color.app_on_surface));
+
+        Button btnOpen = new Button(this);
+        btnOpen.setText("Otvori");
+        btnOpen.setAllCaps(false);
+        btnOpen.setTextSize(15f);
+        btnOpen.setBackgroundTintList(ContextCompat.getColorStateList(this, R.color.app_primary_blue));
+        btnOpen.setTextColor(ContextCompat.getColor(this, R.color.app_on_primary));
+
+        LinearLayout.LayoutParams laterParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        laterParams.rightMargin = dp(10);
+        actions.addView(btnLater, laterParams);
+        actions.addView(btnOpen);
+
+        card.addView(tvBadge);
+        card.addView(tvTitle);
+        card.addView(tvMessage);
+        card.addView(actions);
+
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setView(card)
+                .create();
+
+        btnLater.setOnClickListener(v -> dialog.dismiss());
+        btnOpen.setOnClickListener(v -> {
+            if (item.id != null && !item.id.trim().isEmpty()) {
+                notificationService.markAsRead(item.id, new NotificationService.UiActionCallback() {
+                    @Override
+                    public void onSuccess() {
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                    }
+                });
+            }
+            Intent openIntent = NotificationIntentRouter.buildOpenIntent(
+                    this,
+                    item.type,
+                    item.actionType,
+                    item.actionPayload,
+                    item.id
+            );
+            dialog.dismiss();
+            startActivity(openIntent);
+        });
+
+        dialog.show();
+    }
+
+    private String notificationBadge(String type) {
+        if ("chat".equalsIgnoreCase(type)) {
+            return "\uD83D\uDCAC";
+        }
+        if ("ranking".equalsIgnoreCase(type)) {
+            return "\uD83C\uDFC6";
+        }
+        if ("rewards".equalsIgnoreCase(type)) {
+            return "\uD83C\uDFC1";
+        }
+        return "\uD83D\uDD14";
     }
 
     private void showLocalSystemNotification(AppNotification item) {

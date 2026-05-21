@@ -231,6 +231,68 @@ public class PlayerEconomyRepository {
                 .addOnFailureListener(e -> callback.onError("Neuspesna obrada rezultata partije."));
     }
 
+    public void applyRankedDrawResult(String uid, EconomyCallback callback) {
+        DocumentReference ref = db.collection("users").document(uid);
+        String weeklyCycleId = currentWeeklyCycleId();
+        String monthlyCycleId = currentMonthlyCycleId();
+        db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
+            Long stars = transaction.get(ref).getLong("stars");
+            Long tokens = transaction.get(ref).getLong("tokens");
+            String storedWeeklyCycleId = value(transaction.get(ref).getString("weeklyCycleId"));
+            String storedMonthlyCycleId = value(transaction.get(ref).getString("monthlyCycleId"));
+            Long weeklyCycleStars = transaction.get(ref).getLong("weeklyCycleStars");
+            Long monthlyCycleStars = transaction.get(ref).getLong("monthlyCycleStars");
+            Long weeklyCycleMatches = transaction.get(ref).getLong("weeklyCycleMatches");
+            Long monthlyCycleMatches = transaction.get(ref).getLong("monthlyCycleMatches");
+            if (stars == null) stars = 0L;
+            if (tokens == null) tokens = 0L;
+            if (weeklyCycleStars == null) weeklyCycleStars = 0L;
+            if (monthlyCycleStars == null) monthlyCycleStars = 0L;
+            if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
+            if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
+
+            long delta = 5L;
+            long newStars = Math.max(0, stars + delta);
+            long actualDelta = newStars - stars;
+
+            long oldTokenMilestones = stars / 50;
+            long newTokenMilestones = newStars / 50;
+            long extraTokens = Math.max(0, newTokenMilestones - oldTokenMilestones);
+            long newTokens = tokens + extraTokens;
+
+            if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
+                weeklyCycleStars = 0L;
+                weeklyCycleMatches = 0L;
+            }
+            if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
+                monthlyCycleStars = 0L;
+                monthlyCycleMatches = 0L;
+            }
+            long newWeeklyCycleStars = weeklyCycleStars + actualDelta;
+            long newMonthlyCycleStars = monthlyCycleStars + actualDelta;
+            long newWeeklyCycleMatches = weeklyCycleMatches + 1;
+            long newMonthlyCycleMatches = monthlyCycleMatches + 1;
+
+            transaction.update(
+                    ref,
+                    "stars", newStars,
+                    "tokens", newTokens,
+                    "weeklyCycleId", weeklyCycleId,
+                    "monthlyCycleId", monthlyCycleId,
+                    "weeklyCycleStars", newWeeklyCycleStars,
+                    "monthlyCycleStars", newMonthlyCycleStars,
+                    "weeklyCycleMatches", newWeeklyCycleMatches,
+                    "monthlyCycleMatches", newMonthlyCycleMatches
+            );
+
+            Map<String, Long> out = new HashMap<>();
+            out.put("stars", newStars);
+            out.put("tokens", newTokens);
+            return out;
+        }).addOnSuccessListener(callback::onSuccess)
+                .addOnFailureListener(e -> callback.onError("Neuspesna obrada neresenog rezultata."));
+    }
+
     public void applyForfeitLoserPenalty(String uid, EconomyCallback callback) {
         DocumentReference ref = db.collection("users").document(uid);
         String weeklyCycleId = currentWeeklyCycleId();

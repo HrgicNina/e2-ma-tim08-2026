@@ -126,7 +126,7 @@ function startMatch(uidA, uidB, friendly) {
   });
 }
 
-function finishMatch(roomId, winnerUid, loserUid, forfeit = false) {
+function finishMatch(roomId, winnerUid, loserUid, forfeit = false, draw = false) {
   const room = matches.get(roomId);
   if (!room || room.finished) return;
   room.finished = true;
@@ -146,6 +146,7 @@ function finishMatch(roomId, winnerUid, loserUid, forfeit = false) {
       yourScore,
       opponentScore,
       forfeit,
+      draw,
     });
   }
 }
@@ -319,7 +320,9 @@ function handleSubmitScore(ws, payload) {
     return;
   }
 
-  if (room.scores[a] >= room.scores[b]) {
+  if (room.scores[a] === room.scores[b]) {
+    finishMatch(roomId, "", "", false, true);
+  } else if (room.scores[a] > room.scores[b]) {
     finishMatch(roomId, a, b, false);
   } else {
     finishMatch(roomId, b, a, false);
