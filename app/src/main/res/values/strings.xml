@@ -244,6 +244,8 @@
     <string name="connections_current_player">Na potezu: Igrac %1$d</string>
     <string name="connections_phase_starter">Starter igra i povezuje svih 5 pojmova u 30 sekundi.</string>
     <string name="connections_phase_steal">Preostale pojmove povezuje Igrac %1$d u 30 sekundi.</string>
+    <string name="connections_loading_rounds">Ucitavanje spojnica...</string>
+    <string name="connections_waiting_rounds">Cekanje spojnica...</string>
     <string name="connections_timer_seconds">%1$ds</string>
     <string name="connections_score_format">Rezultat - Igrac 1: %1$d | Igrac 2: %2$d</string>
     <string name="connections_left_title">Leva kolona</string>
