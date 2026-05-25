@@ -23,6 +23,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.domain.EconomyService;
 
 import com.example.slagalica.domain.MyNumberGameService;
+import com.example.slagalica.domain.PlayerStatsService;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -84,6 +85,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private Long opponentTokens = null;
     private Long opponentStars = null;
     private Long opponentLeague = null;
+    private int statsBestDistance = -1;
     private final EconomyService economyService = new EconomyService();
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
@@ -596,6 +598,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 Intent resultIntent = new Intent();
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                addStatsToResult(resultIntent);
                 setResult(RESULT_OK, resultIntent);
                 finish();
             }
@@ -718,6 +721,12 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private void setAttemptForPlayer(int player, MyNumberGameService.EvalResult eval) {
         boolean empty = eval != null && eval.empty;
         Double value = (eval != null && eval.valid) ? eval.value : null;
+        if (player == myPlayerNumber && value != null && targetNumber != null) {
+            int distance = Math.abs((int) Math.round(value - targetNumber));
+            if (statsBestDistance < 0 || distance < statsBestDistance) {
+                statsBestDistance = distance;
+            }
+        }
         if (player == 1) {
             player1Submitted = true;
             player1AttemptEmpty = empty;
@@ -1173,10 +1182,11 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             etExpression.setEnabled(false);
             btnStop.setEnabled(false);
             remoteFinishHandled = true;
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
-            resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
-            setResult(RESULT_OK, resultIntent);
+                Intent resultIntent = new Intent();
+                resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
+                resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                addStatsToResult(resultIntent);
+                setResult(RESULT_OK, resultIntent);
             btnStop.postDelayed(() -> {
                 if (!isFinishing() && !isDestroyed()) {
                     finish();
@@ -1385,8 +1395,14 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        addStatsToResult(resultIntent);
         setResult(RESULT_OK, resultIntent);
         finish();
+    }
+
+    private void addStatsToResult(Intent resultIntent) {
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 20);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_NUMBER_DISTANCE, statsBestDistance);
     }
 
     private void bindMatchHeader() {

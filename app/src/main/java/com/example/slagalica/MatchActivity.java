@@ -24,6 +24,7 @@ import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.MatchRealtimeClient;
 import com.example.slagalica.domain.NotificationService;
+import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.SessionManager;
 
 import org.json.JSONObject;
@@ -135,7 +136,9 @@ public class MatchActivity extends AppCompatActivity {
     private final NotificationService notificationService = new NotificationService();
     private final EconomyService economyService = new EconomyService();
     private final LeaderboardService leaderboardService = new LeaderboardService();
+    private final PlayerStatsService playerStatsService = new PlayerStatsService();
     private final MatchRealtimeClient realtimeClient = new MatchRealtimeClient();
+    private boolean matchStatsSubmitted = false;
 
     private interface EconomyDeltaCallback {
         void onReady(long starDelta, long tokenDelta, String note);
@@ -214,6 +217,9 @@ public class MatchActivity extends AppCompatActivity {
                 return;
             }
             if (result.getResultCode() == RESULT_OK && result.getData() != null) {
+                int basePlayer1 = myPlayerNumber == 1 ? myScore : opponentScore;
+                int basePlayer2 = myPlayerNumber == 1 ? opponentScore : myScore;
+                recordGameStatsIfNeeded(result.getData(), basePlayer1, basePlayer2);
                 int player1GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER1_SCORE, 0);
                 int player2GameScore = result.getData().getIntExtra(EXTRA_GAME_PLAYER2_SCORE, 0);
                 if (myPlayerNumber == 1) {
@@ -388,6 +394,7 @@ public class MatchActivity extends AppCompatActivity {
                     myScore = 0;
                     opponentScore = 0;
                     scoreSubmitted = false;
+                    matchStatsSubmitted = false;
                     clearOutgoingInviteState();
                     clearIncomingInviteState();
                     tvMatchInfo.setText(friendly
@@ -510,6 +517,9 @@ public class MatchActivity extends AppCompatActivity {
                     String finalPlayer2Name = player2DisplayName;
                     boolean wasFriendly = friendlyRoom;
                     boolean wasGuest = guestMode;
+                    if (!wasGuest) {
+                        recordMatchStatsOnce(iAmWinner, draw);
+                    }
                     finishLocalRoom(false);
                     if (!wasGuest && !wasFriendly && !resultApplied) {
                         if (forfeit && !iAmWinner) {
@@ -880,6 +890,9 @@ public class MatchActivity extends AppCompatActivity {
         String finalPlayer2Name = player2DisplayName;
         boolean wasFriendly = friendlyRoom;
         boolean wasGuest = guestMode;
+        if (!wasGuest) {
+            recordMatchStatsOnce(true, false);
+        }
 
         if (!wasGuest && !wasFriendly && !resultApplied) {
             applyRankedResult(true, myScore, (starDelta, tokenDelta, note) -> {
@@ -1113,6 +1126,9 @@ public class MatchActivity extends AppCompatActivity {
         localForfeitExitRequested = true;
 
         boolean rankedPenaltyApplies = !guestMode && !friendlyRoom && !resultApplied;
+        if (!guestMode) {
+            recordMatchStatsOnce(false, false);
+        }
         if (inRoom && roomId != null) {
             realtimeClient.forfeit(roomId);
             finishLocalRoom();
@@ -1151,6 +1167,7 @@ public class MatchActivity extends AppCompatActivity {
         rankedTokenReserved = false;
         opponentForfeited = false;
         scoreSubmitted = false;
+        matchStatsSubmitted = false;
         clearOutgoingInviteState();
         clearIncomingInviteState();
         currentGameIndex = 0;
@@ -1159,6 +1176,39 @@ public class MatchActivity extends AppCompatActivity {
         if (renderUi) {
             renderMatch();
         }
+    }
+
+    private void recordGameStatsIfNeeded(Intent data, int basePlayer1, int basePlayer2) {
+        if (guestMode || TextUtils.isEmpty(myUid) || data == null) {
+            return;
+        }
+        int points = PlayerStatsService.pointsForCurrentPlayer(data, myPlayerNumber, basePlayer1, basePlayer2);
+        data.putExtra(PlayerStatsService.EXTRA_STATS_GAME_POINTS, points);
+        playerStatsService.recordGameFromResult(myUid, data, new PlayerStatsService.ActionCallback() {
+            @Override
+            public void onSuccess() {
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void recordMatchStatsOnce(boolean win, boolean draw) {
+        if (matchStatsSubmitted || guestMode || TextUtils.isEmpty(myUid)) {
+            return;
+        }
+        matchStatsSubmitted = true;
+        playerStatsService.recordMatchResult(myUid, win, draw, new PlayerStatsService.ActionCallback() {
+            @Override
+            public void onSuccess() {
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
     }
 
     private void advanceAfterGameFinished() {

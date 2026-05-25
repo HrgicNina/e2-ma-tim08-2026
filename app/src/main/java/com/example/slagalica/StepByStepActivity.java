@@ -20,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.EconomyService;
 
+import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.StepByStepService;
 import com.example.slagalica.model.StepByStepPuzzle;
 
@@ -86,6 +87,7 @@ public class StepByStepActivity extends AppCompatActivity {
     private Long opponentTokens = null;
     private Long opponentStars = null;
     private Long opponentLeague = null;
+    private int statsSolvedAtStep = 0;
     private final EconomyService economyService = new EconomyService();
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
@@ -382,7 +384,11 @@ public class StepByStepActivity extends AppCompatActivity {
 
             int points = service.pointsForStep(revealedStepCount);
             if (correct) {
-                addPoints(soloMode ? myPlayerNumber : roundStartingPlayer, points);
+                int scoringPlayer = soloMode ? myPlayerNumber : roundStartingPlayer;
+                if (scoringPlayer == myPlayerNumber && statsSolvedAtStep == 0) {
+                    statsSolvedAtStep = Math.max(1, Math.min(7, revealedStepCount));
+                }
+                addPoints(scoringPlayer, points);
             Toast.makeText(this, getString(R.string.step_main_correct_points, points), Toast.LENGTH_SHORT).show();
             finishRound();
             return;
@@ -394,7 +400,11 @@ public class StepByStepActivity extends AppCompatActivity {
 
         if (phase == Phase.STEAL && correct) {
             int stealPlayer = opponent(roundStartingPlayer);
-            addPoints(soloMode ? myPlayerNumber : stealPlayer, 5);
+            int scoringPlayer = soloMode ? myPlayerNumber : stealPlayer;
+            if (scoringPlayer == myPlayerNumber && statsSolvedAtStep == 0) {
+                statsSolvedAtStep = Math.max(1, Math.min(7, revealedStepCount));
+            }
+            addPoints(scoringPlayer, 5);
             Toast.makeText(this, getString(R.string.step_steal_correct_points, stealPlayer), Toast.LENGTH_SHORT).show();
             finishRound();
             return;
@@ -456,6 +466,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 Intent resultIntent = new Intent();
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                addStatsToResult(resultIntent);
                 setResult(RESULT_OK, resultIntent);
                 finish();
             }
@@ -827,6 +838,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 Intent resultIntent = new Intent();
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                addStatsToResult(resultIntent);
                 setResult(RESULT_OK, resultIntent);
                 btnSubmit.postDelayed(() -> {
                     if (!isFinishing() && !isDestroyed()) {
@@ -940,8 +952,14 @@ public class StepByStepActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        addStatsToResult(resultIntent);
         setResult(RESULT_OK, resultIntent);
         finish();
+    }
+
+    private void addStatsToResult(Intent resultIntent) {
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 40);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_STEP_SOLVED_AT, statsSolvedAtStep);
     }
 
     private void applyRoundChange(JSONObject data) {
