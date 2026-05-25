@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.data.QuizRepository;
 import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.QuizGameService;
 import com.example.slagalica.model.QuizQuestion;
 
@@ -68,6 +69,9 @@ public class QuizGameActivity extends AppCompatActivity {
     private int lastTimerSeconds = 5;
     private int lastPlayer1Delta = 0;
     private int lastPlayer2Delta = 0;
+    private int statsCorrect = 0;
+    private int statsWrong = 0;
+    private int statsNoAnswer = 0;
     private long questionStartedAtMillis = 0L;
     private String lastResultMessage = "";
 
@@ -381,6 +385,7 @@ public class QuizGameActivity extends AppCompatActivity {
         QuizGameService.AnswerAttempt player1Attempt = buildAttempt(1);
         QuizGameService.AnswerAttempt player2Attempt = buildAttempt(2);
         QuizGameService.QuestionScore score = quizService.scoreQuestion(question, player1Attempt, player2Attempt);
+        captureLocalQuestionStats(question);
 
         lastPlayer1Delta = score.getPlayer1Delta();
         lastPlayer2Delta = score.getPlayer2Delta();
@@ -493,12 +498,29 @@ public class QuizGameActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 50);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_QUIZ_CORRECT, statsCorrect);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_QUIZ_WRONG, statsWrong);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_QUIZ_NO_ANSWER, statsNoAnswer);
         setResult(RESULT_OK, resultIntent);
         btnNextQuestion.postDelayed(() -> {
             if (!isFinishing() && !isDestroyed()) {
                 finish();
             }
         }, 500);
+    }
+
+    private void captureLocalQuestionStats(QuizQuestion question) {
+        if (!hasAnswered(myPlayerNumber)) {
+            statsNoAnswer++;
+            return;
+        }
+        int selected = selectedAnswerIndexes[myPlayerNumber - 1];
+        if (selected == question.getCorrectAnswerIndex()) {
+            statsCorrect++;
+        } else {
+            statsWrong++;
+        }
     }
 
     private void startQuestionTimer(long durationMs) {

@@ -29,6 +29,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.data.AssociationsRepository;
 import com.example.slagalica.domain.AssociationsGameService;
 import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.model.AssociationPuzzle;
 
 import org.json.JSONArray;
@@ -87,6 +88,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private boolean gameFinished = false;
     private boolean remoteFinishHandled = false;
     private int lastTimerSeconds = 120;
+    private int statsSolvedCount = 0;
     private CountDownTimer roundTimer;
     private CountDownTimer transitionTimer;
 
@@ -477,6 +479,9 @@ public class AssociationsGameActivity extends AppCompatActivity {
         String guess = columnInputs[column].getText().toString();
         if (associationsService.isColumnGuessCorrect(puzzles.get(currentRound), column, guess)) {
             solvedColumns[column] = true;
+            if (currentPlayer == myPlayerNumber) {
+                statsSolvedCount++;
+            }
             addPoints(associationsService.scoreColumn(openedClues, column));
             revealColumn(column);
             selectedColumn = -1;
@@ -505,6 +510,9 @@ public class AssociationsGameActivity extends AppCompatActivity {
         String guess = etFinalGuess.getText().toString();
         if (associationsService.isFinalGuessCorrect(puzzles.get(currentRound), guess)) {
             addPoints(associationsService.scoreFinal(openedClues, solvedColumns));
+            if (currentPlayer == myPlayerNumber) {
+                statsSolvedCount++;
+            }
             finalSolved = true;
             revealAll();
             clearEditableGuesses();
@@ -602,6 +610,8 @@ public class AssociationsGameActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 60);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_ASSOCIATIONS_SOLVED_COUNT, statsSolvedCount);
         setResult(RESULT_OK, resultIntent);
         btnContinue.postDelayed(() -> {
             if (!isFinishing() && !isDestroyed()) {

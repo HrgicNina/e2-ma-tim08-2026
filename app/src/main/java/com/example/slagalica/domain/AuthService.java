@@ -99,4 +99,12 @@ public class AuthService {
     public void getCurrentUserProfile(FirebaseAuthRepository.UserProfileCallback callback) {
         repository.getCurrentUserProfile(callback);
     }
+
+    public void updateAvatar(String avatarId, String avatarFrameId, ResultCallback callback) {
+        if (TextUtils.isEmpty(avatarId) || TextUtils.isEmpty(avatarFrameId)) {
+            callback.onError("Izaberite avatar.");
+            return;
+        }
+        repository.updateAvatar(avatarId, avatarFrameId, callback);
+    }
 }

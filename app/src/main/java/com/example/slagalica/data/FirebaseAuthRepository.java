@@ -27,11 +27,17 @@ public class FirebaseAuthRepository {
 
     public static class UserProfile {
         public final String username;
+        public final String email;
         public final String region;
+        public final String avatarId;
+        public final String avatarFrameId;
 
-        public UserProfile(String username, String region) {
+        public UserProfile(String username, String email, String region, String avatarId, String avatarFrameId) {
             this.username = username;
+            this.email = email;
             this.region = region;
+            this.avatarId = avatarId;
+            this.avatarFrameId = avatarFrameId;
         }
     }
 
@@ -111,6 +117,8 @@ public class FirebaseAuthRepository {
                                 userDoc.put("tokens", 5);
                                 userDoc.put("stars", 0);
                                 userDoc.put("league", 0);
+                                userDoc.put("avatarId", "owl");
+                                userDoc.put("avatarFrameId", "blue");
                                 userDoc.put("lastDailyTokenGrantAt", System.currentTimeMillis());
                                 userDoc.put("weeklyCycleId", currentWeeklyCycleId());
                                 userDoc.put("monthlyCycleId", currentMonthlyCycleId());
@@ -192,7 +200,7 @@ public class FirebaseAuthRepository {
     public void getCurrentUserProfile(UserProfileCallback callback) {
         FirebaseUser user = auth.getCurrentUser();
         if (user == null) {
-            callback.onLoaded(new UserProfile(null, null));
+            callback.onLoaded(new UserProfile(null, null, null, null, null));
             return;
         }
 
@@ -201,14 +209,33 @@ public class FirebaseAuthRepository {
                 .get()
                 .addOnCompleteListener(task -> {
                     if (!task.isSuccessful() || task.getResult() == null) {
-                        callback.onLoaded(new UserProfile(null, null));
+                        callback.onLoaded(new UserProfile(null, null, null, null, null));
                         return;
                     }
 
                     String username = task.getResult().getString("username");
+                    String email = task.getResult().getString("email");
                     String region = task.getResult().getString("region");
-                    callback.onLoaded(new UserProfile(username, region));
+                    String avatarId = task.getResult().getString("avatarId");
+                    String avatarFrameId = task.getResult().getString("avatarFrameId");
+                    callback.onLoaded(new UserProfile(username, email, region, avatarId, avatarFrameId));
                 });
+    }
+
+    public void updateAvatar(String avatarId, String avatarFrameId, ResultCallback callback) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            callback.onError("Niste ulogovani.");
+            return;
+        }
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("avatarId", avatarId);
+        updates.put("avatarFrameId", avatarFrameId);
+        db.collection("users")
+                .document(user.getUid())
+                .update(updates)
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onError("Avatar nije sacuvan."));
     }
 
     private void loginWithEmail(String email, String password, AuthResultCallback callback) {

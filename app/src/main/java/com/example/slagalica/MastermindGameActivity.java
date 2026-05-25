@@ -26,6 +26,7 @@ import com.example.slagalica.domain.EconomyService;
 import androidx.core.content.ContextCompat;
 
 import com.example.slagalica.domain.MastermindGameService;
+import com.example.slagalica.domain.PlayerStatsService;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -99,6 +100,7 @@ public class MastermindGameActivity extends AppCompatActivity {
     private Long opponentTokens = null;
     private Long opponentStars = null;
     private Long opponentLeague = null;
+    private int statsSolvedAttempt = 0;
     private final EconomyService economyService = new EconomyService();
     private final BroadcastReceiver gameEventReceiver = new BroadcastReceiver() {
         @Override
@@ -470,7 +472,11 @@ public class MastermindGameActivity extends AppCompatActivity {
             int attemptNumber = activeRow + 1;
             if (result.solved) {
                 int points = gameService.pointsForSolvedAttempt(attemptNumber);
-                addPoints(soloMode ? myPlayerNumber : roundStarter, points);
+                int scoringPlayer = soloMode ? myPlayerNumber : roundStarter;
+                if (scoringPlayer == myPlayerNumber && statsSolvedAttempt == 0) {
+                    statsSolvedAttempt = attemptNumber;
+                }
+                addPoints(scoringPlayer, points);
                 Toast.makeText(this, getString(R.string.master_solved_points, points), Toast.LENGTH_SHORT).show();
                 finishRound();
                 return;
@@ -496,7 +502,11 @@ public class MastermindGameActivity extends AppCompatActivity {
 
             if (result.solved) {
                 int stealPlayer = opponent(roundStarter);
-                addPoints(soloMode ? myPlayerNumber : stealPlayer, 10);
+                int scoringPlayer = soloMode ? myPlayerNumber : stealPlayer;
+                if (scoringPlayer == myPlayerNumber && statsSolvedAttempt == 0) {
+                    statsSolvedAttempt = MAIN_ROWS;
+                }
+                addPoints(scoringPlayer, 10);
                 Toast.makeText(this, getString(R.string.master_steal_won_points, stealPlayer), Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, R.string.master_wrong_guess, Toast.LENGTH_SHORT).show();
@@ -576,6 +586,7 @@ public class MastermindGameActivity extends AppCompatActivity {
                 Intent resultIntent = new Intent();
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
                 resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+                addStatsToResult(resultIntent);
                 setResult(RESULT_OK, resultIntent);
                 finish();
             }
@@ -1023,6 +1034,7 @@ public class MastermindGameActivity extends AppCompatActivity {
             Intent resultIntent = new Intent();
             resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
             resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+            addStatsToResult(resultIntent);
             setResult(RESULT_OK, resultIntent);
             btnSubmit.postDelayed(() -> {
                 if (!isFinishing() && !isDestroyed()) {
@@ -1145,8 +1157,14 @@ public class MastermindGameActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        addStatsToResult(resultIntent);
         setResult(RESULT_OK, resultIntent);
         finish();
+    }
+
+    private void addStatsToResult(Intent resultIntent) {
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 60);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_MASTER_ATTEMPT, statsSolvedAttempt);
     }
 
     private void cancelRoundAndStealTimers() {

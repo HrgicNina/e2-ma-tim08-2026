@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.data.ConnectionsRepository;
 import com.example.slagalica.domain.ConnectionsGameService;
 import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.model.ConnectionRound;
 
 import org.json.JSONArray;
@@ -71,6 +72,8 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     private boolean gameFinished = false;
     private boolean remoteFinishHandled = false;
     private int lastTimerSeconds = 30;
+    private int statsMatched = 0;
+    private int statsMissed = 0;
     private CountDownTimer roundTimer;
     private CountDownTimer transitionTimer;
 
@@ -397,8 +400,14 @@ public class ConnectionsGameActivity extends AppCompatActivity {
             } else {
                 player2Score += ConnectionsGameService.POINTS_PER_MATCH;
             }
+            if (currentPlayer == myPlayerNumber) {
+                statsMatched++;
+            }
         } else {
             wrongLeft[selectedLeft] = true;
+            if (currentPlayer == myPlayerNumber) {
+                statsMissed++;
+            }
         }
 
         selectedLeft = -1;
@@ -500,6 +509,9 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         Intent resultIntent = new Intent();
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER1_SCORE, player1Score);
         resultIntent.putExtra(MatchActivity.EXTRA_GAME_PLAYER2_SCORE, player2Score);
+        PlayerStatsService.putBaseGameStats(resultIntent, GAME_ID, 0, 20);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_CONNECTIONS_MATCHED, statsMatched);
+        resultIntent.putExtra(PlayerStatsService.EXTRA_STATS_CONNECTIONS_MISSED, statsMissed);
         setResult(RESULT_OK, resultIntent);
         btnContinue.postDelayed(() -> {
             if (!isFinishing() && !isDestroyed()) {
