@@ -73,9 +73,8 @@ public class HomeActivity extends AppCompatActivity {
         tvHomeLeague = findViewById(R.id.tvHomeLeague);
         View homeStatsRow = findViewById(R.id.homeStatsRow);
         Button btnStartGame = findViewById(R.id.btnStartGame);
-        View friend1 = findViewById(R.id.friendItem1);
-        View friend2 = findViewById(R.id.friendItem2);
-        View friend3 = findViewById(R.id.friendItem3);
+        View friendsContainer = findViewById(R.id.friendsContainer);
+        Button btnOpenFriends = findViewById(R.id.btnOpenFriends);
         TextView tvFriendsLabel = findViewById(R.id.tvFriendsLabel);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
@@ -98,9 +97,7 @@ public class HomeActivity extends AppCompatActivity {
 
             btnStartGame.setVisibility(View.VISIBLE);
             tvFriendsLabel.setVisibility(View.GONE);
-            friend1.setVisibility(View.GONE);
-            friend2.setVisibility(View.GONE);
-            friend3.setVisibility(View.GONE);
+            friendsContainer.setVisibility(View.GONE);
 
             btnNotifications.setVisibility(View.GONE);
             btnOpenChat.setVisibility(View.GONE);
@@ -126,16 +123,13 @@ public class HomeActivity extends AppCompatActivity {
         btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnSettings.setOnClickListener(v -> showSettingsMenu(btnSettings));
+        btnOpenFriends.setOnClickListener(v -> startActivity(new Intent(this, FriendsActivity.class)));
 
         btnStartGame.setOnClickListener(v -> {
             Intent intent = new Intent(this, MatchActivity.class);
             intent.putExtra("auto_start_queue", true);
             startActivity(intent);
         });
-
-        friend1.setOnClickListener(v -> sendInviteToHardcodedFriend("marko"));
-        friend2.setOnClickListener(v -> sendInviteToHardcodedFriend("ana"));
-        friend3.setOnClickListener(v -> sendInviteToHardcodedFriend("milica"));
 
         btnGuestRegister.setOnClickListener(v -> {
             sessionManager.clearGuestMode();
@@ -377,13 +371,6 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void sendInviteToHardcodedFriend(String username) {
-        Intent intent = new Intent(this, MatchActivity.class);
-        intent.putExtra("auto_invite_target", username);
-        startActivity(intent);
-        Toast.makeText(this, "Saljem poziv igracu: " + username, Toast.LENGTH_SHORT).show();
-    }
-
     private void showSettingsMenu(View anchor) {
         PopupMenu popupMenu = new PopupMenu(this, anchor);
         popupMenu.getMenu().add(0, 1, 0, "Promeni lozinku");
@@ -412,10 +399,12 @@ public class HomeActivity extends AppCompatActivity {
                         if (item.localShown) {
                             continue;
                         }
-                        showLocalSystemNotification(item);
-                        if (!shownInAppPopup && shouldShowImmediateInAppPopup(item)) {
-                            showImmediateInAppPopup(item, notificationService);
-                            shownInAppPopup = true;
+                        if (!isOfflineInviteNotification(item)) {
+                            showLocalSystemNotification(item);
+                            if (!shownInAppPopup && shouldShowImmediateInAppPopup(item)) {
+                                showImmediateInAppPopup(item, notificationService);
+                                shownInAppPopup = true;
+                            }
                         }
                         notificationService.markAsLocalShown(item.id, new NotificationService.UiActionCallback() {
                             @Override
@@ -440,8 +429,15 @@ public class HomeActivity extends AppCompatActivity {
         if (item == null) {
             return false;
         }
-        // Reward notifications already have a dedicated reward dialog.
-        return !"rewards".equalsIgnoreCase(item.type);
+        return !"rewards".equalsIgnoreCase(item.type) && !isOfflineInviteNotification(item);
+    }
+
+    private boolean isOfflineInviteNotification(AppNotification item) {
+        return item != null && "open_match".equalsIgnoreCase(value(item.actionType));
+    }
+
+    private String value(String input) {
+        return input == null ? "" : input;
     }
 
     private void showImmediateInAppPopup(AppNotification item, NotificationService notificationService) {

@@ -25,7 +25,7 @@ public class NotificationsActivity extends AppCompatActivity {
 
     private NotificationService service;
     private NotificationService.Filter currentFilter = NotificationService.Filter.ALL;
-    private String currentTypeFilter = "chat";
+    private String currentTypeFilter = null;
     private LinearLayout notificationsContainer;
     private TextView tvEmpty;
     private Button btnTypeChat;

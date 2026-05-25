@@ -2,8 +2,10 @@ package com.example.slagalica;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -47,7 +49,7 @@ public class ProfileActivity extends AppCompatActivity {
     private TextView tvStatsTotalMatches;
     private TextView tvStatsSelectedTitle;
     private TextView tvStatsLegend;
-    private InviteQrView qrInviteView;
+    private ImageView qrInviteView;
     private StatsCircleView viewWinCircle;
     private StatsBarChartView viewGameBars;
     private StatsPieChartView viewStatsPie;
@@ -125,7 +127,8 @@ public class ProfileActivity extends AppCompatActivity {
             tvRegion.setText("Region: " + value(profile.region, "-"));
             tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
             String uid = authService.getCurrentUserId();
-            qrInviteView.setPayload("slagalica://friend?uid=" + value(uid, "") + "&username=" + currentUsername);
+            String payload = "slagalica://friend?uid=" + value(uid, "") + "&username=" + Uri.encode(currentUsername);
+            qrInviteView.setImageBitmap(QrCodeGenerator.create(payload, dp(180)));
         }));
     }
 
@@ -334,5 +337,9 @@ public class ProfileActivity extends AppCompatActivity {
 
     private long safe(Long value) {
         return value == null ? 0L : value;
+    }
+
+    private int dp(int value) {
+        return (int) (value * getResources().getDisplayMetrics().density);
     }
 }

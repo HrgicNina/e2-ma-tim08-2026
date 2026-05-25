@@ -26,9 +26,11 @@ import com.example.slagalica.domain.MatchRealtimeClient;
 import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.SessionManager;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONObject;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class MatchActivity extends AppCompatActivity {
@@ -41,6 +43,7 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_DATA = "data";
     public static final String EXTRA_AUTO_START_QUEUE = "auto_start_queue";
     public static final String EXTRA_AUTO_INVITE_TARGET = "auto_invite_target";
+    public static final String EXTRA_RESPOND_INVITE_ID = "respond_invite_id";
     public static final String EXTRA_GAME_PLAYER1_SCORE = "game_player1_score";
     public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
     public static final String EXTRA_MATCH_FORFEIT = "match_forfeit";
@@ -116,6 +119,7 @@ public class MatchActivity extends AppCompatActivity {
     private boolean resultApplied = false;
     private boolean autoStartQueueRequested = false;
     private String autoInviteTarget = null;
+    private String respondInviteId = null;
     private boolean guestMode = false;
     private boolean opponentForfeited = false;
     private boolean suppressInRoomInfoMessages = false;
@@ -138,6 +142,7 @@ public class MatchActivity extends AppCompatActivity {
     private final LeaderboardService leaderboardService = new LeaderboardService();
     private final PlayerStatsService playerStatsService = new PlayerStatsService();
     private final MatchRealtimeClient realtimeClient = new MatchRealtimeClient();
+    private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private boolean matchStatsSubmitted = false;
 
     private interface EconomyDeltaCallback {
@@ -193,6 +198,7 @@ public class MatchActivity extends AppCompatActivity {
         }
         autoStartQueueRequested = getIntent().getBooleanExtra(EXTRA_AUTO_START_QUEUE, false);
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
+        respondInviteId = getIntent().getStringExtra(EXTRA_RESPOND_INVITE_ID);
 
         tvMatchStage = findViewById(R.id.tvMatchStage);
         tvMatchInfo = findViewById(R.id.tvMatchInfo);
@@ -367,6 +373,7 @@ public class MatchActivity extends AppCompatActivity {
             public void onMatchFound(String room, boolean friendly, int playerNumber, String oppUid, String oppUsername) {
                 runOnUiThread(() -> {
                     inRoom = true;
+                    updateMatchPresence(true, room);
                     queueing = false;
                     pendingJoinRequest = false;
                     cancelQueueTimeout();
@@ -752,11 +759,23 @@ public class MatchActivity extends AppCompatActivity {
             }
         }
 
+        if (!TextUtils.isEmpty(respondInviteId)) {
+            String inviteId = respondInviteId;
+            respondInviteId = null;
+            if (!guestMode && !inRoom && !queueing && wsAuthenticated) {
+                realtimeClient.respondInvite(inviteId, true);
+                tvMatchInfo.setText("Prihvatam poziv...");
+                renderMatch();
+            }
+            return;
+        }
+
         if (!TextUtils.isEmpty(autoInviteTarget)) {
             String target = autoInviteTarget;
             autoInviteTarget = null;
             if (!guestMode && !inRoom && !queueing && wsAuthenticated) {
                 realtimeClient.sendInvite(target);
+                pendingInviteTargetForFallback = target;
                 outgoingInvitePending = true;
                 Toast.makeText(this, "Poziv poslat igracu: " + target, Toast.LENGTH_SHORT).show();
             }
@@ -1158,6 +1177,7 @@ public class MatchActivity extends AppCompatActivity {
 
     private void finishLocalRoom(boolean renderUi) {
         cancelQueueTimeout();
+        updateMatchPresence(false, null);
         inRoom = false;
         queueing = false;
         pendingJoinRequest = false;
@@ -1349,6 +1369,22 @@ public class MatchActivity extends AppCompatActivity {
             }
         }
         clearIncomingInviteTimeout();
+        if (inRoom) {
+            updateMatchPresence(false, null);
+        }
         realtimeClient.disconnect();
+    }
+
+    private void updateMatchPresence(boolean active, String activeRoomId) {
+        if (guestMode || TextUtils.isEmpty(myUid)) {
+            return;
+        }
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("inMatch", active);
+        payload.put("activeRoomId", activeRoomId == null ? "" : activeRoomId);
+        payload.put("matchUpdatedAtMillis", System.currentTimeMillis());
+        db.collection("users")
+                .document(myUid)
+                .update(payload);
     }
 }

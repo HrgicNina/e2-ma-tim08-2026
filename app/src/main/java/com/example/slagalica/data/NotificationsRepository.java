@@ -106,6 +106,21 @@ public class NotificationsRepository {
             return;
         }
 
+        String target = targetUsername.trim();
+        db.collection("users")
+                .document(target)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc != null && doc.exists()) {
+                        createOfflineInviteNotificationForUid(doc.getId(), fromUsername, callback);
+                        return;
+                    }
+                    findInviteTargetByUsername(target, fromUsername, callback);
+                })
+                .addOnFailureListener(e -> findInviteTargetByUsername(target, fromUsername, callback));
+    }
+
+    private void findInviteTargetByUsername(String targetUsername, String fromUsername, ActionCallback callback) {
         db.collection("users")
                 .whereEqualTo("usernameLower", targetUsername.trim().toLowerCase())
                 .limit(1)
@@ -115,26 +130,28 @@ public class NotificationsRepository {
                         callback.onError("Prijatelj ne postoji.");
                         return;
                     }
-
-                    String targetUid = snapshot.getDocuments().get(0).getId();
-                    Map<String, Object> payload = new HashMap<>();
-                    payload.put("type", "other");
-                    payload.put("title", "Poziv za prijateljsku partiju");
-                    payload.put("message", value(fromUsername) + " vas je pozvao/la na prijateljsku partiju.");
-                    payload.put("read", false);
-                    payload.put("localShown", false);
-                    payload.put("createdAt", Timestamp.now());
-                    payload.put("actionType", "open_match");
-                    payload.put("actionPayload", value(fromUsername));
-
-                    db.collection("users")
-                            .document(targetUid)
-                            .collection("notifications")
-                            .add(payload)
-                            .addOnSuccessListener(doc -> callback.onSuccess())
-                            .addOnFailureListener(e -> callback.onError("Ne mogu da posaljem offline notifikaciju."));
+                    createOfflineInviteNotificationForUid(snapshot.getDocuments().get(0).getId(), fromUsername, callback);
                 })
                 .addOnFailureListener(e -> callback.onError("Ne mogu da pronadjem primaoca poziva."));
+    }
+
+    private void createOfflineInviteNotificationForUid(String targetUid, String fromUsername, ActionCallback callback) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("type", "other");
+        payload.put("title", "Poziv za prijateljsku partiju");
+        payload.put("message", value(fromUsername) + " vas je pozvao/la na prijateljsku partiju.");
+        payload.put("read", false);
+        payload.put("localShown", false);
+        payload.put("createdAt", Timestamp.now());
+        payload.put("actionType", "open_match");
+        payload.put("actionPayload", value(fromUsername));
+
+        db.collection("users")
+                .document(targetUid)
+                .collection("notifications")
+                .add(payload)
+                .addOnSuccessListener(doc -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onError("Ne mogu da posaljem offline notifikaciju."));
     }
 
     public void markAsLocalShown(String uid, String notificationId, ActionCallback callback) {
