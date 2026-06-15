@@ -20,6 +20,9 @@
         android:theme="@style/Theme.Slagalica">
 
         <activity
+            android:name=".RegionsActivity"
+            android:exported="false" />
+        <activity
             android:name=".FriendsActivity"
             android:exported="false" />
         <activity

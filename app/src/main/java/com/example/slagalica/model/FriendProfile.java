@@ -4,6 +4,7 @@ public class FriendProfile {
     public String uid;
     public String username;
     public String avatarId;
+    public String avatarFrameId;
     public long stars;
     public long league;
     public long monthlyRank;

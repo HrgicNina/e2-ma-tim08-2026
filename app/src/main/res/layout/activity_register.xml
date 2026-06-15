@@ -43,6 +43,20 @@
             android:inputType="text"
             android:textSize="22sp" />
 
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:text="@string/register_region_map_hint"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <com.example.slagalica.RegionMapView
+            android:id="@+id/registerRegionMapView"
+            android:layout_width="match_parent"
+            android:layout_height="260dp"
+            android:layout_marginTop="8dp" />
+
         <EditText
             android:id="@+id/etRegPassword"
             android:layout_width="match_parent"

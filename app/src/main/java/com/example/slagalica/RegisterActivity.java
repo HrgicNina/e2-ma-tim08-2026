@@ -22,6 +22,7 @@ public class RegisterActivity extends AppCompatActivity {
     private AutoCompleteTextView etRegion;
     private EditText etPassword;
     private EditText etConfirmPassword;
+    private RegionMapView regionMapView;
     private AuthService authService;
 
     @Override
@@ -36,9 +37,25 @@ public class RegisterActivity extends AppCompatActivity {
         etRegion = findViewById(R.id.etRegRegion);
         etPassword = findViewById(R.id.etRegPassword);
         etConfirmPassword = findViewById(R.id.etRegConfirmPassword);
+        regionMapView = findViewById(R.id.registerRegionMapView);
 
         String[] regions = getResources().getStringArray(R.array.serbia_regions);
         etRegion.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, regions));
+        regionMapView.setData(null, "", "");
+        regionMapView.setRegionClickListener(region -> {
+            etRegion.setText(region, false);
+            regionMapView.setData(null, region, region);
+        });
+        etRegion.setOnItemClickListener((parent, view, position, id) -> {
+            String region = String.valueOf(parent.getItemAtPosition(position));
+            regionMapView.setData(null, region, region);
+        });
+        etRegion.setOnFocusChangeListener((view, hasFocus) -> {
+            if (!hasFocus) {
+                String region = etRegion.getText().toString();
+                regionMapView.setData(null, region, region);
+            }
+        });
 
         Button btnRegister = findViewById(R.id.btnRegister);
         TextView tvGoLogin = findViewById(R.id.tvGoLogin);

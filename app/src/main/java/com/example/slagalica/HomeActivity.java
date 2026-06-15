@@ -31,6 +31,7 @@ import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.NotificationService;
+import com.example.slagalica.domain.RegionsService;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.AppNotification;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -73,6 +74,7 @@ public class HomeActivity extends AppCompatActivity {
         tvHomeLeague = findViewById(R.id.tvHomeLeague);
         View homeStatsRow = findViewById(R.id.homeStatsRow);
         Button btnStartGame = findViewById(R.id.btnStartGame);
+        Button btnOpenRegions = findViewById(R.id.btnOpenRegions);
         View friendsContainer = findViewById(R.id.friendsContainer);
         Button btnOpenFriends = findViewById(R.id.btnOpenFriends);
         TextView tvFriendsLabel = findViewById(R.id.tvFriendsLabel);
@@ -96,6 +98,7 @@ public class HomeActivity extends AppCompatActivity {
             homeStatsRow.setVisibility(View.GONE);
 
             btnStartGame.setVisibility(View.VISIBLE);
+            btnOpenRegions.setVisibility(View.GONE);
             tvFriendsLabel.setVisibility(View.GONE);
             friendsContainer.setVisibility(View.GONE);
 
@@ -114,6 +117,8 @@ public class HomeActivity extends AppCompatActivity {
             tvHomeStars.setText(R.string.home_stars_value);
             tvHomeLeague.setText(R.string.home_league_value);
             btnGuestRegister.setVisibility(View.GONE);
+            btnOpenRegions.setVisibility(View.VISIBLE);
+            processRegionAwardsQuietly();
             grantDailyTokensOnStartup(economyService, tvHomeTokens, tvHomeStars, tvHomeLeague);
             bootstrapNotificationsAndRewards(notificationService, rewardNotificationIdFromIntent);
         }
@@ -121,6 +126,7 @@ public class HomeActivity extends AppCompatActivity {
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
         btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
+        btnOpenRegions.setOnClickListener(v -> startActivity(new Intent(this, RegionsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnSettings.setOnClickListener(v -> showSettingsMenu(btnSettings));
         btnOpenFriends.setOnClickListener(v -> startActivity(new Intent(this, FriendsActivity.class)));
@@ -430,6 +436,18 @@ public class HomeActivity extends AppCompatActivity {
             return false;
         }
         return !"rewards".equalsIgnoreCase(item.type) && !isOfflineInviteNotification(item);
+    }
+
+    private void processRegionAwardsQuietly() {
+        new RegionsService().processPreviousMonthlyRegionAwards(new RegionsService.ActionCallback() {
+            @Override
+            public void onSuccess() {
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
     }
 
     private boolean isOfflineInviteNotification(AppNotification item) {

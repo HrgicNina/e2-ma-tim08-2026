@@ -196,6 +196,7 @@ public class FriendsRepository {
         profile.uid = doc.getId();
         profile.username = value(doc.getString("username"));
         profile.avatarId = value(doc.getString("avatarId"));
+        profile.avatarFrameId = value(doc.getString("avatarFrameId"));
         profile.stars = value(doc.getLong("stars"));
         profile.league = value(doc.getLong("league"));
         Boolean appActive = doc.getBoolean("appActive");

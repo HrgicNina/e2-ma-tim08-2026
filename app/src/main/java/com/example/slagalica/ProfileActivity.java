@@ -61,6 +61,7 @@ public class ProfileActivity extends AppCompatActivity {
     private PlayerStats currentStats = new PlayerStats();
     private String currentUsername = "";
     private String currentAvatarId = "owl";
+    private String currentAvatarFrameId = "blue";
     private int selectedGameIndex = 0;
 
     @Override
@@ -122,10 +123,12 @@ public class ProfileActivity extends AppCompatActivity {
         authService.getCurrentUserProfile(profile -> runOnUiThread(() -> {
             currentUsername = value(profile.username, "Korisnik");
             currentAvatarId = value(profile.avatarId, "owl");
+            currentAvatarFrameId = value(profile.avatarFrameId, "blue");
             tvUsername.setText(currentUsername);
             tvEmail.setText(value(profile.email, value(authService.getCurrentUserEmail(), "")));
             tvRegion.setText("Region: " + value(profile.region, "-"));
             tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
+            AvatarFrameHelper.apply(tvAvatar, currentAvatarFrameId);
             String uid = authService.getCurrentUserId();
             String payload = "slagalica://friend?uid=" + value(uid, "") + "&username=" + Uri.encode(currentUsername);
             qrInviteView.setImageBitmap(QrCodeGenerator.create(payload, dp(180)));
@@ -263,12 +266,13 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void saveAvatar(String avatarId) {
-        authService.updateAvatar(avatarId, "blue", new ResultCallback() {
+        authService.updateAvatar(avatarId, currentAvatarFrameId, new ResultCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> {
                     currentAvatarId = avatarId;
                     tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
+                    AvatarFrameHelper.apply(tvAvatar, currentAvatarFrameId);
                     Toast.makeText(ProfileActivity.this, "Avatar je sacuvan.", Toast.LENGTH_SHORT).show();
                 });
             }

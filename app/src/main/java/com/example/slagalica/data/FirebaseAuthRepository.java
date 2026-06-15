@@ -4,6 +4,7 @@ import androidx.annotation.NonNull;
 
 import com.example.slagalica.domain.AuthResultCallback;
 import com.example.slagalica.domain.ResultCallback;
+import com.example.slagalica.model.RegionCatalog;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -114,6 +115,9 @@ public class FirebaseAuthRepository {
                                 userDoc.put("username", username);
                                 userDoc.put("usernameLower", username.toLowerCase());
                                 userDoc.put("region", region);
+                                float[] regionPoint = RegionCatalog.randomPoint(region);
+                                userDoc.put("regionPointX", regionPoint[0]);
+                                userDoc.put("regionPointY", regionPoint[1]);
                                 userDoc.put("tokens", 5);
                                 userDoc.put("stars", 0);
                                 userDoc.put("league", 0);

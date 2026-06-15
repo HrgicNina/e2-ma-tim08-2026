@@ -131,6 +131,7 @@ public class FriendsActivity extends AppCompatActivity {
             Button btnInvite = row.findViewById(R.id.btnInviteFriend);
 
             tvAvatar.setText(symbolForAvatar(friend.avatarId, friend.username));
+            AvatarFrameHelper.apply(tvAvatar, friend.avatarFrameId);
             tvUsername.setText(value(friend.username));
             tvMeta.setText("Rang: " + rankLabel(friend.monthlyRank) + " | Zvezde: " + friend.stars + " | " + leagueIcon(friend.league) + " " + leagueName(friend.league));
             tvStatus.setText(statusLabel(friend));
