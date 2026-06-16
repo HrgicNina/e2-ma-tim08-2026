@@ -26,10 +26,10 @@ public class RegionMapView extends WebView {
         void onRegionClick(String region);
     }
 
-    private static final double MIN_LON = 18.75;
-    private static final double MAX_LON = 23.10;
-    private static final double MIN_LAT = 41.75;
-    private static final double MAX_LAT = 46.25;
+    private static final double MIN_LON = 18.65;
+    private static final double MAX_LON = 23.25;
+    private static final double MIN_LAT = 41.65;
+    private static final double MAX_LAT = 46.32;
 
     private final List<RegionPlayerPoint> points = new ArrayList<>();
     private String selectedRegion = "";
@@ -53,7 +53,8 @@ public class RegionMapView extends WebView {
         WebSettings settings = getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
-        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setAllowFileAccess(true);
         settings.setLoadWithOverviewMode(true);
         settings.setUseWideViewPort(true);
         addJavascriptInterface(new RegionBridge(), "AndroidRegionMap");
@@ -68,10 +69,10 @@ public class RegionMapView extends WebView {
         if (points != null) {
             this.points.addAll(points);
         }
-        this.myRegion = value(myRegion);
-        this.selectedRegion = value(selectedRegion);
+        this.myRegion = RegionCatalog.canonicalName(value(myRegion));
+        this.selectedRegion = RegionCatalog.canonicalName(value(selectedRegion));
         loadDataWithBaseURL(
-                "https://www.openstreetmap.org/",
+                "file:///android_asset/",
                 html(),
                 "text/html",
                 "UTF-8",
@@ -86,37 +87,23 @@ public class RegionMapView extends WebView {
                 + "<link rel='stylesheet' href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'>"
                 + "<script src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'></script>"
                 + "<style>"
-                + "html,body,#map{height:100%;margin:0;padding:0;background:#dceaf3;}"
-                + ".leaflet-container{font-family:Arial,sans-serif;border-radius:12px;}"
-                + ".region-label{background:rgba(255,255,255,.92);border:1px solid #153856;"
-                + "border-radius:14px;color:#153856;font-size:12px;font-weight:700;padding:2px 7px;}"
-                + ".leaflet-control-attribution{font-size:10px;}"
+                + "html,body,#map{height:100%;margin:0;padding:0;background:#dceaf3;overflow:hidden;}"
+                + ".leaflet-container{font-family:Arial,sans-serif;background:#dceaf3;}"
+                + ".leaflet-control-attribution{font-size:9px;}"
                 + "</style></head><body><div id='map'></div><script>"
-                + "const selectedRegion=" + jsonString(selectedRegion) + ";"
-                + "const myRegion=" + jsonString(myRegion) + ";"
-                + "const regions=" + regionsJson() + ";"
                 + "const points=" + pointsJson() + ";"
-                + "const map=L.map('map',{zoomControl:true,attributionControl:true,zoomSnap:.25,zoomDelta:.5,"
-                + "maxBounds:[[41.35,18.15],[46.55,23.55]],maxBoundsViscosity:.75}).setView([44.05,20.75],7.25);"
+                + "const map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,"
+                + "touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,boxZoom:true,keyboard:true,"
+                + "tap:true,zoomSnap:.25,minZoom:6.5,maxZoom:11,"
+                + "maxBounds:[[41.25,18.05],[46.75,23.75]],maxBoundsViscosity:.55}).setView([44.05,20.78],7.05);"
                 + "L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{"
                 + "subdomains:'abcd',maxZoom:18,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);"
-                + "const bounds=[];"
-                + "regions.forEach(r=>{"
-                + "const mine=r.name===myRegion;"
-                + "const selected=r.name===selectedRegion;"
-                + "const poly=L.polygon(r.polygon,{color:selected?'#0c2f52':(mine?'#f6c65b':'#ffffff'),"
-                + "weight:selected?5:(mine?4:2),fillColor:r.color,fillOpacity:.52}).addTo(map);"
-                + "poly.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked(r.name);}});"
-                + "poly.bindTooltip(r.icon,{permanent:true,direction:'center',className:'region-label'});"
-                + "bounds.push(...r.polygon);"
-                + "});"
+                + "L.imageOverlay('serbia_border_overlay.png',[[41.794,18.332],[46.402,23.409]],{"
+                + "opacity:1,interactive:false}).addTo(map);"
                 + "points.forEach(p=>{"
-                + "const mine=p.region===myRegion;"
-                + "L.circleMarker([p.lat,p.lon],{radius:mine?6:4,color:'#0c2f52',weight:1,"
-                + "fillColor:mine?'#f6c65b':'#ffffff',fillOpacity:1}).addTo(map);"
+                + "L.circleMarker([p.lat,p.lon],{radius:3.5,color:'#0c2f52',weight:1,"
+                + "fillColor:'#ffffff',fillOpacity:1,interactive:false}).addTo(map);"
                 + "});"
-                + "if(bounds.length){map.fitBounds(bounds,{padding:[2,2]});"
-                + "setTimeout(()=>{map.panTo([44.05,20.75]);map.setZoom(Math.min(map.getZoom()+.6,7.85));},80);}"
                 + "</script></body></html>";
     }
 
@@ -126,9 +113,9 @@ public class RegionMapView extends WebView {
             JSONObject object = new JSONObject();
             try {
                 object.put("name", def.name);
-                object.put("icon", def.icon);
+                object.put("label", labelFor(def.name));
                 object.put("color", colorHex(def.color));
-                object.put("polygon", polygonFor(def.name));
+                object.put("polygon", normalizedPolygon(regionShape(def.name)));
                 array.put(object);
             } catch (JSONException ignored) {
             }
@@ -136,12 +123,20 @@ public class RegionMapView extends WebView {
         return array.toString();
     }
 
+    private String serbiaBorderJson() {
+        try {
+            return coordinates(serbiaBorderCoordinates()).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
     private String pointsJson() {
         JSONArray array = new JSONArray();
         for (RegionPlayerPoint point : points) {
             JSONObject object = new JSONObject();
             try {
-                object.put("region", RegionCatalog.canonicalName(value(point.region)));
+                object.put("region", RegionCatalog.canonicalName(point.region));
                 object.put("lat", latFor(point.y));
                 object.put("lon", lonFor(point.x));
                 array.put(object);
@@ -151,62 +146,111 @@ public class RegionMapView extends WebView {
         return array.toString();
     }
 
-    private JSONArray polygonFor(String region) throws JSONException {
-        if ("Vojvodina".equals(region)) {
-            return polygon(new double[][]{
-                    {46.18, 18.86}, {46.18, 21.55}, {45.74, 21.42},
-                    {45.34, 20.92}, {44.94, 20.47}, {44.84, 19.47}, {45.22, 18.82}
-            });
+    private JSONArray normalizedPolygon(float[][] shape) throws JSONException {
+        JSONArray array = new JSONArray();
+        for (float[] point : shape) {
+            JSONArray coordinate = new JSONArray();
+            coordinate.put(latFor(point[1]));
+            coordinate.put(lonFor(point[0]));
+            array.put(coordinate);
         }
-        if ("Beograd".equals(region)) {
-            return polygon(new double[][]{
-                    {45.02, 20.16}, {45.00, 20.72}, {44.66, 20.75},
-                    {44.54, 20.35}, {44.72, 20.10}
-            });
-        }
-        if ("Zapadna Srbija".equals(region)) {
-            return polygon(new double[][]{
-                    {44.88, 18.92}, {44.72, 20.10}, {44.54, 20.35},
-                    {43.95, 20.28}, {43.18, 20.16}, {42.96, 19.98},
-                    {43.28, 19.34}, {44.02, 18.88}
-            });
-        }
-        if ("Sumadija".equals(region)) {
-            return polygon(new double[][]{
-                    {44.72, 20.10}, {45.00, 20.72}, {44.66, 20.75},
-                    {44.30, 21.05}, {43.76, 21.02}, {43.18, 20.16},
-                    {43.95, 20.28}, {44.54, 20.35}
-            });
-        }
-        if ("Istocna Srbija".equals(region)) {
-            return polygon(new double[][]{
-                    {45.34, 20.92}, {45.72, 21.42}, {44.92, 22.66},
-                    {43.80, 22.76}, {43.48, 21.66}, {43.76, 21.02},
-                    {44.30, 21.05}, {44.66, 20.75}
-            });
-        }
-        if ("Juzna Srbija".equals(region)) {
-            return polygon(new double[][]{
-                    {43.76, 21.02}, {43.48, 21.66}, {43.80, 22.76},
-                    {42.54, 22.52}, {42.12, 21.58}, {42.72, 20.80},
-                    {43.18, 20.16}
-            });
-        }
-        return polygon(new double[][]{
-                {43.18, 20.16}, {42.72, 20.80}, {42.58, 21.66},
-                {41.88, 20.96}, {42.15, 20.06}, {42.78, 19.88}
-        });
+        return array;
     }
 
-    private JSONArray polygon(double[][] coordinates) throws JSONException {
-        JSONArray outer = new JSONArray();
-        for (double[] coordinate : coordinates) {
-            JSONArray point = new JSONArray();
-            point.put(coordinate[0]);
-            point.put(coordinate[1]);
-            outer.put(point);
+    private JSONArray coordinates(double[][] shape) throws JSONException {
+        JSONArray array = new JSONArray();
+        for (double[] point : shape) {
+            JSONArray coordinate = new JSONArray();
+            coordinate.put(point[0]);
+            coordinate.put(point[1]);
+            array.put(coordinate);
         }
-        return outer;
+        return array;
+    }
+
+    private float[][] regionShape(String region) {
+        if ("Vojvodina".equals(region)) {
+            return new float[][]{
+                    {.18f, .04f}, {.55f, .03f}, {.78f, .15f}, {.83f, .28f},
+                    {.73f, .38f}, {.54f, .38f}, {.42f, .34f}, {.25f, .36f},
+                    {.10f, .28f}, {.11f, .14f}
+            };
+        }
+        if ("Podrinje i Posavina".equals(region)) {
+            return new float[][]{
+                    {.10f, .28f}, {.25f, .36f}, {.42f, .34f}, {.47f, .44f},
+                    {.44f, .56f}, {.36f, .66f}, {.25f, .70f}, {.12f, .62f},
+                    {.07f, .50f}, {.10f, .39f}
+            };
+        }
+        if ("Sumadija".equals(region)) {
+            return new float[][]{
+                    {.42f, .34f}, {.54f, .38f}, {.61f, .48f}, {.56f, .62f},
+                    {.48f, .70f}, {.36f, .66f}, {.44f, .56f}, {.47f, .44f}
+            };
+        }
+        if ("Timok i Branicevo".equals(region)) {
+            return new float[][]{
+                    {.54f, .38f}, {.73f, .38f}, {.86f, .46f}, {.90f, .62f},
+                    {.82f, .76f}, {.66f, .74f}, {.56f, .62f}, {.61f, .48f}
+            };
+        }
+        if ("Raska".equals(region)) {
+            return new float[][]{
+                    {.25f, .70f}, {.36f, .66f}, {.48f, .70f}, {.45f, .82f},
+                    {.31f, .84f}
+            };
+        }
+        if ("Rasina i Toplica".equals(region)) {
+            return new float[][]{
+                    {.48f, .70f}, {.56f, .62f}, {.66f, .74f}, {.62f, .86f},
+                    {.45f, .82f}
+            };
+        }
+        if ("Sopluk".equals(region)) {
+            return new float[][]{
+                    {.82f, .76f}, {.90f, .62f}, {.94f, .78f}, {.86f, .91f}
+            };
+        }
+        if ("Juzno Pomoravlje".equals(region)) {
+            return new float[][]{
+                    {.66f, .74f}, {.82f, .76f}, {.86f, .91f}, {.73f, .95f},
+                    {.62f, .86f}
+            };
+        }
+        return new float[][]{
+                {.31f, .84f}, {.45f, .82f}, {.62f, .86f}, {.73f, .95f},
+                {.58f, .99f}, {.33f, .96f}, {.21f, .88f}
+        };
+    }
+
+    private double[][] serbiaBorderCoordinates() {
+        return new double[][]{
+                {45.416375, 20.874313}, {45.181170, 21.483526}, {44.768947, 21.562023},
+                {44.478422, 22.145088}, {44.702517, 22.459022}, {44.578003, 22.705726},
+                {44.409228, 22.474008}, {44.234923, 22.657150}, {44.008063, 22.410446},
+                {43.642814, 22.500157}, {43.211161, 22.986019}, {42.898519, 22.604801},
+                {42.580321, 22.436595}, {42.461362, 22.545012}, {42.320260, 22.380526},
+                {42.303640, 21.917080}, {42.245224, 21.576636}, {42.320250, 21.543320},
+                {42.439220, 21.662920}, {42.682700, 21.775050}, {42.677170, 21.633020},
+                {42.862550, 21.438660}, {42.909590, 21.274210}, {43.068685, 21.143395},
+                {43.130940, 20.956510}, {43.272050, 20.814480}, {43.216710, 20.635080},
+                {42.884690, 20.496790}, {42.812750, 20.257580}, {42.898520, 20.339800},
+                {43.106040, 19.958570}, {43.213780, 19.630000}, {43.352290, 19.483890},
+                {43.523840, 19.218520}, {43.568100, 19.454000}, {44.038470, 19.599760},
+                {44.423070, 19.117610}, {44.863000, 19.368030}, {44.860230, 19.005480},
+                {45.236516, 19.390476}, {45.521511, 19.072769}, {45.908880, 18.829820},
+                {46.171730, 19.596045}, {46.127469, 20.220192}, {45.734573, 20.762175}
+        };
+    }
+
+    private String labelFor(String region) {
+        if ("Podrinje i Posavina".equals(region)) return "PODRINJE I<br>POSAVINA";
+        if ("Timok i Branicevo".equals(region)) return "TIMOK I<br>BRANICEVO";
+        if ("Rasina i Toplica".equals(region)) return "RASINA I<br>TOPLICA";
+        if ("Juzno Pomoravlje".equals(region)) return "JUZNO<br>POMORAVLJE";
+        if ("Kosovo i Metohija".equals(region)) return "KOSOVO I<br>METOHIJA";
+        return region.toUpperCase(Locale.ROOT);
     }
 
     private double latFor(float y) {
@@ -236,14 +280,14 @@ public class RegionMapView extends WebView {
     }
 
     private String value(String input) {
-        return input == null ? "" : input;
+        return input == null ? "" : input.trim();
     }
 
     private final class RegionBridge {
         @JavascriptInterface
         public void onRegionClicked(String region) {
             post(() -> {
-                selectedRegion = value(region);
+                selectedRegion = RegionCatalog.canonicalName(region);
                 if (listener != null) {
                     listener.onRegionClick(selectedRegion);
                 }

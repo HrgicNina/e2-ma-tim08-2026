@@ -26,6 +26,7 @@
     <string name="btn_open_my_number">Moj broj</string>
     <string name="btn_open_notifications">Notifikacije</string>
     <string name="btn_register_now">Registrujte se</string>
+    <string name="btn_pick_region">Izaberi region</string>
     <string name="games_label">Igre:</string>
     <string name="home_start_game">Započni igru</string>
     <string name="home_friends_label">Prijatelji</string>
@@ -59,7 +60,6 @@
     <string name="passwords_not_match">Lozinke se ne poklapaju.</string>
     <string name="registration_failed">Registracija nije uspela.</string>
     <string name="registration_success_verify">Uspeh. Proveri email i potvrdi registraciju preko linka.</string>
-    <string name="register_region_map_hint">Izaberi region na mapi Srbije</string>
     <string name="verification_email_failed">Neuspesno slanje verifikacionog emaila.</string>
     <string name="login_failed">Prijava nije uspela. Proveri podatke.</string>
     <string name="verify_email_first">Morate potvrditi email pre prijave.</string>
@@ -330,12 +330,14 @@
     <string name="match_finished_message">Sve igre iz partije su prosle.</string>
 
     <string-array name="serbia_regions">
-        <item>Beograd</item>
         <item>Vojvodina</item>
-        <item>Zapadna Srbija</item>
+        <item>Podrinje i Posavina</item>
         <item>Sumadija</item>
-        <item>Istocna Srbija</item>
-        <item>Juzna Srbija</item>
+        <item>Timok i Branicevo</item>
+        <item>Raska</item>
+        <item>Rasina i Toplica</item>
+        <item>Sopluk</item>
+        <item>Juzno Pomoravlje</item>
         <item>Kosovo i Metohija</item>
     </string-array>
 </resources>

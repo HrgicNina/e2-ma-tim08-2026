@@ -1,11 +1,15 @@
 package com.example.slagalica;
 
 import android.content.Intent;
+import android.app.Dialog;
 import android.os.Bundle;
+import android.view.Window;
+import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -22,7 +26,6 @@ public class RegisterActivity extends AppCompatActivity {
     private AutoCompleteTextView etRegion;
     private EditText etPassword;
     private EditText etConfirmPassword;
-    private RegionMapView regionMapView;
     private AuthService authService;
 
     @Override
@@ -37,35 +40,68 @@ public class RegisterActivity extends AppCompatActivity {
         etRegion = findViewById(R.id.etRegRegion);
         etPassword = findViewById(R.id.etRegPassword);
         etConfirmPassword = findViewById(R.id.etRegConfirmPassword);
-        regionMapView = findViewById(R.id.registerRegionMapView);
 
         String[] regions = getResources().getStringArray(R.array.serbia_regions);
         etRegion.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, regions));
-        regionMapView.setData(null, "", "");
-        regionMapView.setRegionClickListener(region -> {
-            etRegion.setText(region, false);
-            regionMapView.setData(null, region, region);
-        });
-        etRegion.setOnItemClickListener((parent, view, position, id) -> {
-            String region = String.valueOf(parent.getItemAtPosition(position));
-            regionMapView.setData(null, region, region);
-        });
-        etRegion.setOnFocusChangeListener((view, hasFocus) -> {
-            if (!hasFocus) {
-                String region = etRegion.getText().toString();
-                regionMapView.setData(null, region, region);
-            }
-        });
 
+        Button btnPickRegion = findViewById(R.id.btnPickRegion);
         Button btnRegister = findViewById(R.id.btnRegister);
         TextView tvGoLogin = findViewById(R.id.tvGoLogin);
 
+        btnPickRegion.setOnClickListener(v -> showRegionPickerDialog());
         btnRegister.setOnClickListener(v -> register());
         tvGoLogin.setOnClickListener(v -> {
             Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
             startActivity(intent);
             finish();
         });
+    }
+
+    private void showRegionPickerDialog() {
+        Dialog dialog = new Dialog(this);
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int pad = dp(12);
+        container.setPadding(pad, pad, pad, pad);
+
+        TextView title = new TextView(this);
+        title.setText("Izaberi region");
+        title.setTextSize(22);
+        title.setTextColor(0xFF1E2A25);
+        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        container.addView(title, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        RegionMapView pickerMap = new RegionMapView(this);
+        pickerMap.setData(null, etRegion.getText().toString(), etRegion.getText().toString());
+        container.addView(pickerMap, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+        ));
+
+        Button closeButton = new Button(this);
+        closeButton.setText("Otkazi");
+        container.addView(closeButton, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+
+        pickerMap.setRegionClickListener(region -> {
+            etRegion.setText(region, false);
+            dialog.dismiss();
+        });
+        closeButton.setOnClickListener(v -> dialog.dismiss());
+        dialog.setContentView(container);
+        dialog.show();
+        Window window = dialog.getWindow();
+        if (window != null) {
+            window.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        }
     }
 
     private void register() {
@@ -90,5 +126,9 @@ public class RegisterActivity extends AppCompatActivity {
                 Toast.makeText(RegisterActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private int dp(float value) {
+        return (int) (value * getResources().getDisplayMetrics().density + 0.5f);
     }
 }
