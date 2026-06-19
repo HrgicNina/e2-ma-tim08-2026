@@ -98,7 +98,96 @@ public class RegionMapView extends WebView {
                 + "maxBounds:[[41.25,18.05],[46.75,23.75]],maxBoundsViscosity:.55}).setView([44.05,20.78],7.05);"
                 + "L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{"
                 + "subdomains:'abcd',maxZoom:18,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);"
-                + "L.imageOverlay('serbia_border_overlay.png',[[41.794,18.332],[46.402,23.409]],{"
+                + "const addRegionHover=(layer,color)=>{"
+                + "layer.on('mouseover',()=>layer.setStyle({color:color,weight:3,opacity:.95}));"
+                + "layer.on('mouseout',()=>layer.setStyle({weight:0,opacity:0}));"
+                + "};"
+                + "const vojvodinaBounds=[[44.165,18.270],[46.395,21.770]];"
+                + "const vojvodinaLayer=L.imageOverlay('vojvodina_overlay.png',vojvodinaBounds,{"
+                + "opacity:1,interactive:true}).addTo(map);"
+                + "vojvodinaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Vojvodina');}});"
+                + "const vojvodinaHoverLayer=L.polygon([[46.26,18.78],[46.30,20.30],[45.95,21.30],"
+                + "[45.30,21.55],[44.80,20.90],[44.72,19.95],[44.78,18.95],[45.38,18.48]],"
+                + "{color:'#e53935',weight:0,fillColor:'#e53935',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "vojvodinaHoverLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Vojvodina');}});"
+                + "addRegionHover(vojvodinaHoverLayer,'#b71c1c');"
+                + "L.marker([45.55,19.89],{interactive:false,icon:L.divIcon({"
+                + "className:'',html:'<div style=\"font-weight:800;color:#111;font-size:15px;"
+                + "text-shadow:0 1px 2px rgba(255,255,255,.95);white-space:nowrap;\">Vojvodina</div>',"
+                + "iconSize:[90,22],iconAnchor:[45,11]})}).addTo(map);"
+                + "const centralBounds=[[43.40,18.45],[45.45,22.95]];"
+                + "const fullSerbiaBounds=[[41.794,18.332],[46.402,23.409]];"
+                + "L.imageOverlay('vojvodina_gap_overlay.png',centralBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "const vojvodinaGapLayer=L.polygon([[45.05,18.72],[45.12,19.72],[45.05,20.45],"
+                + "[44.82,21.55],[44.55,21.42],[44.62,20.78],[44.48,20.22],[44.56,19.45],"
+                + "[44.42,18.95]],{color:'#e53935',weight:0,fillColor:'#e53935',fillOpacity:.01}).addTo(map);"
+                + "vojvodinaGapLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Vojvodina');}});"
+                + "addRegionHover(vojvodinaGapLayer,'#b71c1c');"
+                + "L.imageOverlay('raska_overlay.png',fullSerbiaBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('rasina_toplica_overlay.png',fullSerbiaBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('sopluk_overlay.png',fullSerbiaBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('juzno_pomoravlje_overlay.png',fullSerbiaBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('kosovo_metohija_overlay.png',fullSerbiaBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('podrinje_overlay.png',centralBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('sumadija_overlay.png',centralBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "L.imageOverlay('timok_overlay.png',centralBounds,{opacity:1,interactive:false}).addTo(map);"
+                + "const raskaLayer=L.polygon(" + raskaJson() + ",{color:'#d1aa00',weight:0,"
+                + "fillColor:'#d1aa00',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "raskaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Raška');}});"
+                + "addRegionHover(raskaLayer,'#c46200');"
+                + "const rasinaToplicaLayer=L.polygon(" + rasinaToplicaJson() + ",{color:'#c4b86b',weight:0,"
+                + "fillColor:'#c4b86b',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "rasinaToplicaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Rasina i Toplica');}});"
+                + "addRegionHover(rasinaToplicaLayer,'#7e57c2');"
+                + "const soplukLayer=L.polygon(" + soplukJson() + ",{color:'#65b85c',weight:0,"
+                + "fillColor:'#65b85c',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "soplukLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Šopluk');}});"
+                + "addRegionHover(soplukLayer,'#111111');"
+                + "const juznoPomoravljeLayer=L.polygon(" + juznoPomoravljeJson() + ",{color:'#9bb889',weight:0,"
+                + "fillColor:'#9bb889',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "juznoPomoravljeLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Južno Pomoravlje');}});"
+                + "addRegionHover(juznoPomoravljeLayer,'#1565c0');"
+                + "const kosovoMetohijaLayer=L.polygon(" + kosovoMetohijaJson() + ",{color:'#8fb472',weight:0,"
+                + "fillColor:'#8fb472',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "kosovoMetohijaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Kosovo i Metohija');}});"
+                + "addRegionHover(kosovoMetohijaLayer,'#5d4037');"
+                + "const podrinjeLayer=L.polygon(" + podrinjePosavinaJson() + ",{color:'#2ca85d',weight:0,"
+                + "fillColor:'#2ca85d',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "podrinjeLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Podrinje i Posavina');}});"
+                + "addRegionHover(podrinjeLayer,'#1b7f3a');"
+                + "const sumadijaLayer=L.polygon(" + sumadijaJson() + ",{color:'#777',weight:0,"
+                + "fillColor:'#777',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "sumadijaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Šumadija');}});"
+                + "addRegionHover(sumadijaLayer,'#555555');"
+                + "const timokLayer=L.polygon(" + timokBranicevoJson() + ",{color:'#c7a700',weight:0,"
+                + "fillColor:'#c7a700',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
+                + "timokLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Timok i Braničevo');}});"
+                + "addRegionHover(timokLayer,'#b08a00');"
+                + "L.marker([44.32,19.66],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:12px;text-shadow:0 1px 2px rgba(255,255,255,.95);text-align:center;line-height:12px;\">Podrinje i<br>Posavina</div>',"
+                + "iconSize:[92,28],iconAnchor:[46,14]})}).addTo(map);"
+                + "L.marker([44.25,20.55],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:13px;text-shadow:0 1px 2px rgba(255,255,255,.95);white-space:nowrap;\">Šumadija</div>',"
+                + "iconSize:[80,22],iconAnchor:[40,11]})}).addTo(map);"
+                + "L.marker([44.17,21.75],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:12px;text-shadow:0 1px 2px rgba(255,255,255,.95);text-align:center;line-height:12px;\">Timok i<br>Braničevo</div>',"
+                + "iconSize:[92,28],iconAnchor:[46,14]})}).addTo(map);"
+                + "L.marker([43.35,19.75],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:13px;text-shadow:0 1px 2px rgba(255,255,255,.95);white-space:nowrap;\">Raška</div>',"
+                + "iconSize:[70,22],iconAnchor:[35,11]})}).addTo(map);"
+                + "L.marker([43.21,20.80],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:12px;text-shadow:0 1px 2px rgba(255,255,255,.95);text-align:center;line-height:12px;\">Rasina i<br>Toplica</div>',"
+                + "iconSize:[92,28],iconAnchor:[46,14]})}).addTo(map);"
+                + "L.marker([43.02,22.13],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:13px;text-shadow:0 1px 2px rgba(255,255,255,.95);white-space:nowrap;\">Šopluk</div>',"
+                + "iconSize:[72,22],iconAnchor:[36,11]})}).addTo(map);"
+                + "L.marker([42.58,21.39],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:12px;text-shadow:0 1px 2px rgba(255,255,255,.95);text-align:center;line-height:12px;\">Južno<br>Pomoravlje</div>',"
+                + "iconSize:[98,28],iconAnchor:[49,14]})}).addTo(map);"
+                + "L.marker([42.45,20.52],{interactive:false,icon:L.divIcon({className:'',"
+                + "html:'<div style=\"font-weight:800;color:#111;font-size:12px;text-shadow:0 1px 2px rgba(255,255,255,.95);text-align:center;line-height:12px;\">Kosovo i<br>Metohija</div>',"
+                + "iconSize:[96,28],iconAnchor:[48,14]})}).addTo(map);"
+                + "L.imageOverlay('serbia_border_overlay.png',fullSerbiaBounds,{"
                 + "opacity:1,interactive:false}).addTo(map);"
                 + "points.forEach(p=>{"
                 + "L.circleMarker([p.lat,p.lon],{radius:3.5,color:'#0c2f52',weight:1,"
@@ -121,6 +210,102 @@ public class RegionMapView extends WebView {
             }
         }
         return array.toString();
+    }
+
+    private String podrinjePosavinaJson() {
+        try {
+            return coordinates(new double[][]{
+                    {44.52, 18.92}, {44.45, 19.45}, {44.15, 19.78},
+                    {43.80, 19.92}, {43.55, 19.95}, {43.45, 19.62},
+                    {43.56, 19.20}, {43.82, 18.86}, {44.25, 18.72}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String sumadijaJson() {
+        try {
+            return coordinates(new double[][]{
+                    {44.56, 19.78}, {44.62, 20.72}, {44.28, 21.05},
+                    {43.85, 20.94}, {43.42, 20.74}, {43.18, 20.15},
+                    {43.48, 19.94}, {43.92, 19.80}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String timokBranicevoJson() {
+        try {
+            return coordinates(new double[][]{
+                    {44.76, 20.72}, {44.84, 21.36}, {44.62, 22.20},
+                    {44.15, 22.70}, {43.52, 22.55}, {43.18, 21.90},
+                    {43.24, 21.10}, {43.84, 20.94}, {44.28, 21.05}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String raskaJson() {
+        try {
+            return coordinates(new double[][]{
+                    {43.76, 18.60}, {43.76, 20.12}, {43.54, 20.36},
+                    {43.19, 20.28}, {42.88, 20.03}, {42.74, 19.45},
+                    {42.94, 18.88}, {43.32, 18.60}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String rasinaToplicaJson() {
+        try {
+            return coordinates(new double[][]{
+                    {43.75, 19.94}, {43.76, 21.72}, {43.44, 21.62},
+                    {42.92, 21.30}, {42.66, 20.92}, {42.88, 20.03},
+                    {43.19, 20.28}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String soplukJson() {
+        try {
+            return coordinates(new double[][]{
+                    {43.76, 21.24}, {43.74, 22.30}, {43.48, 22.90},
+                    {42.94, 23.04}, {42.39, 22.78}, {42.24, 22.06},
+                    {42.66, 21.66}, {43.38, 21.46}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String juznoPomoravljeJson() {
+        try {
+            return coordinates(new double[][]{
+                    {42.92, 21.30}, {43.38, 21.46}, {42.66, 21.66},
+                    {42.34, 22.02}, {42.22, 21.44}, {42.34, 20.92},
+                    {42.66, 20.92}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
+    }
+
+    private String kosovoMetohijaJson() {
+        try {
+            return coordinates(new double[][]{
+                    {42.74, 19.45}, {42.88, 20.03}, {42.66, 20.92},
+                    {42.34, 20.92}, {42.12, 20.68}, {41.86, 20.64},
+                    {42.10, 19.80}, {42.28, 19.20}, {42.54, 18.92}
+            }).toString();
+        } catch (JSONException ignored) {
+            return "[]";
+        }
     }
 
     private String serbiaBorderJson() {
@@ -183,19 +368,19 @@ public class RegionMapView extends WebView {
                     {.07f, .50f}, {.10f, .39f}
             };
         }
-        if ("Sumadija".equals(region)) {
+        if ("Šumadija".equals(region)) {
             return new float[][]{
                     {.42f, .34f}, {.54f, .38f}, {.61f, .48f}, {.56f, .62f},
                     {.48f, .70f}, {.36f, .66f}, {.44f, .56f}, {.47f, .44f}
             };
         }
-        if ("Timok i Branicevo".equals(region)) {
+        if ("Timok i Braničevo".equals(region)) {
             return new float[][]{
                     {.54f, .38f}, {.73f, .38f}, {.86f, .46f}, {.90f, .62f},
                     {.82f, .76f}, {.66f, .74f}, {.56f, .62f}, {.61f, .48f}
             };
         }
-        if ("Raska".equals(region)) {
+        if ("Raška".equals(region)) {
             return new float[][]{
                     {.25f, .70f}, {.36f, .66f}, {.48f, .70f}, {.45f, .82f},
                     {.31f, .84f}
@@ -207,12 +392,12 @@ public class RegionMapView extends WebView {
                     {.45f, .82f}
             };
         }
-        if ("Sopluk".equals(region)) {
+        if ("Šopluk".equals(region)) {
             return new float[][]{
                     {.82f, .76f}, {.90f, .62f}, {.94f, .78f}, {.86f, .91f}
             };
         }
-        if ("Juzno Pomoravlje".equals(region)) {
+        if ("Južno Pomoravlje".equals(region)) {
             return new float[][]{
                     {.66f, .74f}, {.82f, .76f}, {.86f, .91f}, {.73f, .95f},
                     {.62f, .86f}
@@ -246,9 +431,9 @@ public class RegionMapView extends WebView {
 
     private String labelFor(String region) {
         if ("Podrinje i Posavina".equals(region)) return "PODRINJE I<br>POSAVINA";
-        if ("Timok i Branicevo".equals(region)) return "TIMOK I<br>BRANICEVO";
+        if ("Timok i Braničevo".equals(region)) return "TIMOK I<br>BRANIČEVO";
         if ("Rasina i Toplica".equals(region)) return "RASINA I<br>TOPLICA";
-        if ("Juzno Pomoravlje".equals(region)) return "JUZNO<br>POMORAVLJE";
+        if ("Južno Pomoravlje".equals(region)) return "JUŽNO<br>POMORAVLJE";
         if ("Kosovo i Metohija".equals(region)) return "KOSOVO I<br>METOHIJA";
         return region.toUpperCase(Locale.ROOT);
     }

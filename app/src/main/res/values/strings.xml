@@ -332,12 +332,12 @@
     <string-array name="serbia_regions">
         <item>Vojvodina</item>
         <item>Podrinje i Posavina</item>
-        <item>Sumadija</item>
-        <item>Timok i Branicevo</item>
-        <item>Raska</item>
+        <item>Šumadija</item>
+        <item>Timok i Braničevo</item>
+        <item>Raška</item>
         <item>Rasina i Toplica</item>
-        <item>Sopluk</item>
-        <item>Juzno Pomoravlje</item>
+        <item>Šopluk</item>
+        <item>Južno Pomoravlje</item>
         <item>Kosovo i Metohija</item>
     </string-array>
 </resources>

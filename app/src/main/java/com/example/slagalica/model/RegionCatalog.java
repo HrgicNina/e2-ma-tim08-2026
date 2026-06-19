@@ -9,12 +9,12 @@ public final class RegionCatalog {
     private static final RegionDefinition[] REGIONS = {
             new RegionDefinition("Vojvodina", "VO", 0xFFFFF3A5, 0.43f, 0.20f, 0.18f, 0.72f, 0.07f, 0.33f),
             new RegionDefinition("Podrinje i Posavina", "PP", 0xFFDDEFC9, 0.24f, 0.52f, 0.10f, 0.38f, 0.39f, 0.66f),
-            new RegionDefinition("Sumadija", "SU", 0xFFE9F4D6, 0.50f, 0.53f, 0.38f, 0.59f, 0.40f, 0.65f),
-            new RegionDefinition("Timok i Branicevo", "TB", 0xFFBEE8AE, 0.73f, 0.54f, 0.59f, 0.86f, 0.41f, 0.72f),
-            new RegionDefinition("Raska", "RA", 0xFFFFED8A, 0.35f, 0.75f, 0.25f, 0.47f, 0.68f, 0.82f),
+            new RegionDefinition("Šumadija", "SU", 0xFFE9F4D6, 0.50f, 0.53f, 0.38f, 0.59f, 0.40f, 0.65f),
+            new RegionDefinition("Timok i Braničevo", "TB", 0xFFBEE8AE, 0.73f, 0.54f, 0.59f, 0.86f, 0.41f, 0.72f),
+            new RegionDefinition("Raška", "RA", 0xFFFFED8A, 0.35f, 0.75f, 0.25f, 0.47f, 0.68f, 0.82f),
             new RegionDefinition("Rasina i Toplica", "RT", 0xFFF6F0C4, 0.57f, 0.77f, 0.48f, 0.68f, 0.71f, 0.84f),
-            new RegionDefinition("Sopluk", "SO", 0xFFB7E9A7, 0.82f, 0.82f, 0.70f, 0.89f, 0.75f, 0.92f),
-            new RegionDefinition("Juzno Pomoravlje", "JP", 0xFFDDECC9, 0.66f, 0.89f, 0.58f, 0.79f, 0.82f, 0.95f),
+            new RegionDefinition("Šopluk", "SO", 0xFFB7E9A7, 0.82f, 0.82f, 0.70f, 0.89f, 0.75f, 0.92f),
+            new RegionDefinition("Južno Pomoravlje", "JP", 0xFFDDECC9, 0.66f, 0.89f, 0.58f, 0.79f, 0.82f, 0.95f),
             new RegionDefinition("Kosovo i Metohija", "KM", 0xFFD3E7BC, 0.40f, 0.90f, 0.24f, 0.58f, 0.84f, 0.96f)
     };
 
@@ -41,19 +41,34 @@ public final class RegionCatalog {
             return "Podrinje i Posavina";
         }
         if ("juzna i istocna srbija".equals(normalized)) {
-            return "Juzno Pomoravlje";
+            return "Južno Pomoravlje";
         }
         if ("beograd".equals(normalized)) {
-            return "Sumadija";
+            return "Šumadija";
         }
         if ("zapadna srbija".equals(normalized)) {
             return "Podrinje i Posavina";
         }
         if ("istocna srbija".equals(normalized)) {
-            return "Timok i Branicevo";
+            return "Timok i Braničevo";
         }
         if ("juzna srbija".equals(normalized)) {
-            return "Juzno Pomoravlje";
+            return "Južno Pomoravlje";
+        }
+        if ("sumadija".equals(normalized) || "šumadija".equals(normalized)) {
+            return "Šumadija";
+        }
+        if ("timok i branicevo".equals(normalized) || "timok i braničevo".equals(normalized)) {
+            return "Timok i Braničevo";
+        }
+        if ("raska".equals(normalized) || "raška".equals(normalized)) {
+            return "Raška";
+        }
+        if ("juzno pomoravlje".equals(normalized) || "južno pomoravlje".equals(normalized)) {
+            return "Južno Pomoravlje";
+        }
+        if ("sopluk".equals(normalized) || "šopluk".equals(normalized)) {
+            return "Šopluk";
         }
         for (RegionDefinition item : REGIONS) {
             if (normalize(item.name).equals(normalized)) {
