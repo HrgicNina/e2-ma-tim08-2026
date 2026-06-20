@@ -40,6 +40,10 @@ public class MatchRealtimeClient {
     private WebSocket socket;
     private Listener listener;
 
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
     public void connect(String serverUrl, String uid, String username, Listener listener) {
         this.listener = listener;
         Request request = new Request.Builder().url(serverUrl).build();

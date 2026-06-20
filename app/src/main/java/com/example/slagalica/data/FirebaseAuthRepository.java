@@ -12,6 +12,7 @@ import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.nio.charset.StandardCharsets;
@@ -147,6 +148,9 @@ public class FirebaseAuthRepository {
         userDoc.put("league", 0);
         userDoc.put("avatarId", "owl");
         userDoc.put("avatarFrameId", "blue");
+        userDoc.put("loggedIn", true);
+        userDoc.put("loggedInAt", Timestamp.now());
+        userDoc.put("loggedInAtMillis", System.currentTimeMillis());
         userDoc.put("lastDailyTokenGrantAt", System.currentTimeMillis());
         userDoc.put("weeklyCycleId", currentWeeklyCycleId());
         userDoc.put("monthlyCycleId", currentMonthlyCycleId());
@@ -186,8 +190,27 @@ public class FirebaseAuthRepository {
                 });
     }
 
-    public void logout() {
-        auth.signOut();
+    public void logout(ResultCallback callback) {
+        FirebaseUser user = auth.getCurrentUser();
+        if (user == null) {
+            auth.signOut();
+            callback.onSuccess();
+            return;
+        }
+
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("loggedIn", false);
+        updates.put("loggedOutAt", Timestamp.now());
+        updates.put("appActive", false);
+        updates.put("appLastSeenAt", Timestamp.now());
+        updates.put("appLastSeenAtMillis", System.currentTimeMillis());
+        db.collection("users")
+                .document(user.getUid())
+                .update(updates)
+                .addOnCompleteListener(task -> {
+                    auth.signOut();
+                    callback.onSuccess();
+                });
     }
 
     public String getCurrentUserEmail() {
@@ -308,7 +331,7 @@ public class FirebaseAuthRepository {
                         return;
                     }
                     if (profileTask.getResult().exists()) {
-                        callback.onSuccess();
+                        markUserLoggedIn(user, callback);
                         return;
                     }
 
@@ -334,6 +357,22 @@ public class FirebaseAuthRepository {
                                 Log.e(TAG, "Creating verified Firestore user profile failed", e);
                                 callback.onError("Prijava nije uspela. Profil nije sacuvan.");
                             });
+                });
+    }
+
+    private void markUserLoggedIn(FirebaseUser user, AuthResultCallback callback) {
+        Map<String, Object> updates = new HashMap<>();
+        updates.put("loggedIn", true);
+        updates.put("loggedInAt", Timestamp.now());
+        updates.put("loggedInAtMillis", System.currentTimeMillis());
+        db.collection("users")
+                .document(user.getUid())
+                .update(updates)
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Saving login state failed", e);
+                    auth.signOut();
+                    callback.onError("Prijava nije uspela. Status nije sacuvan.");
                 });
     }
 

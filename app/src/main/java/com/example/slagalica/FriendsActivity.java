@@ -76,24 +76,23 @@ public class FriendsActivity extends AppCompatActivity {
             }
             return false;
         });
-        listenFriends();
     }
 
     @Override
-    protected void onDestroy() {
+    protected void onStart() {
+        super.onStart();
+        if (friendsService != null && !myUid.isEmpty()) {
+            listenFriends();
+        }
+    }
+
+    @Override
+    protected void onStop() {
         if (friendsListener != null) {
             friendsListener.remove();
             friendsListener = null;
         }
-        super.onDestroy();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if (friendsService != null && !myUid.isEmpty()) {
-            listenFriends();
-        }
+        super.onStop();
     }
 
     private void listenFriends() {

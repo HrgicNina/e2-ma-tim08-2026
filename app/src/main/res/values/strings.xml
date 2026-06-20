@@ -319,9 +319,10 @@
     <string name="match_finish_match">Zavrsi partiju</string>
     <string name="match_give_up">Odustani od partije</string>
     <string name="match_find_random">Nadji random igraca</string>
-    <string name="match_cancel_search">Prekini trazenje</string>
+    <string name="match_cancel_search">Otkaži pretragu</string>
     <string name="match_invite_hint">Unesi username/uid prijatelja</string>
     <string name="match_send_invite">Posalji poziv prijatelju</string>
+    <string name="match_cancel_invite">Otkaži poziv</string>
     <string name="match_submit_score">Posalji rezultat partije</string>
     <string name="match_waiting">Trazi se protivnik...</string>
     <string name="match_connected">Povezano.</string>

@@ -23,8 +23,10 @@ public class MainActivity extends AppCompatActivity {
             sessionManager.clearGuestMode();
         }
 
-        authService.logout();
-        Intent intent = new Intent(this, LoginActivity.class);
+        Intent intent = new Intent(
+                this,
+                authService.isLoggedInAndVerified() ? HomeActivity.class : LoginActivity.class
+        );
 
         startActivity(intent);
         finish();

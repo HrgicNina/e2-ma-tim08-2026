@@ -10,9 +10,11 @@ import com.google.firebase.firestore.WriteBatch;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class FriendsRepository {
 
@@ -34,24 +36,9 @@ public class FriendsRepository {
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     public ListenerRegistration listenFriends(String uid, LoadCallback callback) {
-        return db.collection("users")
-                .document(uid)
-                .collection("friends")
-                .addSnapshotListener((snapshot, error) -> {
-                    if (error != null) {
-                        callback.onError("Ne mogu da ucitam prijatelje.");
-                        return;
-                    }
-                    if (snapshot == null || snapshot.isEmpty()) {
-                        callback.onSuccess(new ArrayList<>());
-                        return;
-                    }
-                    List<String> ids = new ArrayList<>();
-                    for (QueryDocumentSnapshot doc : snapshot) {
-                        ids.add(doc.getId());
-                    }
-                    loadFriendProfiles(ids, callback);
-                });
+        FriendsListenerSession session = new FriendsListenerSession(callback);
+        session.start(uid);
+        return session;
     }
 
     public void addFriendByUsername(String myUid, String username, ActionCallback callback) {
@@ -161,36 +148,6 @@ public class FriendsRepository {
         return payload;
     }
 
-    private void loadFriendProfiles(List<String> ids, LoadCallback callback) {
-        List<FriendProfile> friends = new ArrayList<>();
-        if (ids.isEmpty()) {
-            callback.onSuccess(friends);
-            return;
-        }
-        final int[] remaining = {ids.size()};
-        final boolean[] failed = {false};
-        for (String id : ids) {
-            db.collection("users")
-                    .document(id)
-                    .get()
-                    .addOnSuccessListener(snapshot -> {
-                        if (!failed[0] && snapshot != null && snapshot.exists()) {
-                            friends.add(mapUser(snapshot));
-                        }
-                        remaining[0]--;
-                        if (!failed[0] && remaining[0] == 0) {
-                            callback.onSuccess(friends);
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        if (!failed[0]) {
-                            failed[0] = true;
-                            callback.onError("Ne mogu da ucitam profil prijatelja.");
-                        }
-                    });
-        }
-    }
-
     private FriendProfile mapUser(DocumentSnapshot doc) {
         FriendProfile profile = new FriendProfile();
         profile.uid = doc.getId();
@@ -199,8 +156,10 @@ public class FriendsRepository {
         profile.avatarFrameId = value(doc.getString("avatarFrameId"));
         profile.stars = value(doc.getLong("stars"));
         profile.league = value(doc.getLong("league"));
+        Boolean loggedIn = doc.getBoolean("loggedIn");
         Boolean appActive = doc.getBoolean("appActive");
         Boolean inMatch = doc.getBoolean("inMatch");
+        profile.loggedIn = loggedIn != null && loggedIn;
         profile.appActive = appActive != null && appActive;
         profile.inMatch = inMatch != null && inMatch;
         profile.appLastSeenAtMillis = value(doc.getLong("appLastSeenAtMillis"));
@@ -215,5 +174,162 @@ public class FriendsRepository {
 
     private long value(Long input) {
         return input == null ? 0L : input;
+    }
+
+    private class FriendsListenerSession implements ListenerRegistration {
+        private final LoadCallback callback;
+        private final Map<String, ListenerRegistration> profileListeners = new HashMap<>();
+        private final Map<String, FriendProfile> profiles = new HashMap<>();
+        private final Set<String> friendIds = new HashSet<>();
+        private final Set<String> pendingProfiles = new HashSet<>();
+        private ListenerRegistration friendshipListener;
+        private boolean removed;
+
+        FriendsListenerSession(LoadCallback callback) {
+            this.callback = callback;
+        }
+
+        void start(String uid) {
+            friendshipListener = db.collection("users")
+                    .document(uid)
+                    .collection("friends")
+                    .addSnapshotListener((snapshot, error) -> {
+                        if (error != null) {
+                            notifyError("Ne mogu da ucitam prijatelje.");
+                            return;
+                        }
+
+                        Set<String> updatedIds = new HashSet<>();
+                        if (snapshot != null) {
+                            for (QueryDocumentSnapshot doc : snapshot) {
+                                updatedIds.add(doc.getId());
+                            }
+                        }
+                        updateProfileListeners(updatedIds);
+                    });
+        }
+
+        private void updateProfileListeners(Set<String> updatedIds) {
+            List<ListenerRegistration> obsoleteListeners = new ArrayList<>();
+            Set<String> newIds = new HashSet<>();
+
+            synchronized (this) {
+                if (removed) {
+                    return;
+                }
+
+                for (String oldId : new HashSet<>(friendIds)) {
+                    if (!updatedIds.contains(oldId)) {
+                        friendIds.remove(oldId);
+                        pendingProfiles.remove(oldId);
+                        profiles.remove(oldId);
+                        ListenerRegistration listener = profileListeners.remove(oldId);
+                        if (listener != null) {
+                            obsoleteListeners.add(listener);
+                        }
+                    }
+                }
+
+                for (String id : updatedIds) {
+                    if (friendIds.add(id)) {
+                        pendingProfiles.add(id);
+                        newIds.add(id);
+                    }
+                }
+            }
+
+            for (ListenerRegistration listener : obsoleteListeners) {
+                listener.remove();
+            }
+            for (String id : newIds) {
+                listenProfile(id);
+            }
+            notifyProfilesIfReady();
+        }
+
+        private void listenProfile(String id) {
+            ListenerRegistration listener = db.collection("users")
+                    .document(id)
+                    .addSnapshotListener((snapshot, error) -> {
+                        if (error != null) {
+                            synchronized (FriendsListenerSession.this) {
+                                pendingProfiles.remove(id);
+                            }
+                            notifyError("Ne mogu da ucitam profil prijatelja.");
+                            notifyProfilesIfReady();
+                            return;
+                        }
+
+                        synchronized (FriendsListenerSession.this) {
+                            if (removed || !friendIds.contains(id)) {
+                                return;
+                            }
+                            if (snapshot != null && snapshot.exists()) {
+                                profiles.put(id, mapUser(snapshot));
+                            } else {
+                                profiles.remove(id);
+                            }
+                            pendingProfiles.remove(id);
+                        }
+                        notifyProfilesIfReady();
+                    });
+
+            synchronized (this) {
+                if (removed || !friendIds.contains(id)) {
+                    listener.remove();
+                    return;
+                }
+                profileListeners.put(id, listener);
+            }
+        }
+
+        private void notifyProfilesIfReady() {
+            List<FriendProfile> currentProfiles = new ArrayList<>();
+            synchronized (this) {
+                if (removed || !pendingProfiles.isEmpty()) {
+                    return;
+                }
+                for (String id : friendIds) {
+                    FriendProfile profile = profiles.get(id);
+                    if (profile != null) {
+                        currentProfiles.add(profile);
+                    }
+                }
+            }
+            callback.onSuccess(currentProfiles);
+        }
+
+        private void notifyError(String message) {
+            synchronized (this) {
+                if (removed) {
+                    return;
+                }
+            }
+            callback.onError(message);
+        }
+
+        @Override
+        public void remove() {
+            List<ListenerRegistration> listeners;
+            ListenerRegistration mainListener;
+            synchronized (this) {
+                if (removed) {
+                    return;
+                }
+                removed = true;
+                mainListener = friendshipListener;
+                listeners = new ArrayList<>(profileListeners.values());
+                profileListeners.clear();
+                profiles.clear();
+                friendIds.clear();
+                pendingProfiles.clear();
+            }
+            if (mainListener != null) {
+                mainListener.remove();
+            }
+            for (ListenerRegistration listener : listeners) {
+                listener.remove();
+            }
+        }
     }
 }
