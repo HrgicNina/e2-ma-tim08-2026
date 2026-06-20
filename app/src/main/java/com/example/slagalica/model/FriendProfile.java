@@ -8,6 +8,7 @@ public class FriendProfile {
     public long stars;
     public long league;
     public long monthlyRank;
+    public boolean loggedIn;
     public boolean appActive;
     public boolean inMatch;
     public long appLastSeenAtMillis;
@@ -15,7 +16,7 @@ public class FriendProfile {
     public String activeRoomId;
 
     public boolean canInvite() {
-        return !isInMatch() && isRecentlyLoggedIn();
+        return loggedIn && !isInMatch();
     }
 
     public boolean isInMatch() {

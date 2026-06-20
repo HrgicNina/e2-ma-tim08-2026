@@ -62,6 +62,7 @@ public class ProfileActivity extends AppCompatActivity {
     private String currentUsername = "";
     private String currentAvatarId = "owl";
     private String currentAvatarFrameId = "blue";
+    private String currentInvitePayload = "";
     private int selectedGameIndex = 0;
 
     @Override
@@ -108,6 +109,7 @@ public class ProfileActivity extends AppCompatActivity {
     private void bindActions() {
         findViewById(R.id.btnAvatarChange).setOnClickListener(v -> showAvatarDialog());
         findViewById(R.id.btnProfileLogout).setOnClickListener(v -> logout());
+        qrInviteView.setOnClickListener(v -> showInviteQrDialog());
         for (int i = 0; i < gameButtons.length; i++) {
             final int index = i;
             gameButtons[i].setOnClickListener(v -> {
@@ -130,9 +132,28 @@ public class ProfileActivity extends AppCompatActivity {
             tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
             AvatarFrameHelper.apply(tvAvatar, currentAvatarFrameId);
             String uid = authService.getCurrentUserId();
-            String payload = "slagalica://friend?uid=" + value(uid, "") + "&username=" + Uri.encode(currentUsername);
-            qrInviteView.setImageBitmap(QrCodeGenerator.create(payload, dp(180)));
+            currentInvitePayload = "slagalica://friend?uid=" + value(uid, "") + "&username=" + Uri.encode(currentUsername);
+            qrInviteView.setImageBitmap(QrCodeGenerator.create(currentInvitePayload, dp(180)));
         }));
+    }
+
+    private void showInviteQrDialog() {
+        if (currentInvitePayload.isEmpty()) {
+            Toast.makeText(this, "QR kod se jos ucitava.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ImageView enlargedQr = new ImageView(this);
+        enlargedQr.setAdjustViewBounds(true);
+        enlargedQr.setPadding(dp(20), dp(20), dp(20), dp(20));
+        enlargedQr.setImageBitmap(QrCodeGenerator.create(currentInvitePayload, dp(320)));
+        enlargedQr.setContentDescription(getString(R.string.profile_qr_description));
+
+        new AlertDialog.Builder(this)
+                .setTitle("QR kod za dodavanje prijatelja")
+                .setView(enlargedQr)
+                .setPositiveButton("Zatvori", null)
+                .show();
     }
 
     private void loadEconomy() {
@@ -286,11 +307,22 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void logout() {
         sessionManager.clearGuestMode();
-        authService.logout();
-        Intent intent = new Intent(this, LoginActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        authService.logout(new ResultCallback() {
+            @Override
+            public void onSuccess() {
+                runOnUiThread(() -> {
+                    Intent intent = new Intent(ProfileActivity.this, LoginActivity.class);
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private String symbolForAvatar(String avatarId, String username) {

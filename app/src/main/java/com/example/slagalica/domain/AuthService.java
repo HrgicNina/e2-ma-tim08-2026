@@ -80,8 +80,8 @@ public class AuthService {
         repository.resetPassword(oldPassword.trim(), newPassword.trim(), callback);
     }
 
-    public void logout() {
-        repository.logout();
+    public void logout(ResultCallback callback) {
+        repository.logout(callback);
     }
 
     public String getCurrentUserEmail() {

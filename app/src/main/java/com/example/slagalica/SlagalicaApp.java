@@ -1,8 +1,12 @@
 package com.example.slagalica;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.Application;
+import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -10,8 +14,12 @@ import android.text.TextUtils;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.core.content.ContextCompat;
 
 import com.example.slagalica.domain.MatchRealtimeClient;
+import com.example.slagalica.domain.NotificationChannelHelper;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -26,6 +34,7 @@ public class SlagalicaApp extends Application {
 
     private static final String WS_URL = "ws://10.0.2.2:8080";
     private static final long APP_PRESENCE_HEARTBEAT_MS = 60L * 1000L;
+    private static final long INVITE_TIMEOUT_MS = 10_000L;
 
     private int startedActivities = 0;
     private boolean appForeground = false;
@@ -92,7 +101,6 @@ public class SlagalicaApp extends Application {
                     appForeground = false;
                     stopPresenceHeartbeat();
                     updateAppPresence(false);
-                    disconnectGlobalInviteClient();
                 }
             }
 
@@ -128,6 +136,9 @@ public class SlagalicaApp extends Application {
         payload.put("appActive", active);
         payload.put("appLastSeenAt", Timestamp.now());
         payload.put("appLastSeenAtMillis", System.currentTimeMillis());
+        if (active) {
+            payload.put("loggedIn", true);
+        }
 
         FirebaseFirestore.getInstance()
                 .collection("users")
@@ -225,7 +236,7 @@ public class SlagalicaApp extends Application {
 
             @Override
             public void onInviteReceived(String inviteId, String fromUid, String fromUsername) {
-                mainHandler.post(() -> showGlobalInviteDialog(inviteId, fromUsername));
+                mainHandler.post(() -> showGlobalInvite(inviteId, fromUsername));
             }
 
             @Override
@@ -240,6 +251,7 @@ public class SlagalicaApp extends Application {
             public void onInviteExpired(String inviteId) {
                 mainHandler.post(() -> {
                     if (!TextUtils.isEmpty(globalInviteId) && globalInviteId.equals(inviteId)) {
+                        cancelBackgroundInviteNotification(inviteId);
                         dismissGlobalInviteDialog();
                         Activity active = currentActivity;
                         if (active != null && !(active instanceof MatchActivity)) {
@@ -253,6 +265,7 @@ public class SlagalicaApp extends Application {
             public void onInviteCancelled(String inviteId, String byUsername) {
                 mainHandler.post(() -> {
                     if (!TextUtils.isEmpty(globalInviteId) && globalInviteId.equals(inviteId)) {
+                        cancelBackgroundInviteNotification(inviteId);
                         dismissGlobalInviteDialog();
                         Activity active = currentActivity;
                         if (active != null && !(active instanceof MatchActivity)) {
@@ -293,9 +306,13 @@ public class SlagalicaApp extends Application {
         }
     }
 
-    private void showGlobalInviteDialog(String inviteId, String fromUsername) {
+    private void showGlobalInvite(String inviteId, String fromUsername) {
         Activity activity = currentActivity;
         if (activity == null || activity.isFinishing() || isMatchFlowActivity(activity)) {
+            dismissGlobalInviteDialog();
+            globalInviteId = inviteId;
+            showBackgroundInviteNotification(inviteId, fromUsername);
+            scheduleGlobalInviteAutoReject(inviteId);
             return;
         }
         dismissGlobalInviteDialog();
@@ -325,6 +342,7 @@ public class SlagalicaApp extends Application {
 
     private void openMatchForInvite(Activity activity, String inviteId) {
         clearGlobalInviteTimeout();
+        cancelBackgroundInviteNotification(inviteId);
         Intent intent = new Intent(activity, MatchActivity.class);
         intent.putExtra(MatchActivity.EXTRA_RESPOND_INVITE_ID, inviteId);
         activity.startActivity(intent);
@@ -333,16 +351,101 @@ public class SlagalicaApp extends Application {
     private void scheduleGlobalInviteAutoReject(String inviteId) {
         clearGlobalInviteTimeout();
         globalInviteTimeoutRunnable = () -> {
-            if (globalInviteDialog != null
-                    && globalInviteDialog.isShowing()
-                    && inviteId.equals(globalInviteId)) {
+            if (inviteId.equals(globalInviteId)) {
                 if (inviteClient != null) {
                     inviteClient.respondInvite(inviteId, false);
                 }
+                cancelBackgroundInviteNotification(inviteId);
                 dismissGlobalInviteDialog();
             }
         };
-        mainHandler.postDelayed(globalInviteTimeoutRunnable, 10_000L);
+        mainHandler.postDelayed(globalInviteTimeoutRunnable, INVITE_TIMEOUT_MS);
+    }
+
+    public void declineBackgroundInvite(String inviteId) {
+        mainHandler.post(() -> {
+            if (TextUtils.isEmpty(inviteId) || !inviteId.equals(globalInviteId)) {
+                return;
+            }
+            if (inviteClient != null) {
+                inviteClient.respondInvite(inviteId, false);
+            }
+            cancelBackgroundInviteNotification(inviteId);
+            dismissGlobalInviteDialog();
+        });
+    }
+
+    public MatchRealtimeClient takeInviteClientForMatch(String inviteId) {
+        if (TextUtils.isEmpty(inviteId)
+                || !inviteId.equals(globalInviteId)
+                || inviteClient == null) {
+            return null;
+        }
+        MatchRealtimeClient client = inviteClient;
+        inviteClient = null;
+        inviteClientUid = null;
+        inviteConnecting = false;
+        clearGlobalInviteTimeout();
+        cancelBackgroundInviteNotification(inviteId);
+        dismissGlobalInviteDialog();
+        return client;
+    }
+
+    private void showBackgroundInviteNotification(String inviteId, String fromUsername) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            return;
+        }
+
+        String sender = TextUtils.isEmpty(fromUsername) ? "Igrac" : fromUsername;
+        Intent acceptIntent = new Intent(this, MatchActivity.class);
+        acceptIntent.putExtra(MatchActivity.EXTRA_RESPOND_INVITE_ID, inviteId);
+        acceptIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+        PendingIntent acceptPendingIntent = PendingIntent.getActivity(
+                this,
+                ("invite_accept_" + inviteId).hashCode(),
+                acceptIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        Intent declineIntent = new Intent(this, InviteActionReceiver.class);
+        declineIntent.setAction(InviteActionReceiver.ACTION_DECLINE_INVITE);
+        declineIntent.putExtra(InviteActionReceiver.EXTRA_INVITE_ID, inviteId);
+        PendingIntent declinePendingIntent = PendingIntent.getBroadcast(
+                this,
+                ("invite_decline_" + inviteId).hashCode(),
+                declineIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        NotificationCompat.Builder notification = new NotificationCompat.Builder(
+                this,
+                NotificationChannelHelper.CHANNEL_OTHER
+        )
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle("Poziv za partiju")
+                .setContentText(sender + " vas poziva na prijateljsku partiju.")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setAutoCancel(true)
+                .setTimeoutAfter(INVITE_TIMEOUT_MS)
+                .setContentIntent(acceptPendingIntent)
+                .addAction(0, "Odbij", declinePendingIntent)
+                .addAction(0, "Prihvati", acceptPendingIntent);
+
+        NotificationManagerCompat.from(this)
+                .notify(backgroundInviteNotificationId(inviteId), notification.build());
+    }
+
+    private void cancelBackgroundInviteNotification(String inviteId) {
+        if (!TextUtils.isEmpty(inviteId)) {
+            NotificationManagerCompat.from(this).cancel(backgroundInviteNotificationId(inviteId));
+        }
+    }
+
+    private int backgroundInviteNotificationId(String inviteId) {
+        return ("realtime_invite_" + inviteId).hashCode();
     }
 
     private void clearGlobalInviteTimeout() {
