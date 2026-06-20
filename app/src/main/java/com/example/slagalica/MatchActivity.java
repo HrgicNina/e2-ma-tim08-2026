@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.TextUtils;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -148,7 +149,8 @@ public class MatchActivity extends AppCompatActivity {
     private final EconomyService economyService = new EconomyService();
     private final LeaderboardService leaderboardService = new LeaderboardService();
     private final PlayerStatsService playerStatsService = new PlayerStatsService();
-    private final MatchRealtimeClient realtimeClient = new MatchRealtimeClient();
+    private MatchRealtimeClient realtimeClient = new MatchRealtimeClient();
+    private boolean adoptedInviteClient = false;
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
     private boolean matchStatsSubmitted = false;
 
@@ -206,6 +208,14 @@ public class MatchActivity extends AppCompatActivity {
         autoStartQueueRequested = getIntent().getBooleanExtra(EXTRA_AUTO_START_QUEUE, false);
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
         respondInviteId = getIntent().getStringExtra(EXTRA_RESPOND_INVITE_ID);
+        if (!TextUtils.isEmpty(respondInviteId) && getApplication() instanceof SlagalicaApp) {
+            MatchRealtimeClient existingClient = ((SlagalicaApp) getApplication())
+                    .takeInviteClientForMatch(respondInviteId);
+            if (existingClient != null) {
+                realtimeClient = existingClient;
+                adoptedInviteClient = true;
+            }
+        }
 
         tvMatchStage = findViewById(R.id.tvMatchStage);
         tvMatchInfo = findViewById(R.id.tvMatchInfo);
@@ -296,7 +306,7 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void connectRealtime() {
-        realtimeClient.connect(WS_URL, myUid, myUsername, new MatchRealtimeClient.Listener() {
+        MatchRealtimeClient.Listener listener = new MatchRealtimeClient.Listener() {
             @Override
             public void onConnected() {
                 runOnUiThread(() -> {
@@ -339,7 +349,9 @@ public class MatchActivity extends AppCompatActivity {
                             && message.toLowerCase().contains("nije online")) {
                         String target = pendingInviteTargetForFallback;
                         pendingInviteTargetForFallback = null;
+                        clearOutgoingInviteState();
                         createOfflineInviteFallback(target);
+                        renderMatch();
                         return;
                     }
                     if (queueing || pendingJoinRequest) {
@@ -607,7 +619,14 @@ public class MatchActivity extends AppCompatActivity {
                 i.putExtra(EXTRA_DATA, data == null ? "{}" : data.toString());
                 sendBroadcast(i);
             }
-        });
+        };
+        if (adoptedInviteClient) {
+            realtimeClient.setListener(listener);
+            listener.onConnected();
+            listener.onAuthenticated();
+        } else {
+            realtimeClient.connect(WS_URL, myUid, myUsername, listener);
+        }
     }
 
     private void showInviteDialog(String inviteId, String fromUid, String fromUsername) {
@@ -1363,7 +1382,13 @@ public class MatchActivity extends AppCompatActivity {
         btnNextGame.setAlpha(0.55f);
         btnSubmitScore.setEnabled(inRoom);
         btnFindRandom.setEnabled(!inRoom && !queueing && !pendingJoinRequest && wsConnected);
-        btnCancelQueue.setEnabled(queueing || pendingJoinRequest || outgoingInvitePending);
+        boolean cancellationVisible = queueing || pendingJoinRequest || outgoingInvitePending;
+        btnCancelQueue.setVisibility(cancellationVisible ? View.VISIBLE : View.GONE);
+        btnCancelQueue.setText(outgoingInvitePending
+                ? R.string.match_cancel_invite
+                : R.string.match_cancel_search);
+        btnCancelQueue.setEnabled(cancellationVisible
+                && (!outgoingInvitePending || !TextUtils.isEmpty(outgoingInviteId)));
         btnInviteFriend.setEnabled(!guestMode && !inRoom && !queueing && !pendingJoinRequest && wsAuthenticated && !outgoingInvitePending);
     }
 

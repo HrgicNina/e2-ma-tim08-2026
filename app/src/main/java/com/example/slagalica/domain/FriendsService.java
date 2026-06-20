@@ -37,17 +37,33 @@ public class FriendsService {
     }
 
     public ListenerRegistration listenFriends(String uid, LoadCallback callback) {
-        return repository.listenFriends(uid, new FriendsRepository.LoadCallback() {
+        FriendsLoadCoordinator coordinator = new FriendsLoadCoordinator(callback);
+        ListenerRegistration registration = repository.listenFriends(uid, new FriendsRepository.LoadCallback() {
             @Override
             public void onSuccess(List<FriendProfile> friends) {
-                attachMonthlyRanks(friends, callback);
+                coordinator.onFriendsChanged(friends);
             }
 
             @Override
             public void onError(String message) {
-                callback.onError(message);
+                coordinator.onError(message);
             }
         });
+        leaderboardService.loadMonthlyLeaderboard(new LeaderboardService.LoadCallback() {
+            @Override
+            public void onSuccess(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
+                coordinator.onRanksLoaded(entries);
+            }
+
+            @Override
+            public void onError(String message) {
+                coordinator.onRanksLoaded(null);
+            }
+        });
+        return () -> {
+            coordinator.cancel();
+            registration.remove();
+        };
     }
 
     public void addFriendByUsername(String myUid, String username, ActionCallback callback) {
@@ -65,28 +81,6 @@ public class FriendsService {
 
     public String buildInvitePayload(String uid, String username) {
         return "slagalica://friend?uid=" + safe(uid) + "&username=" + Uri.encode(safe(username));
-    }
-
-    private void attachMonthlyRanks(List<FriendProfile> friends, LoadCallback callback) {
-        leaderboardService.loadMonthlyLeaderboard(new LeaderboardService.LoadCallback() {
-            @Override
-            public void onSuccess(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
-                Map<String, Long> ranks = new HashMap<>();
-                for (int i = 0; i < entries.size(); i++) {
-                    ranks.put(entries.get(i).uid, (long) i + 1L);
-                }
-                for (FriendProfile friend : friends) {
-                    Long rank = ranks.get(friend.uid);
-                    friend.monthlyRank = rank == null ? 0L : rank;
-                }
-                callback.onSuccess(friends);
-            }
-
-            @Override
-            public void onError(String message) {
-                callback.onSuccess(friends);
-            }
-        });
     }
 
     private String extractUid(String payload) {
@@ -123,5 +117,61 @@ public class FriendsService {
 
     private String safe(String input) {
         return input == null ? "" : input;
+    }
+
+    private static class FriendsLoadCoordinator {
+        private final LoadCallback callback;
+        private final Map<String, Long> ranks = new HashMap<>();
+        private List<FriendProfile> latestFriends;
+        private boolean ranksLoaded;
+        private boolean cancelled;
+
+        FriendsLoadCoordinator(LoadCallback callback) {
+            this.callback = callback;
+        }
+
+        synchronized void onFriendsChanged(List<FriendProfile> friends) {
+            if (cancelled) {
+                return;
+            }
+            latestFriends = friends;
+            dispatchIfReady();
+        }
+
+        synchronized void onRanksLoaded(List<LeaderboardEntry> entries) {
+            if (cancelled) {
+                return;
+            }
+            ranks.clear();
+            if (entries != null) {
+                for (int i = 0; i < entries.size(); i++) {
+                    ranks.put(entries.get(i).uid, (long) i + 1L);
+                }
+            }
+            ranksLoaded = true;
+            dispatchIfReady();
+        }
+
+        synchronized void onError(String message) {
+            if (!cancelled) {
+                callback.onError(message);
+            }
+        }
+
+        synchronized void cancel() {
+            cancelled = true;
+            latestFriends = null;
+        }
+
+        private void dispatchIfReady() {
+            if (!ranksLoaded || latestFriends == null) {
+                return;
+            }
+            for (FriendProfile friend : latestFriends) {
+                Long rank = ranks.get(friend.uid);
+                friend.monthlyRank = rank == null ? 0L : rank;
+            }
+            callback.onSuccess(new java.util.ArrayList<>(latestFriends));
+        }
     }
 }
