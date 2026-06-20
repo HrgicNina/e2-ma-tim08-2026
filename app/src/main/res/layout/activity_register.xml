@@ -34,22 +34,21 @@
             android:inputType="text"
             android:textSize="22sp" />
 
-        <AutoCompleteTextView
-            android:id="@+id/etRegRegion"
+        <TextView
+            android:id="@+id/tvRegRegion"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="48dp"
             android:layout_marginTop="12dp"
-            android:hint="@string/hint_region"
-            android:inputType="text"
-            android:textSize="22sp" />
-
-        <Button
-            android:id="@+id/btnPickRegion"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:background="@drawable/region_picker_background"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center_vertical"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:pointerIcon="hand"
             android:text="@string/btn_pick_region"
-            android:textSize="18sp" />
+            android:textColor="@color/region_picker_text"
+            android:textSize="22sp" />
 
         <EditText
             android:id="@+id/etRegPassword"

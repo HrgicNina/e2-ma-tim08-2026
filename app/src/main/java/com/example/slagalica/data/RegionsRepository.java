@@ -5,9 +5,14 @@ import com.example.slagalica.model.RegionDefinition;
 import com.example.slagalica.model.RegionLeaderboardEntry;
 import com.example.slagalica.model.RegionMapData;
 import com.example.slagalica.model.RegionPlayerPoint;
+import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldPath;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
@@ -31,21 +36,76 @@ public class RegionsRepository {
         void onError(String message);
     }
 
+    private interface UsersCallback {
+        void onSuccess(List<DocumentSnapshot> users);
+        void onError();
+    }
+
     private static final long ACTIVE_WINDOW_MS = 5L * 60L * 1000L;
+    private static final long USERS_PAGE_SIZE = 250L;
+    private static final int FRAME_BATCH_SIZE = 400;
     private static final String FRAME_GOLD = "gold";
     private static final String FRAME_SILVER = "silver";
     private static final String FRAME_BRONZE = "bronze";
 
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+    private static final class FrameUpdate {
+        final DocumentReference userRef;
+        final String frame;
+
+        FrameUpdate(DocumentReference userRef, String frame) {
+            this.userRef = userRef;
+            this.frame = frame;
+        }
+    }
+
     public void loadRegionMap(String myUid, LoadCallback callback) {
         String currentCycleId = currentMonthlyCycleId();
         String cycleLabel = currentMonthlyCycleLabel();
-        db.collection("users")
-                .limit(500)
-                .get()
-                .addOnSuccessListener(users -> loadRegionStats(myUid, currentCycleId, cycleLabel, users, callback))
-                .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam regione."));
+        loadAllUsers(new UsersCallback() {
+            @Override
+            public void onSuccess(List<DocumentSnapshot> users) {
+                loadRegionStats(myUid, currentCycleId, cycleLabel, users, callback);
+            }
+
+            @Override
+            public void onError() {
+                callback.onError("Ne mogu da ucitam regione.");
+            }
+        });
+    }
+
+    private void loadAllUsers(UsersCallback callback) {
+        List<DocumentSnapshot> users = new ArrayList<>();
+        Query firstPage = db.collection("users")
+                .orderBy(FieldPath.documentId())
+                .limit(USERS_PAGE_SIZE);
+        loadUsersPage(firstPage, users, callback);
+    }
+
+    private void loadUsersPage(
+            Query query,
+            List<DocumentSnapshot> users,
+            UsersCallback callback
+    ) {
+        query.get()
+                .addOnSuccessListener(snapshot -> {
+                    List<DocumentSnapshot> page = snapshot.getDocuments();
+                    users.addAll(page);
+                    if (page.size() < USERS_PAGE_SIZE) {
+                        callback.onSuccess(users);
+                        return;
+                    }
+
+                    DocumentSnapshot lastUser = page.get(page.size() - 1);
+                    Query nextPage = db.collection("users")
+                            .orderBy(FieldPath.documentId())
+                            .startAfter(lastUser)
+                            .limit(USERS_PAGE_SIZE);
+                    loadUsersPage(nextPage, users, callback);
+                })
+                .addOnFailureListener(e -> callback.onError());
     }
 
     public void processPreviousMonthlyRegionAwards(ActionCallback callback) {
@@ -60,11 +120,36 @@ public class RegionsRepository {
                 .get()
                 .addOnSuccessListener(meta -> {
                     String processed = meta == null ? "" : value(meta.getString("lastAvatarFrameCycleId"));
-                    if (previousCycleId.equals(processed)) {
+                    boolean rankingStored = meta != null
+                            && Boolean.TRUE.equals(meta.getBoolean("lastAvatarFrameRankingStored"));
+                    String framesApplied = meta == null
+                            ? ""
+                            : value(meta.getString("avatarFramesAppliedCycleId"));
+                    if (previousCycleId.equals(processed) && !rankingStored) {
+                        // Ciklus je zavrsila prethodna verzija aplikacije u jednom atomskom batch-u.
                         callback.onSuccess();
                         return;
                     }
-                    applyPreviousMonthlyRegionAwards(previousCycleId, callback);
+                    if (previousCycleId.equals(processed) && previousCycleId.equals(framesApplied)) {
+                        callback.onSuccess();
+                        return;
+                    }
+                    if (previousCycleId.equals(processed)) {
+                        List<String> ranked = stringList(meta.get("lastAvatarFrameRankedRegions"));
+                        loadUsersAndApplyFrames(previousCycleId, ranked, callback);
+                        return;
+                    }
+                    loadAllUsers(new UsersCallback() {
+                        @Override
+                        public void onSuccess(List<DocumentSnapshot> users) {
+                            finalizeRankingAndApplyFrames(previousCycleId, users, callback);
+                        }
+
+                        @Override
+                        public void onError() {
+                            callback.onError("Ne mogu da ucitam prethodni regionalni ciklus.");
+                        }
+                    });
                 })
                 .addOnFailureListener(e -> callback.onError("Ne mogu da proverim regionalni ciklus."));
     }
@@ -73,7 +158,7 @@ public class RegionsRepository {
             String myUid,
             String currentCycleId,
             String cycleLabel,
-            QuerySnapshot users,
+            List<DocumentSnapshot> users,
             LoadCallback callback
     ) {
         db.collection("regionStats")
@@ -92,7 +177,7 @@ public class RegionsRepository {
             String myUid,
             String currentCycleId,
             String cycleLabel,
-            QuerySnapshot users,
+            List<DocumentSnapshot> users,
             QuerySnapshot stats
     ) {
         RegionMapData data = new RegionMapData();
@@ -121,7 +206,7 @@ public class RegionsRepository {
 
         long now = System.currentTimeMillis();
         if (users != null) {
-            for (DocumentSnapshot user : users.getDocuments()) {
+            for (DocumentSnapshot user : users) {
                 String region = RegionCatalog.canonicalName(value(user.getString("region")));
                 RegionLeaderboardEntry entry = byRegion.get(region);
                 if (entry == null) {
@@ -134,7 +219,11 @@ public class RegionsRepository {
                 entry.totalPlayers++;
                 Boolean appActive = user.getBoolean("appActive");
                 long lastSeen = value(user.getLong("appLastSeenAtMillis"));
-                if ((appActive != null && appActive) || (lastSeen > 0L && now - lastSeen <= ACTIVE_WINDOW_MS)) {
+                long presenceAge = now - lastSeen;
+                boolean recentlySeen = lastSeen > 0L
+                        && presenceAge >= 0L
+                        && presenceAge <= ACTIVE_WINDOW_MS;
+                if (Boolean.TRUE.equals(appActive) && recentlySeen) {
                     entry.activePlayers++;
                 }
                 if (currentCycleId.equals(value(user.getString("monthlyCycleId")))) {
@@ -159,7 +248,9 @@ public class RegionsRepository {
         point.region = region;
         Double x = user.getDouble("regionPointX");
         Double y = user.getDouble("regionPointY");
-        if (x != null && y != null && x >= 0d && x <= 1d && y >= 0d && y <= 1d) {
+        if (x != null && y != null
+                && x >= 0d && x <= 1d && y >= 0d && y <= 1d
+                && RegionCatalog.containsPoint(region, x.floatValue(), y.floatValue())) {
             point.x = x.floatValue();
             point.y = y.floatValue();
         } else {
@@ -170,66 +261,164 @@ public class RegionsRepository {
         return point;
     }
 
-    private void applyPreviousMonthlyRegionAwards(String cycleId, ActionCallback callback) {
-        db.collection("users")
-                .limit(450)
-                .get()
-                .addOnSuccessListener(users -> {
-                    Map<String, Long> regionStars = new HashMap<>();
-                    for (RegionDefinition def : RegionCatalog.all()) {
-                        regionStars.put(def.name, 0L);
-                    }
-                    for (DocumentSnapshot user : users.getDocuments()) {
-                        if (!cycleId.equals(value(user.getString("monthlyCycleId")))) {
-                            continue;
-                        }
-                        String region = RegionCatalog.canonicalName(value(user.getString("region")));
-                        if (!regionStars.containsKey(region)) {
-                            continue;
-                        }
-                        long stars = Math.max(0L, value(user.getLong("monthlyCycleStars")));
-                        regionStars.put(region, regionStars.get(region) + stars);
-                    }
-                    List<String> ranked = rankedRegions(regionStars);
-                    WriteBatch batch = db.batch();
-                    Map<String, String> frameByRegion = new HashMap<>();
-                    if (ranked.size() > 0) frameByRegion.put(ranked.get(0), FRAME_GOLD);
-                    if (ranked.size() > 1) frameByRegion.put(ranked.get(1), FRAME_SILVER);
-                    if (ranked.size() > 2) frameByRegion.put(ranked.get(2), FRAME_BRONZE);
+    private void loadUsersAndApplyFrames(
+            String cycleId,
+            List<String> ranked,
+            ActionCallback callback
+    ) {
+        loadAllUsers(new UsersCallback() {
+            @Override
+            public void onSuccess(List<DocumentSnapshot> users) {
+                applyFramesInBatches(cycleId, ranked, users, callback);
+            }
 
-                    for (DocumentSnapshot user : users.getDocuments()) {
-                        String region = RegionCatalog.canonicalName(value(user.getString("region")));
-                        String newFrame = frameByRegion.get(region);
-                        String currentFrame = value(user.getString("avatarFrameId"));
-                        if (newFrame != null) {
-                            batch.update(user.getReference(),
-                                    "avatarFrameId", newFrame,
-                                    "regionAwardFrameCycleId", cycleId);
-                        } else if (isAwardFrame(currentFrame)) {
-                            batch.update(user.getReference(),
-                                    "avatarFrameId", "blue",
-                                    "regionAwardFrameCycleId", cycleId);
-                        }
-                    }
-                    incrementRegionPlacements(batch, ranked);
-                    Map<String, Object> meta = new HashMap<>();
-                    meta.put("lastAvatarFrameCycleId", cycleId);
-                    batch.set(db.collection("regionLeaderboards").document("meta"), meta);
-                    batch.commit()
-                            .addOnSuccessListener(unused -> callback.onSuccess())
-                            .addOnFailureListener(e -> callback.onError("Ne mogu da azuriram regionalne nagrade."));
-                })
-                .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam prethodni regionalni ciklus."));
+            @Override
+            public void onError() {
+                callback.onError("Ne mogu da ucitam korisnike za regionalne okvire.");
+            }
+        });
     }
 
-    private void incrementRegionPlacements(WriteBatch batch, List<String> ranked) {
-        for (int i = 0; i < ranked.size() && i < 3; i++) {
-            String field = i == 0 ? "firstPlaces" : i == 1 ? "secondPlaces" : "thirdPlaces";
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("region", ranked.get(i));
-            payload.put(field, com.google.firebase.firestore.FieldValue.increment(1));
-            batch.set(db.collection("regionStats").document(RegionCatalog.docId(ranked.get(i))), payload, com.google.firebase.firestore.SetOptions.merge());
+    private void finalizeRankingAndApplyFrames(
+            String cycleId,
+            List<DocumentSnapshot> users,
+            ActionCallback callback
+    ) {
+        Map<String, Long> regionStars = new HashMap<>();
+        for (RegionDefinition def : RegionCatalog.all()) {
+            regionStars.put(def.name, 0L);
         }
+        for (DocumentSnapshot user : users) {
+            if (!cycleId.equals(value(user.getString("monthlyCycleId")))) {
+                continue;
+            }
+            String region = RegionCatalog.canonicalName(value(user.getString("region")));
+            if (!regionStars.containsKey(region)) {
+                continue;
+            }
+            long stars = Math.max(0L, value(user.getLong("monthlyCycleStars")));
+            regionStars.put(region, regionStars.get(region) + stars);
+        }
+        List<String> candidateRanking = rankedRegions(regionStars);
+        finalizeRanking(cycleId, candidateRanking, new RankingCallback() {
+            @Override
+            public void onSuccess(List<String> canonicalRanking) {
+                applyFramesInBatches(cycleId, canonicalRanking, users, callback);
+            }
+
+            @Override
+            public void onError() {
+                callback.onError("Ne mogu da sacuvam regionalni plasman.");
+            }
+        });
+    }
+
+    private interface RankingCallback {
+        void onSuccess(List<String> ranked);
+        void onError();
+    }
+
+    private void finalizeRanking(
+            String cycleId,
+            List<String> candidateRanking,
+            RankingCallback callback
+    ) {
+        DocumentReference metaRef = db.collection("regionLeaderboards").document("meta");
+        db.runTransaction(transaction -> {
+            DocumentSnapshot meta = transaction.get(metaRef);
+            String processedCycle = value(meta.getString("lastAvatarFrameCycleId"));
+            boolean rankingStored = Boolean.TRUE.equals(meta.getBoolean("lastAvatarFrameRankingStored"));
+            if (cycleId.equals(processedCycle) && rankingStored) {
+                return stringList(meta.get("lastAvatarFrameRankedRegions"));
+            }
+
+            List<String> canonicalRanking = new ArrayList<>(candidateRanking);
+            if (!cycleId.equals(processedCycle)) {
+                for (int i = 0; i < canonicalRanking.size() && i < 3; i++) {
+                    String field = i == 0 ? "firstPlaces" : i == 1 ? "secondPlaces" : "thirdPlaces";
+                    String region = canonicalRanking.get(i);
+                    Map<String, Object> placement = new HashMap<>();
+                    placement.put("region", region);
+                    placement.put(field, FieldValue.increment(1));
+                    transaction.set(
+                            db.collection("regionStats").document(RegionCatalog.docId(region)),
+                            placement,
+                            SetOptions.merge()
+                    );
+                }
+            }
+
+            Map<String, Object> metaUpdate = new HashMap<>();
+            metaUpdate.put("lastAvatarFrameCycleId", cycleId);
+            metaUpdate.put("lastAvatarFrameRankedRegions", canonicalRanking);
+            metaUpdate.put("lastAvatarFrameRankingStored", true);
+            transaction.set(metaRef, metaUpdate, SetOptions.merge());
+            return canonicalRanking;
+        }).addOnSuccessListener(callback::onSuccess)
+                .addOnFailureListener(e -> callback.onError());
+    }
+
+    private void applyFramesInBatches(
+            String cycleId,
+            List<String> ranked,
+            List<DocumentSnapshot> users,
+            ActionCallback callback
+    ) {
+        Map<String, String> frameByRegion = new HashMap<>();
+        if (ranked.size() > 0) frameByRegion.put(ranked.get(0), FRAME_GOLD);
+        if (ranked.size() > 1) frameByRegion.put(ranked.get(1), FRAME_SILVER);
+        if (ranked.size() > 2) frameByRegion.put(ranked.get(2), FRAME_BRONZE);
+
+        List<FrameUpdate> updates = new ArrayList<>();
+        for (DocumentSnapshot user : users) {
+            String region = RegionCatalog.canonicalName(value(user.getString("region")));
+            String newFrame = frameByRegion.get(region);
+            String currentFrame = value(user.getString("avatarFrameId"));
+            String appliedCycle = value(user.getString("regionAwardFrameCycleId"));
+            if (newFrame != null) {
+                if (!newFrame.equals(currentFrame) || !cycleId.equals(appliedCycle)) {
+                    updates.add(new FrameUpdate(user.getReference(), newFrame));
+                }
+            } else if (isAwardFrame(currentFrame)) {
+                updates.add(new FrameUpdate(user.getReference(), "blue"));
+            }
+        }
+        commitFrameBatch(cycleId, updates, 0, callback);
+    }
+
+    private void commitFrameBatch(
+            String cycleId,
+            List<FrameUpdate> updates,
+            int start,
+            ActionCallback callback
+    ) {
+        if (start >= updates.size()) {
+            markFramesApplied(cycleId, callback);
+            return;
+        }
+        int end = Math.min(start + FRAME_BATCH_SIZE, updates.size());
+        WriteBatch batch = db.batch();
+        for (int i = start; i < end; i++) {
+            FrameUpdate update = updates.get(i);
+            batch.update(
+                    update.userRef,
+                    "avatarFrameId", update.frame,
+                    "regionAwardFrameCycleId", cycleId
+            );
+        }
+        batch.commit()
+                .addOnSuccessListener(unused -> commitFrameBatch(cycleId, updates, end, callback))
+                .addOnFailureListener(e -> callback.onError("Ne mogu da azuriram regionalne okvire."));
+    }
+
+    private void markFramesApplied(String cycleId, ActionCallback callback) {
+        Map<String, Object> update = new HashMap<>();
+        update.put("avatarFramesAppliedCycleId", cycleId);
+        db.collection("regionLeaderboards")
+                .document("meta")
+                .set(update, SetOptions.merge())
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onError("Okviri su azurirani, ali ciklus nije potvrđen."));
     }
 
     private List<String> rankedRegions(Map<String, Long> stars) {
@@ -292,5 +481,19 @@ public class RegionsRepository {
 
     private long value(Long input) {
         return input == null ? 0L : input;
+    }
+
+    private List<String> stringList(Object input) {
+        List<String> out = new ArrayList<>();
+        if (!(input instanceof Iterable<?>)) {
+            return out;
+        }
+        for (Object item : (Iterable<?>) input) {
+            String value = item == null ? "" : item.toString().trim();
+            if (!value.isEmpty()) {
+                out.add(RegionCatalog.canonicalName(value));
+            }
+        }
+        return out;
     }
 }

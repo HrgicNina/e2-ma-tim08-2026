@@ -48,6 +48,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvHomeTokens;
     private TextView tvHomeStars;
     private TextView tvHomeLeague;
+    private TextView btnProfile;
     private ListenerRegistration economyListener;
     private final LeaderboardService leaderboardService = new LeaderboardService();
 
@@ -63,7 +64,7 @@ public class HomeActivity extends AppCompatActivity {
         NotificationService notificationService = new NotificationService();
         String rewardNotificationIdFromIntent = getIntent().getStringExtra(EXTRA_OPEN_REWARD_NOTIFICATION_ID);
 
-        TextView btnProfile = findViewById(R.id.btnOpenProfile);
+        btnProfile = findViewById(R.id.btnOpenProfile);
         TextView btnOpenChat = findViewById(R.id.btnOpenChat);
         TextView btnOpenRankings = findViewById(R.id.btnOpenRankings);
         TextView btnSettings = findViewById(R.id.btnOpenSettings);
@@ -77,29 +78,19 @@ public class HomeActivity extends AppCompatActivity {
         Button btnOpenRegions = findViewById(R.id.btnOpenRegions);
         View friendsContainer = findViewById(R.id.friendsContainer);
         Button btnOpenFriends = findViewById(R.id.btnOpenFriends);
-        TextView tvFriendsLabel = findViewById(R.id.tvFriendsLabel);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
         btnNotifications.setText("\uD83D\uDD14");
         btnOpenChat.setText("\uD83D\uDCAC");
         btnOpenRankings.setText("\uD83C\uDFC6");
         btnSettings.setText("\u2699\uFE0F");
-        authService.getCurrentUsername(username -> {
-            if (username != null && !username.trim().isEmpty()) {
-                btnProfile.setText(username.substring(0, 1).toUpperCase());
-                tvHomeUsername.setText(username);
-            } else {
-                btnProfile.setText("U");
-                tvHomeUsername.setText("korisnik");
-            }
-        });
+        refreshHomeProfile();
 
         if (sessionManager.isGuestMode()) {
             homeStatsRow.setVisibility(View.GONE);
 
             btnStartGame.setVisibility(View.VISIBLE);
             btnOpenRegions.setVisibility(View.GONE);
-            tvFriendsLabel.setVisibility(View.GONE);
             friendsContainer.setVisibility(View.GONE);
 
             btnNotifications.setVisibility(View.GONE);
@@ -148,7 +139,25 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshHomeProfile();
         refreshEconomyOnHomeIfRegistered();
+    }
+
+    private void refreshHomeProfile() {
+        if (btnProfile == null || sessionManager == null || sessionManager.isGuestMode()) {
+            return;
+        }
+        authService.getCurrentUserProfile(profile -> runOnUiThread(() -> {
+            String username = profile.username == null ? "" : profile.username.trim();
+            if (username.isEmpty()) {
+                btnProfile.setText("U");
+            } else {
+                btnProfile.setText(username.substring(0, 1).toUpperCase());
+            }
+            AvatarFrameHelper.apply(btnProfile, profile.avatarFrameId);
+            TextView usernameView = findViewById(R.id.tvHomeUsername);
+            usernameView.setText(username.isEmpty() ? "korisnik" : username);
+        }));
     }
 
     @Override
@@ -442,6 +451,7 @@ public class HomeActivity extends AppCompatActivity {
         new RegionsService().processPreviousMonthlyRegionAwards(new RegionsService.ActionCallback() {
             @Override
             public void onSuccess() {
+                refreshHomeProfile();
             }
 
             @Override

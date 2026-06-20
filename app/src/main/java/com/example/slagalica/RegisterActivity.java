@@ -1,12 +1,11 @@
 package com.example.slagalica;
 
+import android.content.res.ColorStateList;
 import android.content.Intent;
 import android.app.Dialog;
 import android.os.Bundle;
 import android.view.Window;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -21,12 +20,15 @@ import com.example.slagalica.model.RegistrationData;
 
 public class RegisterActivity extends AppCompatActivity {
 
+    private static final String STATE_SELECTED_REGION = "selected_region";
+
     private EditText etEmail;
     private EditText etUsername;
-    private AutoCompleteTextView etRegion;
+    private TextView tvRegion;
     private EditText etPassword;
     private EditText etConfirmPassword;
     private AuthService authService;
+    private String selectedRegion = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,24 +39,37 @@ public class RegisterActivity extends AppCompatActivity {
 
         etEmail = findViewById(R.id.etRegEmail);
         etUsername = findViewById(R.id.etRegUsername);
-        etRegion = findViewById(R.id.etRegRegion);
+        tvRegion = findViewById(R.id.tvRegRegion);
         etPassword = findViewById(R.id.etRegPassword);
         etConfirmPassword = findViewById(R.id.etRegConfirmPassword);
 
-        String[] regions = getResources().getStringArray(R.array.serbia_regions);
-        etRegion.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_dropdown_item_1line, regions));
+        if (savedInstanceState != null) {
+            selectedRegion = savedInstanceState.getString(STATE_SELECTED_REGION, "");
+        }
+        renderRegionPicker();
 
-        Button btnPickRegion = findViewById(R.id.btnPickRegion);
         Button btnRegister = findViewById(R.id.btnRegister);
         TextView tvGoLogin = findViewById(R.id.tvGoLogin);
 
-        btnPickRegion.setOnClickListener(v -> showRegionPickerDialog());
+        tvRegion.setOnClickListener(v -> showRegionPickerDialog());
         btnRegister.setOnClickListener(v -> register());
         tvGoLogin.setOnClickListener(v -> {
             Intent intent = new Intent(RegisterActivity.this, LoginActivity.class);
             startActivity(intent);
             finish();
         });
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString(STATE_SELECTED_REGION, selectedRegion);
+        super.onSaveInstanceState(outState);
+    }
+
+    private void renderRegionPicker() {
+        boolean hasSelection = !selectedRegion.isEmpty();
+        tvRegion.setSelected(hasSelection);
+        tvRegion.setText(hasSelection ? selectedRegion : getString(R.string.btn_pick_region));
     }
 
     private void showRegionPickerDialog() {
@@ -77,7 +92,7 @@ public class RegisterActivity extends AppCompatActivity {
         ));
 
         RegionMapView pickerMap = new RegionMapView(this);
-        pickerMap.setData(null, etRegion.getText().toString(), etRegion.getText().toString());
+        pickerMap.setData(null, selectedRegion, selectedRegion);
         container.addView(pickerMap, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -85,14 +100,21 @@ public class RegisterActivity extends AppCompatActivity {
         ));
 
         Button closeButton = new Button(this);
-        closeButton.setText("Otkazi");
-        container.addView(closeButton, new LinearLayout.LayoutParams(
+        closeButton.setText(R.string.btn_cancel);
+        closeButton.setTextSize(20);
+        closeButton.setTextColor(getColor(R.color.app_on_primary));
+        closeButton.setAllCaps(false);
+        closeButton.setBackgroundTintList(ColorStateList.valueOf(getColor(R.color.app_primary_blue)));
+        LinearLayout.LayoutParams closeButtonParams = new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
-        ));
+        );
+        closeButtonParams.topMargin = dp(12);
+        container.addView(closeButton, closeButtonParams);
 
         pickerMap.setRegionClickListener(region -> {
-            etRegion.setText(region, false);
+            selectedRegion = region;
+            renderRegionPicker();
             dialog.dismiss();
         });
         closeButton.setOnClickListener(v -> dialog.dismiss());
@@ -108,7 +130,7 @@ public class RegisterActivity extends AppCompatActivity {
         RegistrationData data = new RegistrationData(
                 etEmail.getText().toString(),
                 etUsername.getText().toString(),
-                etRegion.getText().toString(),
+                selectedRegion,
                 etPassword.getText().toString(),
                 etConfirmPassword.getText().toString()
         );

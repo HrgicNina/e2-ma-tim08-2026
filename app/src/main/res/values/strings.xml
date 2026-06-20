@@ -27,6 +27,7 @@
     <string name="btn_open_notifications">Notifikacije</string>
     <string name="btn_register_now">Registrujte se</string>
     <string name="btn_pick_region">Izaberi region</string>
+    <string name="btn_cancel">Otkaži</string>
     <string name="games_label">Igre:</string>
     <string name="home_start_game">Započni igru</string>
     <string name="home_friends_label">Prijatelji</string>
@@ -45,7 +46,7 @@
     <string name="rankings_refreshed_at">Osvezeno: %1$s</string>
     <string name="rankings_empty">Nema igraca u tekucoj rang listi.</string>
     <string name="regions_title">Regioni Srbije</string>
-    <string name="regions_col_icon">Ik.</string>
+    <string name="regions_col_icon">Ikona</string>
     <string name="regions_col_region">Region</string>
     <string name="regions_col_stars">Zvezde</string>
     <string name="regions_empty">Nema podataka za regione.</string>

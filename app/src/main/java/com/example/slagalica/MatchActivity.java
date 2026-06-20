@@ -26,6 +26,9 @@ import com.example.slagalica.domain.MatchRealtimeClient;
 import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.SessionManager;
+import com.google.android.gms.tasks.Task;
+import com.google.android.gms.tasks.Tasks;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import org.json.JSONObject;
@@ -50,6 +53,8 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_MATCH_SOLO_MODE = "match_solo_mode";
     public static final String EXTRA_MATCH_PLAYER1_NAME = "match_player1_name";
     public static final String EXTRA_MATCH_PLAYER2_NAME = "match_player2_name";
+    public static final String EXTRA_MATCH_PLAYER1_FRAME = "match_player1_frame";
+    public static final String EXTRA_MATCH_PLAYER2_FRAME = "match_player2_frame";
     public static final String EXTRA_MATCH_BASE_PLAYER1_SCORE = "match_base_player1_score";
     public static final String EXTRA_MATCH_BASE_PLAYER2_SCORE = "match_base_player2_score";
     public static final String EXTRA_MATCH_MY_TOKENS = "match_my_tokens";
@@ -115,6 +120,8 @@ public class MatchActivity extends AppCompatActivity {
     private String opponentUsername = "-";
     private String player1DisplayName = "Igrac 1";
     private String player2DisplayName = "Igrac 2";
+    private String player1AvatarFrame = "blue";
+    private String player2AvatarFrame = "blue";
     private int myPlayerNumber = 1;
     private boolean resultApplied = false;
     private boolean autoStartQueueRequested = false;
@@ -408,11 +415,11 @@ public class MatchActivity extends AppCompatActivity {
                             ? getString(R.string.match_friendly_info)
                             : getString(R.string.match_ranked_info));
                     renderMatch();
-                    uiHandler.postDelayed(() -> {
+                    loadMatchAvatarFrames(() -> uiHandler.postDelayed(() -> {
                         if (inRoom && roomId != null && !isFinishing()) {
                             openCurrentGame();
                         }
-                    }, 900L);
+                    }, 900L));
                 });
             }
 
@@ -844,6 +851,47 @@ public class MatchActivity extends AppCompatActivity {
         finish();
     }
 
+    private void loadMatchAvatarFrames(Runnable onReady) {
+        player1AvatarFrame = "blue";
+        player2AvatarFrame = "blue";
+        if (guestMode || TextUtils.isEmpty(myUid) || TextUtils.isEmpty(opponentUid)) {
+            onReady.run();
+            return;
+        }
+
+        Task<DocumentSnapshot> myProfile = db.collection("users").document(myUid).get();
+        Task<DocumentSnapshot> opponentProfile = db.collection("users").document(opponentUid).get();
+        boolean[] readyDelivered = {false};
+        Runnable deliverReady = () -> {
+            if (readyDelivered[0]) {
+                return;
+            }
+            readyDelivered[0] = true;
+            onReady.run();
+        };
+        uiHandler.postDelayed(deliverReady, 1500L);
+        Tasks.whenAllComplete(myProfile, opponentProfile).addOnCompleteListener(unused -> {
+            String myFrame = frameFromProfileTask(myProfile);
+            String opponentFrame = frameFromProfileTask(opponentProfile);
+            if (myPlayerNumber == 1) {
+                player1AvatarFrame = myFrame;
+                player2AvatarFrame = opponentFrame;
+            } else {
+                player1AvatarFrame = opponentFrame;
+                player2AvatarFrame = myFrame;
+            }
+            deliverReady.run();
+        });
+    }
+
+    private String frameFromProfileTask(Task<DocumentSnapshot> task) {
+        if (task == null || !task.isSuccessful() || task.getResult() == null) {
+            return "blue";
+        }
+        String frame = task.getResult().getString("avatarFrameId");
+        return TextUtils.isEmpty(frame) ? "blue" : frame;
+    }
+
     private void openCurrentGame() {
         if (!inRoom) {
             return;
@@ -865,6 +913,8 @@ public class MatchActivity extends AppCompatActivity {
         intent.putExtra(EXTRA_MATCH_SOLO_MODE, opponentForfeited);
         intent.putExtra(EXTRA_MATCH_PLAYER1_NAME, player1DisplayName);
         intent.putExtra(EXTRA_MATCH_PLAYER2_NAME, player2DisplayName);
+        intent.putExtra(EXTRA_MATCH_PLAYER1_FRAME, player1AvatarFrame);
+        intent.putExtra(EXTRA_MATCH_PLAYER2_FRAME, player2AvatarFrame);
         int basePlayer1 = myPlayerNumber == 1 ? myScore : opponentScore;
         int basePlayer2 = myPlayerNumber == 1 ? opponentScore : myScore;
         intent.putExtra(EXTRA_MATCH_BASE_PLAYER1_SCORE, basePlayer1);
@@ -1184,6 +1234,8 @@ public class MatchActivity extends AppCompatActivity {
         roomId = null;
         opponentUid = null;
         opponentUsername = "-";
+        player1AvatarFrame = "blue";
+        player2AvatarFrame = "blue";
         rankedTokenReserved = false;
         opponentForfeited = false;
         scoreSubmitted = false;
@@ -1256,6 +1308,8 @@ public class MatchActivity extends AppCompatActivity {
         Intent intent = new Intent(this, MatchResultSplashActivity.class);
         intent.putExtra(EXTRA_RESULT_PLAYER1_NAME, player1Name);
         intent.putExtra(EXTRA_RESULT_PLAYER2_NAME, player2Name);
+        intent.putExtra(EXTRA_MATCH_PLAYER1_FRAME, player1AvatarFrame);
+        intent.putExtra(EXTRA_MATCH_PLAYER2_FRAME, player2AvatarFrame);
         intent.putExtra(EXTRA_RESULT_PLAYER1_SCORE, player1Score);
         intent.putExtra(EXTRA_RESULT_PLAYER2_SCORE, player2Score);
         intent.putExtra(EXTRA_RESULT_IS_CURRENT_PLAYER1, myPlayerNumber == 1);

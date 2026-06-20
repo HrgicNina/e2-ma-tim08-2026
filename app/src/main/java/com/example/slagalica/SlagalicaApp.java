@@ -25,6 +25,7 @@ import java.util.Map;
 public class SlagalicaApp extends Application {
 
     private static final String WS_URL = "ws://10.0.2.2:8080";
+    private static final long APP_PRESENCE_HEARTBEAT_MS = 60L * 1000L;
 
     private int startedActivities = 0;
     private boolean appForeground = false;
@@ -36,6 +37,16 @@ public class SlagalicaApp extends Application {
     private String globalInviteId = null;
     private Runnable globalInviteTimeoutRunnable = null;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable presenceHeartbeatRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!appForeground) {
+                return;
+            }
+            updateAppPresence(true);
+            mainHandler.postDelayed(this, APP_PRESENCE_HEARTBEAT_MS);
+        }
+    };
 
     @Override
     public void onCreate() {
@@ -51,7 +62,7 @@ public class SlagalicaApp extends Application {
                 startedActivities++;
                 if (!appForeground && startedActivities > 0) {
                     appForeground = true;
-                    updateAppPresence(true);
+                    startPresenceHeartbeat();
                 }
             }
 
@@ -79,6 +90,7 @@ public class SlagalicaApp extends Application {
                 startedActivities = Math.max(0, startedActivities - 1);
                 if (appForeground && startedActivities == 0) {
                     appForeground = false;
+                    stopPresenceHeartbeat();
                     updateAppPresence(false);
                     disconnectGlobalInviteClient();
                 }
@@ -95,6 +107,15 @@ public class SlagalicaApp extends Application {
                 }
             }
         });
+    }
+
+    private void startPresenceHeartbeat() {
+        mainHandler.removeCallbacks(presenceHeartbeatRunnable);
+        presenceHeartbeatRunnable.run();
+    }
+
+    private void stopPresenceHeartbeat() {
+        mainHandler.removeCallbacks(presenceHeartbeatRunnable);
     }
 
     private void updateAppPresence(boolean active) {

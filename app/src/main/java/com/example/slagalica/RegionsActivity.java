@@ -3,6 +3,8 @@ package com.example.slagalica;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -113,16 +115,80 @@ public class RegionsActivity extends AppCompatActivity {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(8), dp(9), dp(8), dp(9));
+        row.setPadding(dp(2), dp(4), dp(2), dp(4));
         row.setBackgroundColor(entry.mine ? 0x33F6C65B : 0x00000000);
         row.setOnClickListener(v -> showRegionStats(entry.region));
 
-        row.addView(cell("#" + rank, 0.14f, Gravity.START, true));
-        row.addView(cell(entry.icon, 0.13f, Gravity.CENTER, true));
-        row.addView(cell(entry.region, 0.45f, Gravity.START, true));
+        row.addView(cell("#" + rank, 0.07f, Gravity.START, true));
+        row.addView(regionIconCell(entry));
+        TextView regionCell = cell(entry.region, 0.50f, Gravity.START, true);
+        regionCell.setPadding(dp(6), 0, 0, 0);
+        row.addView(regionCell);
         row.addView(cell(String.valueOf(entry.monthlyStars), 0.18f, Gravity.CENTER, true));
-        row.addView(cell(entry.mine ? "moj" : "", 0.10f, Gravity.CENTER, false));
+        row.addView(cell(entry.mine ? "moj" : "", 0.08f, Gravity.CENTER, false));
         return row;
+    }
+
+    private View regionIconCell(RegionLeaderboardEntry entry) {
+        FrameLayout container = new FrameLayout(this);
+        container.setLayoutParams(new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                0.17f
+        ));
+
+        int avatarResource = regionAvatarResource(entry.region);
+        if (avatarResource != 0) {
+            ImageView avatar = new ImageView(this);
+            avatar.setImageResource(avatarResource);
+            avatar.setContentDescription(entry.region);
+            FrameLayout.LayoutParams avatarParams = new FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER);
+            container.addView(avatar, avatarParams);
+        } else {
+            TextView fallback = new TextView(this);
+            fallback.setText(entry.icon);
+            fallback.setTextColor(getResources().getColor(R.color.app_on_surface));
+            fallback.setTextSize(14);
+            fallback.setTypeface(fallback.getTypeface(), android.graphics.Typeface.BOLD);
+            fallback.setGravity(Gravity.CENTER);
+            container.addView(fallback, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.CENTER
+            ));
+        }
+        return container;
+    }
+
+    private int regionAvatarResource(String region) {
+        if ("Vojvodina".equals(region)) {
+            return R.drawable.region_avatar_vojvodina;
+        }
+        if ("Šumadija".equals(region)) {
+            return R.drawable.region_avatar_sumadija;
+        }
+        if ("Južno Pomoravlje".equals(region)) {
+            return R.drawable.region_avatar_juzno_pomoravlje;
+        }
+        if ("Kosovo i Metohija".equals(region)) {
+            return R.drawable.region_avatar_kosovo_metohija;
+        }
+        if ("Podrinje i Posavina".equals(region)) {
+            return R.drawable.region_avatar_podrinje_posavina;
+        }
+        if ("Rasina i Toplica".equals(region)) {
+            return R.drawable.region_avatar_rasina_toplica;
+        }
+        if ("Raška".equals(region)) {
+            return R.drawable.region_avatar_raska;
+        }
+        if ("Timok i Braničevo".equals(region)) {
+            return R.drawable.region_avatar_timok_branicevo;
+        }
+        if ("Šopluk".equals(region)) {
+            return R.drawable.region_avatar_sopluk;
+        }
+        return 0;
     }
 
     private TextView cell(String text, float weight, int gravity, boolean bold) {
@@ -142,13 +208,12 @@ public class RegionsActivity extends AppCompatActivity {
 
     private void showRegionStats(String region) {
         selectedRegion = value(region);
-        regionMapView.setData(currentData.points, currentData.myRegion, selectedRegion);
         RegionLeaderboardEntry entry = findRegion(region);
         if (entry == null) {
             return;
         }
         new AlertDialog.Builder(this)
-                .setTitle(entry.icon + " " + entry.region)
+                .setCustomTitle(regionStatsTitle(entry))
                 .setMessage("Prva mesta: " + entry.firstPlaces
                         + "\nDruga mesta: " + entry.secondPlaces
                         + "\nTreca mesta: " + entry.thirdPlaces
@@ -157,6 +222,34 @@ public class RegionsActivity extends AppCompatActivity {
                         + "\nZvezde u ciklusu: " + entry.monthlyStars)
                 .setPositiveButton("OK", null)
                 .show();
+    }
+
+    private View regionStatsTitle(RegionLeaderboardEntry entry) {
+        LinearLayout title = new LinearLayout(this);
+        title.setOrientation(LinearLayout.HORIZONTAL);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        title.setPadding(dp(24), dp(20), dp(24), dp(8));
+
+        int avatarResource = regionAvatarResource(entry.region);
+        if (avatarResource != 0) {
+            ImageView avatar = new ImageView(this);
+            avatar.setImageResource(avatarResource);
+            avatar.setContentDescription(entry.region);
+            title.addView(avatar, new LinearLayout.LayoutParams(dp(32), dp(32)));
+        }
+
+        TextView regionName = new TextView(this);
+        regionName.setText(entry.region);
+        regionName.setTextColor(getResources().getColor(R.color.app_on_surface));
+        regionName.setTextSize(20);
+        regionName.setTypeface(regionName.getTypeface(), android.graphics.Typeface.BOLD);
+        LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        nameParams.setMarginStart(avatarResource == 0 ? 0 : dp(10));
+        title.addView(regionName, nameParams);
+        return title;
     }
 
     private RegionLeaderboardEntry findRegion(String region) {

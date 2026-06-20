@@ -48,7 +48,9 @@ public class RegionMapView extends WebView {
 
     @SuppressLint({"SetJavaScriptEnabled", "AddJavascriptInterface"})
     private void init() {
-        setBackgroundColor(Color.TRANSPARENT);
+        setBackgroundColor(Color.rgb(220, 234, 243));
+        setLayerType(LAYER_TYPE_HARDWARE, null);
+        setOverScrollMode(OVER_SCROLL_NEVER);
         setWebViewClient(new WebViewClient());
         WebSettings settings = getSettings();
         settings.setJavaScriptEnabled(true);
@@ -90,14 +92,19 @@ public class RegionMapView extends WebView {
                 + "html,body,#map{height:100%;margin:0;padding:0;background:#dceaf3;overflow:hidden;}"
                 + ".leaflet-container{font-family:Arial,sans-serif;background:#dceaf3;}"
                 + ".leaflet-control-attribution{font-size:9px;}"
+                + ".leaflet-overlay-pane,.leaflet-marker-pane{will-change:transform;backface-visibility:hidden;transform:translateZ(0);}"
+                + ".leaflet-overlay-pane img,.leaflet-marker-icon{backface-visibility:hidden;will-change:transform;}"
+                + ".player-point{filter:drop-shadow(0 0 3px #ff1744);}"
                 + "</style></head><body><div id='map'></div><script>"
                 + "const points=" + pointsJson() + ";"
                 + "const map=L.map('map',{zoomControl:true,attributionControl:true,dragging:true,"
                 + "touchZoom:true,scrollWheelZoom:true,doubleClickZoom:true,boxZoom:true,keyboard:true,"
-                + "tap:true,zoomSnap:.25,minZoom:6.5,maxZoom:11,"
-                + "maxBounds:[[41.25,18.05],[46.75,23.75]],maxBoundsViscosity:.55}).setView([44.05,20.78],7.05);"
+                + "tap:true,zoomSnap:.25,minZoom:6.5,maxZoom:11,zoomAnimation:false,"
+                + "fadeAnimation:false,markerZoomAnimation:false,preferCanvas:false,"
+                + "maxBounds:[[41.25,18.05],[46.75,23.75]],maxBoundsViscosity:1}).setView([44.05,20.78],7.05);"
                 + "L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{"
-                + "subdomains:'abcd',maxZoom:18,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);"
+                + "subdomains:'abcd',maxZoom:18,updateWhenIdle:false,keepBuffer:4,"
+                + "attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);"
                 + "const addRegionHover=(layer,color)=>{"
                 + "layer.on('mouseover',()=>layer.setStyle({color:color,weight:3,opacity:.95}));"
                 + "layer.on('mouseout',()=>layer.setStyle({weight:0,opacity:0}));"
@@ -106,8 +113,7 @@ public class RegionMapView extends WebView {
                 + "const vojvodinaLayer=L.imageOverlay('vojvodina_overlay.png',vojvodinaBounds,{"
                 + "opacity:1,interactive:true}).addTo(map);"
                 + "vojvodinaLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Vojvodina');}});"
-                + "const vojvodinaHoverLayer=L.polygon([[46.26,18.78],[46.30,20.30],[45.95,21.30],"
-                + "[45.30,21.55],[44.80,20.90],[44.72,19.95],[44.78,18.95],[45.38,18.48]],"
+                + "const vojvodinaHoverLayer=L.polygon(" + vojvodinaJson() + ","
                 + "{color:'#e53935',weight:0,fillColor:'#e53935',fillOpacity:.01,smoothFactor:.35}).addTo(map);"
                 + "vojvodinaHoverLayer.on('click',()=>{if(window.AndroidRegionMap){AndroidRegionMap.onRegionClicked('Vojvodina');}});"
                 + "addRegionHover(vojvodinaHoverLayer,'#b71c1c');"
@@ -190,8 +196,8 @@ public class RegionMapView extends WebView {
                 + "L.imageOverlay('serbia_border_overlay.png',fullSerbiaBounds,{"
                 + "opacity:1,interactive:false}).addTo(map);"
                 + "points.forEach(p=>{"
-                + "L.circleMarker([p.lat,p.lon],{radius:3.5,color:'#0c2f52',weight:1,"
-                + "fillColor:'#ffffff',fillOpacity:1,interactive:false}).addTo(map);"
+                + "L.circleMarker([p.lat,p.lon],{radius:4.5,color:'#ff003c',weight:1.5,"
+                + "fillColor:'#ff1744',fillOpacity:1,interactive:false,className:'player-point'}).addTo(map);"
                 + "});"
                 + "</script></body></html>";
     }
@@ -213,96 +219,44 @@ public class RegionMapView extends WebView {
     }
 
     private String podrinjePosavinaJson() {
-        try {
-            return coordinates(new double[][]{
-                    {44.52, 18.92}, {44.45, 19.45}, {44.15, 19.78},
-                    {43.80, 19.92}, {43.55, 19.95}, {43.45, 19.62},
-                    {43.56, 19.20}, {43.82, 18.86}, {44.25, 18.72}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Podrinje i Posavina");
     }
 
     private String sumadijaJson() {
-        try {
-            return coordinates(new double[][]{
-                    {44.56, 19.78}, {44.62, 20.72}, {44.28, 21.05},
-                    {43.85, 20.94}, {43.42, 20.74}, {43.18, 20.15},
-                    {43.48, 19.94}, {43.92, 19.80}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Šumadija");
     }
 
     private String timokBranicevoJson() {
-        try {
-            return coordinates(new double[][]{
-                    {44.76, 20.72}, {44.84, 21.36}, {44.62, 22.20},
-                    {44.15, 22.70}, {43.52, 22.55}, {43.18, 21.90},
-                    {43.24, 21.10}, {43.84, 20.94}, {44.28, 21.05}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Timok i Braničevo");
     }
 
     private String raskaJson() {
-        try {
-            return coordinates(new double[][]{
-                    {43.76, 18.60}, {43.76, 20.12}, {43.54, 20.36},
-                    {43.19, 20.28}, {42.88, 20.03}, {42.74, 19.45},
-                    {42.94, 18.88}, {43.32, 18.60}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Raška");
     }
 
     private String rasinaToplicaJson() {
-        try {
-            return coordinates(new double[][]{
-                    {43.75, 19.94}, {43.76, 21.72}, {43.44, 21.62},
-                    {42.92, 21.30}, {42.66, 20.92}, {42.88, 20.03},
-                    {43.19, 20.28}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Rasina i Toplica");
     }
 
     private String soplukJson() {
-        try {
-            return coordinates(new double[][]{
-                    {43.76, 21.24}, {43.74, 22.30}, {43.48, 22.90},
-                    {42.94, 23.04}, {42.39, 22.78}, {42.24, 22.06},
-                    {42.66, 21.66}, {43.38, 21.46}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Šopluk");
     }
 
     private String juznoPomoravljeJson() {
-        try {
-            return coordinates(new double[][]{
-                    {42.92, 21.30}, {43.38, 21.46}, {42.66, 21.66},
-                    {42.34, 22.02}, {42.22, 21.44}, {42.34, 20.92},
-                    {42.66, 20.92}
-            }).toString();
-        } catch (JSONException ignored) {
-            return "[]";
-        }
+        return regionPolygonJson("Južno Pomoravlje");
     }
 
     private String kosovoMetohijaJson() {
+        return regionPolygonJson("Kosovo i Metohija");
+    }
+
+    private String vojvodinaJson() {
+        return regionPolygonJson("Vojvodina");
+    }
+
+    private String regionPolygonJson(String region) {
         try {
-            return coordinates(new double[][]{
-                    {42.74, 19.45}, {42.88, 20.03}, {42.66, 20.92},
-                    {42.34, 20.92}, {42.12, 20.68}, {41.86, 20.64},
-                    {42.10, 19.80}, {42.28, 19.20}, {42.54, 18.92}
-            }).toString();
+            return normalizedPolygon(RegionCatalog.polygon(region)).toString();
         } catch (JSONException ignored) {
             return "[]";
         }
@@ -354,59 +308,7 @@ public class RegionMapView extends WebView {
     }
 
     private float[][] regionShape(String region) {
-        if ("Vojvodina".equals(region)) {
-            return new float[][]{
-                    {.18f, .04f}, {.55f, .03f}, {.78f, .15f}, {.83f, .28f},
-                    {.73f, .38f}, {.54f, .38f}, {.42f, .34f}, {.25f, .36f},
-                    {.10f, .28f}, {.11f, .14f}
-            };
-        }
-        if ("Podrinje i Posavina".equals(region)) {
-            return new float[][]{
-                    {.10f, .28f}, {.25f, .36f}, {.42f, .34f}, {.47f, .44f},
-                    {.44f, .56f}, {.36f, .66f}, {.25f, .70f}, {.12f, .62f},
-                    {.07f, .50f}, {.10f, .39f}
-            };
-        }
-        if ("Šumadija".equals(region)) {
-            return new float[][]{
-                    {.42f, .34f}, {.54f, .38f}, {.61f, .48f}, {.56f, .62f},
-                    {.48f, .70f}, {.36f, .66f}, {.44f, .56f}, {.47f, .44f}
-            };
-        }
-        if ("Timok i Braničevo".equals(region)) {
-            return new float[][]{
-                    {.54f, .38f}, {.73f, .38f}, {.86f, .46f}, {.90f, .62f},
-                    {.82f, .76f}, {.66f, .74f}, {.56f, .62f}, {.61f, .48f}
-            };
-        }
-        if ("Raška".equals(region)) {
-            return new float[][]{
-                    {.25f, .70f}, {.36f, .66f}, {.48f, .70f}, {.45f, .82f},
-                    {.31f, .84f}
-            };
-        }
-        if ("Rasina i Toplica".equals(region)) {
-            return new float[][]{
-                    {.48f, .70f}, {.56f, .62f}, {.66f, .74f}, {.62f, .86f},
-                    {.45f, .82f}
-            };
-        }
-        if ("Šopluk".equals(region)) {
-            return new float[][]{
-                    {.82f, .76f}, {.90f, .62f}, {.94f, .78f}, {.86f, .91f}
-            };
-        }
-        if ("Južno Pomoravlje".equals(region)) {
-            return new float[][]{
-                    {.66f, .74f}, {.82f, .76f}, {.86f, .91f}, {.73f, .95f},
-                    {.62f, .86f}
-            };
-        }
-        return new float[][]{
-                {.31f, .84f}, {.45f, .82f}, {.62f, .86f}, {.73f, .95f},
-                {.58f, .99f}, {.33f, .96f}, {.21f, .88f}
-        };
+        return RegionCatalog.polygon(region);
     }
 
     private double[][] serbiaBorderCoordinates() {

@@ -1,5 +1,6 @@
 package com.example.slagalica;
 
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.widget.TextView;
@@ -14,6 +15,17 @@ public final class AvatarFrameHelper {
         drawable.setColor(Color.parseColor("#123F89"));
         drawable.setStroke(dp(view, 5), colorFor(frameId));
         view.setBackground(drawable);
+    }
+
+    public static void applyMatchFrames(TextView leftAvatar, TextView rightAvatar, Intent intent) {
+        String leftFrame = intent == null
+                ? "blue"
+                : intent.getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER1_FRAME);
+        String rightFrame = intent == null
+                ? "blue"
+                : intent.getStringExtra(MatchActivity.EXTRA_MATCH_PLAYER2_FRAME);
+        apply(leftAvatar, leftFrame);
+        apply(rightAvatar, rightFrame);
     }
 
     private static int colorFor(String frameId) {

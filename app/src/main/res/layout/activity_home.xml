@@ -140,43 +140,34 @@
         android:text="@string/home_start_game"
         android:textSize="30sp" />
 
-    <Button
-        android:id="@+id/btnOpenRegions"
-        android:layout_width="300dp"
-        android:layout_height="56dp"
-        android:layout_gravity="center_horizontal"
-        android:layout_marginTop="10dp"
-        android:text="@string/btn_open_regions"
-        android:textSize="20sp" />
-
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="0.38" />
 
-    <TextView
-        android:id="@+id/tvFriendsLabel"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/home_friends_label"
-        android:textColor="@color/app_on_surface"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-
     <LinearLayout
         android:id="@+id/friendsContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
         android:gravity="center"
         android:orientation="horizontal">
 
         <Button
             android:id="@+id/btnOpenFriends"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="64dp"
-            android:text="Otvori listu prijatelja"
+            android:layout_marginEnd="6dp"
+            android:layout_weight="1"
+            android:text="@string/home_friends_label"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/btnOpenRegions"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:text="@string/btn_open_regions"
             android:textSize="20sp" />
     </LinearLayout>
 
