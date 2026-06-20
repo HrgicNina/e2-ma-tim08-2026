@@ -27,12 +27,15 @@
             android:exported="false" />
         <activity
             android:name=".MastermindGameActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".ConnectionsGameActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".AssociationsGameActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".MatchResultSplashActivity"
@@ -42,9 +45,11 @@
             android:exported="false" />
         <activity
             android:name=".MatchActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".QuizGameActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".ProfileActivity"
@@ -57,13 +62,23 @@
             android:exported="false" />
         <activity
             android:name=".MyNumberGameActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".ChatActivity"
             android:exported="false" />
         <activity
             android:name=".StepByStepActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
+
+        <service
+            android:name=".SlagalicaFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <activity
             android:name=".HomeActivity"
             android:exported="false" />

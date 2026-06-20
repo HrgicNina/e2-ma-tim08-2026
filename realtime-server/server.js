@@ -1,5 +1,6 @@
 const { WebSocketServer } = require("ws");
 const crypto = require("crypto");
+const { startFirebaseBridge } = require("./firebaseBridge");
 
 const PORT = process.env.PORT || 8080;
 const wss = new WebSocketServer({ port: PORT });
@@ -442,3 +443,6 @@ wss.on("connection", (ws) => {
 });
 
 console.log(`Slagalica WS server listening on ws://localhost:${PORT}`);
+startFirebaseBridge().catch((error) => {
+  console.warn(`[Firebase bridge] Neuspesno pokretanje: ${error.message}`);
+});

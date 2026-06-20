@@ -75,6 +75,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private boolean opponentForfeited = false;
     private int lastTimerSeconds = 60;
     private boolean remoteFinishHandled = false;
     private String player1DisplayName = "Igrac 1";
@@ -166,6 +167,10 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
+        opponentForfeited = getIntent().getBooleanExtra(
+                MatchActivity.EXTRA_OPPONENT_FORFEITED,
+                soloMode
+        );
         player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
         player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
         player1DisplayName = displayNameOrFallback(
@@ -237,6 +242,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         player2AttemptEmpty = true;
         player1AttemptValue = null;
         player2AttemptValue = null;
+        markForfeitedOpponentAsEmpty();
 
         tvRound.setText("");
         tvCurrentPlayer.setText(getString(R.string.number_current_player, roundStarter));
@@ -478,7 +484,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
         }
         cancelRoundTimers();
 
-        if (soloMode) {
+        if (soloMode && !opponentForfeited) {
             if (isExact(attemptValueFor(myPlayerNumber))) {
                 addPoints(myPlayerNumber, 10);
                 announceRoundOutcome(getString(R.string.number_exact_points, myPlayerNumber));
@@ -558,7 +564,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             view.setEnabled(false);
         }
 
-        if (currentRound == 1 && !soloMode) {
+        if (currentRound == 1) {
             phase = Phase.ROUND_END;
             tvPhase.setText(R.string.number_next_round_wait);
             publishState();
@@ -574,7 +580,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStarter = soloMode ? myPlayerNumber : 2;
+                    roundStarter = 2;
                     sendRoundChangeEvent();
                     startRound();
                 }
@@ -1211,18 +1217,19 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     }
 
     private void enableSoloModeAfterForfeit() {
+        opponentForfeited = true;
         soloMode = true;
-        if (roundStarter != myPlayerNumber) {
-            cancelTimers();
-            currentRound = 2;
-            roundStarter = myPlayerNumber;
-            startRound();
-            return;
-        }
-        roundStarter = myPlayerNumber;
+        markForfeitedOpponentAsEmpty();
         tvCurrentPlayer.setText(getString(R.string.number_current_player, roundStarter));
         if (phase == Phase.FINISHED) {
             refreshTurnIndicator();
+            return;
+        }
+        if (phase == Phase.ROUND_END && currentRound == 1) {
+            cancelTimers();
+            currentRound = 2;
+            roundStarter = 2;
+            startRound();
             return;
         }
         if (phase == Phase.STOP_TARGET) {
@@ -1253,6 +1260,22 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
             }
         }
         refreshTurnIndicator();
+    }
+
+    private void markForfeitedOpponentAsEmpty() {
+        if (!opponentForfeited) {
+            return;
+        }
+        int absentPlayer = opponent(myPlayerNumber);
+        if (absentPlayer == 1) {
+            player1Submitted = true;
+            player1AttemptEmpty = true;
+            player1AttemptValue = null;
+        } else {
+            player2Submitted = true;
+            player2AttemptEmpty = true;
+            player2AttemptValue = null;
+        }
     }
 
     private void sendMainSubmitEvent(int player, MyNumberGameService.EvalResult eval) {

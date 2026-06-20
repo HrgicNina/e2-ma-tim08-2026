@@ -143,6 +143,7 @@ public class FirebaseAuthRepository {
         userDoc.put("regionPointY", regionPoint[1]);
         userDoc.put("tokens", 5);
         userDoc.put("stars", 0);
+        userDoc.put("starTokenMilestonesAwarded", 0);
         userDoc.put("league", 0);
         userDoc.put("avatarId", "owl");
         userDoc.put("avatarFrameId", "blue");

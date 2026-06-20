@@ -90,6 +90,7 @@ public class MastermindGameActivity extends AppCompatActivity {
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private boolean opponentForfeited = false;
     private int lastTimerSeconds = 30;
     private boolean remoteFinishHandled = false;
     private String player1DisplayName = "Igrac 1";
@@ -163,6 +164,10 @@ public class MastermindGameActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
+        opponentForfeited = getIntent().getBooleanExtra(
+                MatchActivity.EXTRA_OPPONENT_FORFEITED,
+                soloMode
+        );
         player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
         player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
         player1DisplayName = displayNameOrFallback(
@@ -340,6 +345,10 @@ public class MastermindGameActivity extends AppCompatActivity {
         tvTimer.setText(getString(R.string.master_timer_seconds, 30));
         setInteractionEnabled(false);
         refreshTurnIndicator();
+        if (isRoundStarterAbsent()) {
+            openStealPhase();
+            return;
+        }
         startPrepCountdown();
     }
 
@@ -410,7 +419,7 @@ public class MastermindGameActivity extends AppCompatActivity {
         if (phase == Phase.STEAL || phase == Phase.FINISHED) {
             return;
         }
-        if (soloMode) {
+        if (soloMode && !isRoundStarterAbsent()) {
             finishRound();
             return;
         }
@@ -543,7 +552,7 @@ public class MastermindGameActivity extends AppCompatActivity {
         showSecretRow();
         setInteractionEnabled(false);
 
-        if (currentRound == 1 && !soloMode) {
+        if (currentRound == 1) {
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.master_showing_secret);
             publishState();
@@ -560,7 +569,7 @@ public class MastermindGameActivity extends AppCompatActivity {
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStarter = soloMode ? myPlayerNumber : 2;
+                    roundStarter = 2;
                     sendRoundChangeEvent();
                     startRound();
                 }
@@ -1061,28 +1070,45 @@ public class MastermindGameActivity extends AppCompatActivity {
     }
 
     private void enableSoloModeAfterForfeit() {
+        opponentForfeited = true;
         soloMode = true;
         if (phase == Phase.FINISHED) {
             return;
         }
-        if (roundStarter != myPlayerNumber) {
+        if (phase == Phase.ROUND_END && currentRound == 1) {
             cancelTimers();
             currentRound = 2;
-            roundStarter = myPlayerNumber;
+            roundStarter = 2;
             startRound();
             return;
         }
-        roundStarter = myPlayerNumber;
+        if (isRoundStarterAbsent()) {
+            if (phase == Phase.STEAL) {
+                setInteractionEnabled(true);
+                if (stealTimer == null && lastTimerSeconds > 0) {
+                    startStealTimer(lastTimerSeconds * 1000L);
+                }
+                refreshTurnIndicator();
+                return;
+            }
+            cancelTimers();
+            openStealPhase();
+            return;
+        }
         tvCurrentPlayer.setText(getString(R.string.master_current_player, roundStarter));
         if (phase == Phase.STEAL) {
             finishRound();
             return;
         }
         setInteractionEnabled(true);
-        if (phase == Phase.ROUND && roundTimer == null && lastTimerSeconds > 0) {
+        if (phase == Phase.ROUND && prepTimer == null && roundTimer == null && lastTimerSeconds > 0) {
             startRoundTimer(lastTimerSeconds * 1000L);
         }
         refreshTurnIndicator();
+    }
+
+    private boolean isRoundStarterAbsent() {
+        return opponentForfeited && roundStarter != myPlayerNumber;
     }
 
     private void sendForceFinishEvent() {

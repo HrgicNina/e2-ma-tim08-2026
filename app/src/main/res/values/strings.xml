@@ -33,6 +33,7 @@
     <string name="home_friends_label">Prijatelji</string>
     <string name="chat_title">Regionalni cet</string>
     <string name="chat_title_region">Cet regiona: %1$s</string>
+    <string name="chat_region_restricted">Cet regiona %1$s je dostupan samo njegovim clanovima.</string>
     <string name="chat_hint">Unesi poruku</string>
     <string name="chat_send">Posalji</string>
     <string name="rankings_title">Rang lista</string>
@@ -43,6 +44,7 @@
     <string name="rankings_col_icon">Ikonica</string>
     <string name="rankings_col_stars">Zvezde</string>
     <string name="rankings_cycle_range">Ciklus: %1$s</string>
+    <string name="rankings_cycle_range_selectable">Ciklus: %1$s  ▼</string>
     <string name="rankings_refreshed_at">Osvezeno: %1$s</string>
     <string name="rankings_empty">Nema igraca u tekucoj rang listi.</string>
     <string name="regions_title">Regioni Srbije</string>

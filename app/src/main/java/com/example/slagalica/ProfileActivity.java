@@ -13,6 +13,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.FcmTokenRegistrar;
 import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.ResultCallback;
@@ -286,11 +287,13 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void logout() {
         sessionManager.clearGuestMode();
-        authService.logout();
-        Intent intent = new Intent(this, LoginActivity.class);
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        FcmTokenRegistrar.unregister(this, () -> runOnUiThread(() -> {
+            authService.logout();
+            Intent intent = new Intent(this, LoginActivity.class);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+        }));
     }
 
     private String symbolForAvatar(String avatarId, String username) {

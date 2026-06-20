@@ -6,6 +6,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -29,6 +30,7 @@ public class RankingsActivity extends AppCompatActivity {
     private Button btnWeekly;
     private Button btnMonthly;
     private boolean monthlyMode = false;
+    private String selectedCycleId = "";
 
     private final Runnable refreshRunnable = new Runnable() {
         @Override
@@ -60,12 +62,15 @@ public class RankingsActivity extends AppCompatActivity {
 
         btnWeekly.setOnClickListener(v -> {
             monthlyMode = false;
+            selectedCycleId = "";
             loadCurrentMode();
         });
         btnMonthly.setOnClickListener(v -> {
             monthlyMode = true;
+            selectedCycleId = "";
             loadCurrentMode();
         });
+        tvCycleRange.setOnClickListener(v -> showCycleMenu());
 
         bootstrapRolloverAndLoad();
     }
@@ -84,31 +89,61 @@ public class RankingsActivity extends AppCompatActivity {
 
     private void loadCurrentMode() {
         refreshToggleButtons();
-        if (monthlyMode) {
-            leaderboardService.loadMonthlyLeaderboard(new LeaderboardService.LoadCallback() {
-                @Override
-                public void onSuccess(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
-                    render(cycle, entries);
-                }
-
-                @Override
-                public void onError(String message) {
-                    Toast.makeText(RankingsActivity.this, message, Toast.LENGTH_SHORT).show();
-                }
-            });
-        } else {
-            leaderboardService.loadWeeklyLeaderboard(new LeaderboardService.LoadCallback() {
-                @Override
-                public void onSuccess(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
-                    render(cycle, entries);
-                }
-
-                @Override
-                public void onError(String message) {
-                    Toast.makeText(RankingsActivity.this, message, Toast.LENGTH_SHORT).show();
-                }
-            });
+        if (!selectedCycleId.isEmpty()) {
+            leaderboardService.loadCycle(selectedCycleId, leaderboardCallback());
+            return;
         }
+        if (monthlyMode) {
+            leaderboardService.loadMonthlyLeaderboard(leaderboardCallback());
+        } else {
+            leaderboardService.loadWeeklyLeaderboard(leaderboardCallback());
+        }
+    }
+
+    private LeaderboardService.LoadCallback leaderboardCallback() {
+        return new LeaderboardService.LoadCallback() {
+            @Override
+            public void onSuccess(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
+                render(cycle, entries);
+            }
+
+            @Override
+            public void onError(String message) {
+                Toast.makeText(RankingsActivity.this, message, Toast.LENGTH_SHORT).show();
+            }
+        };
+    }
+
+    private void showCycleMenu() {
+        leaderboardService.loadCycles(monthlyMode, new LeaderboardService.CyclesCallback() {
+            @Override
+            public void onSuccess(List<LeaderboardService.CycleWindow> cycles) {
+                runOnUiThread(() -> renderCycleMenu(cycles));
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> Toast.makeText(RankingsActivity.this, message, Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void renderCycleMenu(List<LeaderboardService.CycleWindow> cycles) {
+        PopupMenu menu = new PopupMenu(this, tvCycleRange);
+        for (int index = 0; index < cycles.size(); index++) {
+            LeaderboardService.CycleWindow cycle = cycles.get(index);
+            menu.getMenu().add(0, index, index, cycle.label);
+        }
+        menu.setOnMenuItemClickListener(item -> {
+            int index = item.getItemId();
+            if (index < 0 || index >= cycles.size()) {
+                return false;
+            }
+            selectedCycleId = index == 0 ? "" : cycles.get(index).id;
+            loadCurrentMode();
+            return true;
+        });
+        menu.show();
     }
 
     private void bootstrapRolloverAndLoad() {
@@ -133,7 +168,7 @@ public class RankingsActivity extends AppCompatActivity {
     }
 
     private void render(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
-        tvCycleRange.setText(getString(R.string.rankings_cycle_range, cycle.label));
+        tvCycleRange.setText(getString(R.string.rankings_cycle_range_selectable, cycle.label));
 
         llRows.removeAllViews();
         tvEmpty.setVisibility(entries == null || entries.isEmpty() ? TextView.VISIBLE : TextView.GONE);
@@ -190,7 +225,7 @@ public class RankingsActivity extends AppCompatActivity {
         if (league == 3) return "🥇 L3";
         if (league == 2) return "🥈 L2";
         if (league == 1) return "🥉 L1";
-        return "🔹 L0";
+        return "🌱 L0";
     }
 
     private int dp(int value) {

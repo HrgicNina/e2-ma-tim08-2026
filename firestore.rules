@@ -1,0 +1,114 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownUser(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function regionRoom(region) {
+      return region == 'Vojvodina' ? 'vojvodina' :
+        region == 'Podrinje i Posavina' ? 'podrinje_i_posavina' :
+        region == 'Šumadija' ? '_umadija' :
+        region == 'Timok i Braničevo' ? 'timok_i_brani_evo' :
+        region == 'Raška' ? 'ra_ka' :
+        region == 'Rasina i Toplica' ? 'rasina_i_toplica' :
+        region == 'Šopluk' ? '_opluk' :
+        region == 'Južno Pomoravlje' ? 'ju_no_pomoravlje' :
+        region == 'Kosovo i Metohija' ? 'kosovo_i_metohija' : '';
+    }
+
+    match /users/{uid} {
+      // Public profile lookup is required before authentication for username-based login.
+      allow read: if true;
+      allow create, update: if ownUser(uid);
+      allow delete: if false;
+
+      match /stats/{document=**} {
+        allow read, write: if ownUser(uid);
+      }
+
+      match /notifications/{notificationId} {
+        allow read, update: if ownUser(uid);
+        // Friend-match invitations are currently created by the authenticated sender.
+        allow create: if signedIn() &&
+          request.resource.data.type in ['other', 'chat', 'ranking', 'rewards'];
+        allow delete: if ownUser(uid);
+      }
+
+      match /fcmTokens/{tokenId} {
+        allow read, write: if ownUser(uid);
+      }
+
+      match /friends/{friendUid} {
+        allow read: if ownUser(uid);
+        allow write: if signedIn() && (request.auth.uid == uid || request.auth.uid == friendUid);
+      }
+    }
+
+    match /regionChats/{roomId}/messages/{messageId} {
+      allow read: if signedIn() && roomId == regionRoom(myProfile().region);
+      allow create: if signedIn() &&
+        roomId == regionRoom(myProfile().region) &&
+        request.resource.data.senderUid == request.auth.uid &&
+        request.resource.data.senderName == myProfile().username &&
+        request.resource.data.text is string &&
+        request.resource.data.text.size() > 0 &&
+        request.resource.data.text.size() <= 1000;
+      allow update, delete: if false;
+    }
+
+    match /leaderboardCycles/{cycleId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if false;
+
+      match /entries/{uid} {
+        allow read: if signedIn();
+        allow create, update: if ownUser(uid);
+        allow delete: if false;
+      }
+    }
+
+    match /games_quiz/{document=**} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+    match /games_connections/{document=**} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+    match /games_associations/{document=**} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+    match /games_step_by_step/{document=**} {
+      allow read: if true;
+      allow write: if signedIn();
+    }
+
+    // Existing teammate features retain their current client-side implementation.
+    match /regionLeaderboards/{document=**} {
+      allow read, write: if signedIn();
+    }
+    match /regionStats/{document=**} {
+      allow read, write: if signedIn();
+    }
+    match /leaderboards/{document=**} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
