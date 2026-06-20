@@ -17,6 +17,11 @@ public class LeaderboardService {
         void onError(String message);
     }
 
+    public interface CyclesCallback {
+        void onSuccess(List<CycleWindow> cycles);
+        void onError(String message);
+    }
+
     public static class CycleWindow {
         public final String id;
         public final long startMs;
@@ -53,6 +58,28 @@ public class LeaderboardService {
         repository.loadMonthlyLeaderboard(adapt(callback));
     }
 
+    public void loadCycle(String cycleId, LoadCallback callback) {
+        repository.loadCycle(cycleId, adapt(callback));
+    }
+
+    public void loadCycles(boolean monthly, CyclesCallback callback) {
+        repository.loadCycles(monthly, new LeaderboardRepository.CyclesCallback() {
+            @Override
+            public void onSuccess(List<LeaderboardRepository.CycleWindow> cycles) {
+                java.util.ArrayList<CycleWindow> out = new java.util.ArrayList<>();
+                for (LeaderboardRepository.CycleWindow cycle : cycles) {
+                    out.add(mapCycle(cycle));
+                }
+                callback.onSuccess(out);
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
     public void processCycleRolloverAndRewards(ActionCallback callback) {
         repository.processCycleRolloverAndRewards(new LeaderboardRepository.ActionCallback() {
             @Override
@@ -71,7 +98,7 @@ public class LeaderboardService {
         return new LeaderboardRepository.LoadCallback() {
             @Override
             public void onSuccess(LeaderboardRepository.CycleWindow cycle, List<LeaderboardEntry> entries) {
-                callback.onSuccess(new CycleWindow(cycle.id, cycle.startMs, cycle.endMs, cycle.label()), entries);
+                callback.onSuccess(mapCycle(cycle), entries);
             }
 
             @Override
@@ -79,5 +106,9 @@ public class LeaderboardService {
                 callback.onError(message);
             }
         };
+    }
+
+    private CycleWindow mapCycle(LeaderboardRepository.CycleWindow cycle) {
+        return new CycleWindow(cycle.id, cycle.startMs, cycle.endMs, cycle.label());
     }
 }

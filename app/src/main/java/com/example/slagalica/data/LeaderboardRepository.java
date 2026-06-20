@@ -1,12 +1,9 @@
 package com.example.slagalica.data;
 
 import com.example.slagalica.model.LeaderboardEntry;
-import com.google.firebase.Timestamp;
-import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QuerySnapshot;
-import com.google.firebase.firestore.Transaction;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -17,6 +14,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * Read-only client repository for leaderboards.
+ * Cycle rollover and reward distribution are owned by the scheduled backend function.
+ */
 public class LeaderboardRepository {
 
     public interface LoadCallback {
@@ -26,6 +27,11 @@ public class LeaderboardRepository {
 
     public interface ActionCallback {
         void onSuccess();
+        void onError(String message);
+    }
+
+    public interface CyclesCallback {
+        void onSuccess(List<CycleWindow> cycles);
         void onError(String message);
     }
 
@@ -46,10 +52,7 @@ public class LeaderboardRepository {
         }
     }
 
-    private static final int[] WEEKLY_REWARDS = {5, 3, 2};
-    private static final int[] MONTHLY_REWARDS = {10, 6, 4};
     private static final long TWO_MINUTES_MS = 2 * 60 * 1000L;
-
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
     public long getRefreshIntervalMs() {
@@ -72,273 +75,164 @@ public class LeaderboardRepository {
         loadLeaderboard(true, callback);
     }
 
-    public void processCycleRolloverAndRewards(ActionCallback callback) {
-        CycleWindow weeklyNow = currentWeeklyCycle();
-        CycleWindow monthlyNow = currentMonthlyCycle();
-        DocumentReference metaRef = db.collection("leaderboards").document("meta");
-
-        metaRef.get()
-                .addOnSuccessListener(meta -> {
-                    if (!meta.exists()) {
-                        Map<String, Object> init = new HashMap<>();
-                        init.put("weeklyCurrentCycleId", weeklyNow.id);
-                        init.put("weeklyStartMs", weeklyNow.startMs);
-                        init.put("weeklyEndMs", weeklyNow.endMs);
-                        init.put("monthlyCurrentCycleId", monthlyNow.id);
-                        init.put("monthlyStartMs", monthlyNow.startMs);
-                        init.put("monthlyEndMs", monthlyNow.endMs);
-                        metaRef.set(init)
-                                .addOnSuccessListener(unused -> callback.onSuccess())
-                                .addOnFailureListener(e -> callback.onError("Ne mogu da inicijalizujem rang ciklus."));
+    public void loadCycle(String cycleId, LoadCallback callback) {
+        if (cycleId == null || cycleId.trim().isEmpty()) {
+            callback.onError("Ciklus nije izabran.");
+            return;
+        }
+        db.collection("leaderboardCycles")
+                .document(cycleId)
+                .get()
+                .addOnSuccessListener(document -> {
+                    if (document == null || !document.exists()) {
+                        callback.onError("Izabrani ciklus ne postoji.");
                         return;
                     }
-
-                    String oldWeeklyId = value(meta.getString("weeklyCurrentCycleId"));
-                    String oldMonthlyId = value(meta.getString("monthlyCurrentCycleId"));
-
-                    boolean weeklyChanged = !oldWeeklyId.equals(weeklyNow.id);
-                    boolean monthlyChanged = !oldMonthlyId.equals(monthlyNow.id);
-
-                    if (!weeklyChanged && !monthlyChanged) {
-                        callback.onSuccess();
-                        return;
-                    }
-
-                    runRolloverRewardsSequentially(oldWeeklyId, oldMonthlyId, weeklyNow, monthlyNow, callback);
+                    CycleWindow cycle = cycleFromDocument(document);
+                    document.getReference().collection("entries").get()
+                            .addOnSuccessListener(snapshot ->
+                                    sortAndReturn(cycle, mapCycleEntries(snapshot), callback))
+                            .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam izabrani ciklus."));
                 })
-                .addOnFailureListener(e -> callback.onError("Ne mogu da procitam stanje rang ciklusa."));
+                .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam izabrani ciklus."));
     }
 
-    private void runRolloverRewardsSequentially(
-            String oldWeeklyId,
-            String oldMonthlyId,
-            CycleWindow weeklyNow,
-            CycleWindow monthlyNow,
-            ActionCallback callback
-    ) {
-        distributeCycleRewards(false, oldWeeklyId, new ActionCallback() {
-            @Override
-            public void onSuccess() {
-                distributeCycleRewards(true, oldMonthlyId, new ActionCallback() {
-                    @Override
-                    public void onSuccess() {
-                        Map<String, Object> update = new HashMap<>();
-                        update.put("weeklyCurrentCycleId", weeklyNow.id);
-                        update.put("weeklyStartMs", weeklyNow.startMs);
-                        update.put("weeklyEndMs", weeklyNow.endMs);
-                        update.put("monthlyCurrentCycleId", monthlyNow.id);
-                        update.put("monthlyStartMs", monthlyNow.startMs);
-                        update.put("monthlyEndMs", monthlyNow.endMs);
-                        db.collection("leaderboards")
-                                .document("meta")
-                                .set(update)
-                                .addOnSuccessListener(unused -> callback.onSuccess())
-                                .addOnFailureListener(e -> callback.onError("Ne mogu da upisem novi rang ciklus."));
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        callback.onError(message);
-                    }
-                });
-            }
-
-            @Override
-            public void onError(String message) {
-                callback.onError(message);
-            }
-        });
-    }
-
-    private void distributeCycleRewards(boolean monthly, String cycleId, ActionCallback callback) {
-        if (cycleId.isEmpty()) {
-            callback.onSuccess();
-            return;
-        }
-        CycleWindow cycle = cycleFromId(monthly, cycleId);
-        if (cycle == null) {
-            callback.onSuccess();
-            return;
-        }
-        if (System.currentTimeMillis() <= cycle.endMs) {
-            callback.onSuccess();
-            return;
-        }
-        String cycleIdField = monthly ? "monthlyCycleId" : "weeklyCycleId";
-        String cycleStarsField = monthly ? "monthlyCycleStars" : "weeklyCycleStars";
-        String cycleMatchesField = monthly ? "monthlyCycleMatches" : "weeklyCycleMatches";
-
-        db.collection("users")
-                .whereEqualTo(cycleIdField, cycleId)
-                .limit(200)
+    public void loadCycles(boolean monthly, CyclesCallback callback) {
+        CycleWindow current = monthly ? currentMonthlyCycle() : currentWeeklyCycle();
+        db.collection("leaderboardCycles")
                 .get()
                 .addOnSuccessListener(snapshot -> {
-                    List<LeaderboardEntry> ranked = mapEntries(snapshot, cycleStarsField, cycleMatchesField);
-                    ranked.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
-                    List<WinnerReward> rewards = buildRewards(ranked, monthly, cycleId, cycle.label());
-                    applyRewardsSequentially(rewards, 0, callback);
+                    List<CycleWindow> cycles = new ArrayList<>();
+                    cycles.add(current);
+                    if (snapshot != null) {
+                        for (DocumentSnapshot document : snapshot.getDocuments()) {
+                            Boolean documentMonthly = document.getBoolean("monthly");
+                            if (documentMonthly == null || documentMonthly != monthly
+                                    || current.id.equals(document.getId())) {
+                                continue;
+                            }
+                            CycleWindow cycle = cycleFromDocument(document);
+                            if (cycle.startMs > 0L && cycle.endMs > 0L) {
+                                cycles.add(cycle);
+                            }
+                        }
+                    }
+                    cycles.subList(1, cycles.size()).sort((a, b) -> Long.compare(b.endMs, a.endMs));
+                    callback.onSuccess(cycles);
                 })
-                .addOnFailureListener(e -> callback.onError("Ne mogu da rasporedim nagrade za rang listu."));
+                .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam istoriju ciklusa."));
     }
 
-    private void applyRewardsSequentially(List<WinnerReward> rewards, int index, ActionCallback callback) {
-        if (index >= rewards.size()) {
-            callback.onSuccess();
-            return;
-        }
-        WinnerReward reward = rewards.get(index);
-        applyRewardToUser(reward, new ActionCallback() {
-            @Override
-            public void onSuccess() {
-                applyRewardsSequentially(rewards, index + 1, callback);
-            }
-
-            @Override
-            public void onError(String message) {
-                callback.onError(message);
-            }
-        });
-    }
-
-    private void applyRewardToUser(WinnerReward reward, ActionCallback callback) {
-        DocumentReference userRef = db.collection("users").document(reward.uid);
-        DocumentReference rewardNotificationRef = db.collection("users")
-                .document(reward.uid)
-                .collection("notifications")
-                .document();
-        DocumentReference rankingNotificationRef = db.collection("users")
-                .document(reward.uid)
-                .collection("notifications")
-                .document();
-
-        db.runTransaction((Transaction.Function<Boolean>) transaction -> {
-            DocumentSnapshot user = transaction.get(userRef);
-            Long tokens = user.getLong("tokens");
-            if (tokens == null) {
-                tokens = 0L;
-            }
-            String claimedField = reward.monthly ? "monthlyRewardClaimedCycleId" : "weeklyRewardClaimedCycleId";
-            String alreadyClaimedFor = value(user.getString(claimedField));
-            if (alreadyClaimedFor.equals(reward.cycleId)) {
-                return false;
-            }
-
-            long newTokens = tokens + reward.tokens;
-            transaction.update(userRef, "tokens", newTokens, claimedField, reward.cycleId);
-
-            Map<String, Object> rankingPayload = new HashMap<>();
-            rankingPayload.put("type", "ranking");
-            rankingPayload.put("title", reward.monthly ? "Mesecni plasman" : "Nedeljni plasman");
-            rankingPayload.put("message", "Zauzeli ste mesto #" + reward.rank + " na "
-                    + (reward.monthly ? "mesecnoj" : "nedeljnoj") + " rang listi.");
-            rankingPayload.put("read", false);
-            rankingPayload.put("localShown", false);
-            rankingPayload.put("createdAt", Timestamp.now());
-            rankingPayload.put("actionType", "open_rankings");
-            rankingPayload.put("actionPayload", reward.cycleId);
-            transaction.set(rankingNotificationRef, rankingPayload);
-
-            Map<String, Object> rewardPayload = new HashMap<>();
-            rewardPayload.put("type", "rewards");
-            rewardPayload.put("title", reward.monthly ? "Mesecna rang nagrada" : "Nedeljna rang nagrada");
-            rewardPayload.put("message", reward.message);
-            rewardPayload.put("read", false);
-            rewardPayload.put("localShown", false);
-            rewardPayload.put("createdAt", Timestamp.now());
-            rewardPayload.put("actionType", "open_ranking_rewards");
-            rewardPayload.put("actionPayload", reward.cycleId);
-            transaction.set(rewardNotificationRef, rewardPayload);
-            return true;
-        }).addOnSuccessListener(unused -> callback.onSuccess())
-                .addOnFailureListener(e -> callback.onError("Ne mogu da dodelim nagradu pobedniku rang liste."));
-    }
-
-    private List<WinnerReward> buildRewards(List<LeaderboardEntry> ranked, boolean monthly, String cycleId, String cycleLabel) {
-        List<WinnerReward> out = new ArrayList<>();
-        int rank = 1;
-        for (LeaderboardEntry entry : ranked) {
-            if (rank > 10) {
-                break;
-            }
-            long tokens = rewardForRank(rank, monthly);
-            if (tokens > 0) {
-                WinnerReward reward = new WinnerReward();
-                reward.uid = entry.uid;
-                reward.cycleId = cycleId;
-                reward.monthly = monthly;
-                reward.rank = rank;
-                reward.tokens = tokens;
-                reward.message = "Osvojeno mesto #" + rank + " na "
-                        + (monthly ? "mesecnoj" : "nedeljnoj")
-                        + " rang listi (ciklus: " + cycleLabel + "). Dobijas " + tokens + " tokena.";
-                out.add(reward);
-            }
-            rank++;
-        }
-        return out;
-    }
-
-    private long rewardForRank(int rank, boolean monthly) {
-        if (rank == 1) {
-            return monthly ? MONTHLY_REWARDS[0] : WEEKLY_REWARDS[0];
-        }
-        if (rank == 2) {
-            return monthly ? MONTHLY_REWARDS[1] : WEEKLY_REWARDS[1];
-        }
-        if (rank == 3) {
-            return monthly ? MONTHLY_REWARDS[2] : WEEKLY_REWARDS[2];
-        }
-        if (rank >= 4 && rank <= 10) {
-            return monthly ? 2 : 1;
-        }
-        return 0;
+    /**
+     * Kept for API compatibility with existing screens. The backend scheduler now owns this work.
+     */
+    public void processCycleRolloverAndRewards(ActionCallback callback) {
+        callback.onSuccess();
     }
 
     private void loadLeaderboard(boolean monthly, LoadCallback callback) {
         CycleWindow cycle = monthly ? currentMonthlyCycle() : currentWeeklyCycle();
+        db.collection("leaderboardCycles")
+                .document(cycle.id)
+                .collection("entries")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    List<LeaderboardEntry> entries = mapCycleEntries(snapshot);
+                    if (!entries.isEmpty()) {
+                        loadCurrentLeaguesAndReturn(cycle, entries, callback);
+                        return;
+                    }
+                    // Compatibility for users who played before per-cycle ledgers were introduced.
+                    loadLegacyLeaderboard(monthly, cycle, callback);
+                })
+                .addOnFailureListener(e -> loadLegacyLeaderboard(monthly, cycle, callback));
+    }
+
+    private void loadLegacyLeaderboard(boolean monthly, CycleWindow cycle, LoadCallback callback) {
         String cycleIdField = monthly ? "monthlyCycleId" : "weeklyCycleId";
         String cycleStarsField = monthly ? "monthlyCycleStars" : "weeklyCycleStars";
         String cycleMatchesField = monthly ? "monthlyCycleMatches" : "weeklyCycleMatches";
 
         db.collection("users")
                 .whereEqualTo(cycleIdField, cycle.id)
-                .limit(200)
                 .get()
                 .addOnSuccessListener(snapshot -> {
-                    List<LeaderboardEntry> entries = mapEntries(snapshot, cycleStarsField, cycleMatchesField);
-                    entries.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
-                    callback.onSuccess(cycle, entries);
+                    List<LeaderboardEntry> entries = new ArrayList<>();
+                    if (snapshot != null) {
+                        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+                            long matches = value(doc.getLong(cycleMatchesField));
+                            if (matches <= 0) continue;
+                            LeaderboardEntry item = new LeaderboardEntry();
+                            item.uid = doc.getId();
+                            item.username = value(doc.getString("username"));
+                            item.league = value(doc.getLong("league"));
+                            item.cycleStars = value(doc.getLong(cycleStarsField));
+                            item.cycleMatches = matches;
+                            entries.add(item);
+                        }
+                    }
+                    sortAndReturn(cycle, entries, callback);
                 })
                 .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam rang listu."));
     }
 
-    private List<LeaderboardEntry> mapEntries(QuerySnapshot snapshot, String starsField, String matchesField) {
+    private List<LeaderboardEntry> mapCycleEntries(QuerySnapshot snapshot) {
         List<LeaderboardEntry> entries = new ArrayList<>();
-        if (snapshot == null || snapshot.isEmpty()) {
-            return entries;
-        }
+        if (snapshot == null) return entries;
         for (DocumentSnapshot doc : snapshot.getDocuments()) {
-            Long matches = doc.getLong(matchesField);
-            if (matches == null || matches <= 0) {
-                continue;
-            }
+            long matches = value(doc.getLong("cycleMatches"));
+            if (matches <= 0) continue;
             LeaderboardEntry item = new LeaderboardEntry();
             item.uid = doc.getId();
             item.username = value(doc.getString("username"));
             item.league = value(doc.getLong("league"));
-            item.cycleStars = value(doc.getLong(starsField));
+            item.cycleStars = value(doc.getLong("cycleStars"));
             item.cycleMatches = matches;
             entries.add(item);
         }
         return entries;
     }
 
-    private String value(String value) {
-        return value == null ? "" : value;
+    private CycleWindow cycleFromDocument(DocumentSnapshot document) {
+        return new CycleWindow(
+                document.getId(),
+                value(document.getLong("startMs")),
+                value(document.getLong("endMs"))
+        );
     }
 
-    private long value(Long value) {
-        return value == null ? 0L : value;
+    private void loadCurrentLeaguesAndReturn(
+            CycleWindow cycle,
+            List<LeaderboardEntry> entries,
+            LoadCallback callback
+    ) {
+        db.collection("users")
+                .get()
+                .addOnSuccessListener(snapshot -> {
+                    Map<String, Long> leagueByUid = new HashMap<>();
+                    if (snapshot != null) {
+                        for (DocumentSnapshot user : snapshot.getDocuments()) {
+                            leagueByUid.put(user.getId(), value(user.getLong("league")));
+                        }
+                    }
+                    for (LeaderboardEntry entry : entries) {
+                        Long currentLeague = leagueByUid.get(entry.uid);
+                        if (currentLeague != null) {
+                            entry.league = currentLeague;
+                        }
+                    }
+                    sortAndReturn(cycle, entries, callback);
+                })
+                .addOnFailureListener(e -> sortAndReturn(cycle, entries, callback));
+    }
+
+    private void sortAndReturn(CycleWindow cycle, List<LeaderboardEntry> entries, LoadCallback callback) {
+        entries.sort((a, b) -> {
+            int stars = Long.compare(b.cycleStars, a.cycleStars);
+            if (stars != 0) return stars;
+            return a.username.compareToIgnoreCase(b.username);
+        });
+        callback.onSuccess(cycle, entries);
     }
 
     private CycleWindow buildWeeklyCycle(long nowMs) {
@@ -358,7 +252,7 @@ public class LeaderboardRepository {
         end.set(Calendar.SECOND, 59);
         end.set(Calendar.MILLISECOND, 999);
 
-        String id = "W_" + new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
+        String id = "W_" + new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(start.getTime());
         return new CycleWindow(id, start.getTimeInMillis(), end.getTimeInMillis());
     }
 
@@ -375,63 +269,15 @@ public class LeaderboardRepository {
         end.add(Calendar.MONTH, 1);
         end.add(Calendar.MILLISECOND, -1);
 
-        String id = "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
+        String id = "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(start.getTime());
         return new CycleWindow(id, start.getTimeInMillis(), end.getTimeInMillis());
     }
 
-    private CycleWindow cycleFromId(boolean monthly, String cycleId) {
-        try {
-            if (monthly) {
-                if (!cycleId.startsWith("M_") || cycleId.length() < 8) {
-                    return null;
-                }
-                int year = Integer.parseInt(cycleId.substring(2, 6));
-                int month = Integer.parseInt(cycleId.substring(6, 8));
-                Calendar start = Calendar.getInstance();
-                start.set(Calendar.YEAR, year);
-                start.set(Calendar.MONTH, month - 1);
-                start.set(Calendar.DAY_OF_MONTH, 1);
-                start.set(Calendar.HOUR_OF_DAY, 0);
-                start.set(Calendar.MINUTE, 0);
-                start.set(Calendar.SECOND, 0);
-                start.set(Calendar.MILLISECOND, 0);
-                Calendar end = (Calendar) start.clone();
-                end.add(Calendar.MONTH, 1);
-                end.add(Calendar.MILLISECOND, -1);
-                return new CycleWindow(cycleId, start.getTimeInMillis(), end.getTimeInMillis());
-            }
-            if (!cycleId.startsWith("W_") || cycleId.length() < 10) {
-                return null;
-            }
-            int year = Integer.parseInt(cycleId.substring(2, 6));
-            int month = Integer.parseInt(cycleId.substring(6, 8));
-            int day = Integer.parseInt(cycleId.substring(8, 10));
-            Calendar start = Calendar.getInstance();
-            start.set(Calendar.YEAR, year);
-            start.set(Calendar.MONTH, month - 1);
-            start.set(Calendar.DAY_OF_MONTH, day);
-            start.set(Calendar.HOUR_OF_DAY, 0);
-            start.set(Calendar.MINUTE, 0);
-            start.set(Calendar.SECOND, 0);
-            start.set(Calendar.MILLISECOND, 0);
-            Calendar end = (Calendar) start.clone();
-            end.add(Calendar.DAY_OF_MONTH, 6);
-            end.set(Calendar.HOUR_OF_DAY, 23);
-            end.set(Calendar.MINUTE, 59);
-            end.set(Calendar.SECOND, 59);
-            end.set(Calendar.MILLISECOND, 999);
-            return new CycleWindow(cycleId, start.getTimeInMillis(), end.getTimeInMillis());
-        } catch (Exception ignored) {
-            return null;
-        }
+    private String value(String input) {
+        return input == null ? "" : input;
     }
 
-    private static class WinnerReward {
-        String uid;
-        String cycleId;
-        boolean monthly;
-        int rank;
-        long tokens;
-        String message;
+    private long value(Long input) {
+        return input == null ? 0L : input;
     }
 }

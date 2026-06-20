@@ -13,6 +13,7 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.AuthService;
+import com.example.slagalica.domain.FcmTokenRegistrar;
 import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.ResultCallback;
@@ -307,21 +308,26 @@ public class ProfileActivity extends AppCompatActivity {
 
     private void logout() {
         sessionManager.clearGuestMode();
-        authService.logout(new ResultCallback() {
-            @Override
-            public void onSuccess() {
-                runOnUiThread(() -> {
-                    Intent intent = new Intent(ProfileActivity.this, LoginActivity.class);
-                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-                });
-            }
 
-            @Override
-            public void onError(String message) {
-                runOnUiThread(() -> Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show());
-            }
+        FcmTokenRegistrar.unregister(this, () -> {
+            authService.logout(new ResultCallback() {
+                @Override
+                public void onSuccess() {
+                    runOnUiThread(() -> {
+                        Intent intent = new Intent(ProfileActivity.this, LoginActivity.class);
+                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    });
+                }
+
+                @Override
+                public void onError(String message) {
+                    runOnUiThread(() ->
+                            Toast.makeText(ProfileActivity.this, message, Toast.LENGTH_SHORT).show()
+                    );
+                }
+            });
         });
     }
 
