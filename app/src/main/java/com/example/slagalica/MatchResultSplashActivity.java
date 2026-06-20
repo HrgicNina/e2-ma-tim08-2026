@@ -32,6 +32,7 @@ public class MatchResultSplashActivity extends AppCompatActivity {
 
         tvLeftAvatar.setText(initials(player1Name));
         tvRightAvatar.setText(initials(player2Name));
+        AvatarFrameHelper.applyMatchFrames(tvLeftAvatar, tvRightAvatar, getIntent());
         tvLeftName.setText(player1Name);
         tvRightName.setText(player2Name);
         tvLeftScore.setText(String.valueOf(player1Score));

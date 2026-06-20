@@ -1,14 +1,20 @@
 package com.example.slagalica.data;
 
+import android.util.Log;
+import android.util.Base64;
+
 import androidx.annotation.NonNull;
 
 import com.example.slagalica.domain.AuthResultCallback;
 import com.example.slagalica.domain.ResultCallback;
+import com.example.slagalica.model.RegionCatalog;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -17,6 +23,9 @@ import java.util.Locale;
 import java.util.Map;
 
 public class FirebaseAuthRepository {
+    private static final String TAG = "FirebaseAuthRepository";
+    private static final String PENDING_PROFILE_PREFIX = "slagalica|";
+
     public interface UsernameCallback {
         void onLoaded(String username);
     }
@@ -80,63 +89,75 @@ public class FirebaseAuthRepository {
     }
 
     public void register(String email, String username, String region, String password, ResultCallback callback) {
-        db.collection("users")
-                .whereEqualTo("usernameLower", username.toLowerCase())
-                .limit(1)
-                .get()
-                .addOnCompleteListener(usernameTask -> {
-                    if (!usernameTask.isSuccessful()) {
+        auth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(createTask -> {
+                    if (!createTask.isSuccessful()) {
+                        Log.e(TAG, "Firebase Auth account creation failed", createTask.getException());
                         callback.onError("Registracija nije uspela.");
                         return;
                     }
 
-                    if (usernameTask.getResult() != null && !usernameTask.getResult().isEmpty()) {
-                        callback.onError("Korisnicko ime je zauzeto.");
+                    FirebaseUser user = auth.getCurrentUser();
+                    if (user == null) {
+                        callback.onError("Registracija nije uspela.");
                         return;
                     }
 
-                    auth.createUserWithEmailAndPassword(email, password)
-                            .addOnCompleteListener(createTask -> {
-                                if (!createTask.isSuccessful()) {
-                                    callback.onError("Registracija nije uspela.");
-                                    return;
-                                }
-
-                                FirebaseUser user = auth.getCurrentUser();
-                                if (user == null) {
-                                    callback.onError("Registracija nije uspela.");
-                                    return;
-                                }
-
-                                Map<String, Object> userDoc = new HashMap<>();
-                                userDoc.put("uid", user.getUid());
-                                userDoc.put("email", email);
-                                userDoc.put("username", username);
-                                userDoc.put("usernameLower", username.toLowerCase());
-                                userDoc.put("region", region);
-                                userDoc.put("tokens", 5);
-                                userDoc.put("stars", 0);
-                                userDoc.put("league", 0);
-                                userDoc.put("avatarId", "owl");
-                                userDoc.put("avatarFrameId", "blue");
-                                userDoc.put("lastDailyTokenGrantAt", System.currentTimeMillis());
-                                userDoc.put("weeklyCycleId", currentWeeklyCycleId());
-                                userDoc.put("monthlyCycleId", currentMonthlyCycleId());
-                                userDoc.put("weeklyCycleStars", 0);
-                                userDoc.put("monthlyCycleStars", 0);
-                                userDoc.put("weeklyCycleMatches", 0);
-                                userDoc.put("monthlyCycleMatches", 0);
-
-                                db.collection("users")
-                                        .document(user.getUid())
-                                        .set(userDoc)
-                                        .addOnSuccessListener(unused -> sendVerificationAndSignOut(user, callback))
-                                        .addOnFailureListener(e -> {
-                                            callback.onError("Registracija nije uspela.");
-                                            user.delete();
-                                        });
-                            });
+                    savePendingProfileAndSendVerification(user, username, region, callback);
                 });
+    }
+
+    private void savePendingProfileAndSendVerification(
+            FirebaseUser user,
+            String username,
+            String region,
+            ResultCallback callback
+    ) {
+        UserProfileChangeRequest profileUpdate = new UserProfileChangeRequest.Builder()
+                .setDisplayName(encodePendingProfile(username, region))
+                .build();
+        user.updateProfile(profileUpdate).addOnCompleteListener(profileTask -> {
+            if (!profileTask.isSuccessful()) {
+                Log.e(TAG, "Saving pending registration profile failed", profileTask.getException());
+                discardIncompleteUser(user);
+                callback.onError("Registracija nije uspela.");
+                return;
+            }
+            sendVerificationAndSignOut(user, callback);
+        });
+    }
+
+    private Map<String, Object> buildUserDocument(
+            FirebaseUser user,
+            String username,
+            String region
+    ) {
+        Map<String, Object> userDoc = new HashMap<>();
+        userDoc.put("uid", user.getUid());
+        userDoc.put("email", user.getEmail() == null ? "" : user.getEmail());
+        userDoc.put("username", username);
+        userDoc.put("usernameLower", username.toLowerCase());
+        userDoc.put("region", region);
+        float[] regionPoint = RegionCatalog.randomPoint(region);
+        userDoc.put("regionPointX", regionPoint[0]);
+        userDoc.put("regionPointY", regionPoint[1]);
+        userDoc.put("tokens", 5);
+        userDoc.put("stars", 0);
+        userDoc.put("league", 0);
+        userDoc.put("avatarId", "owl");
+        userDoc.put("avatarFrameId", "blue");
+        userDoc.put("lastDailyTokenGrantAt", System.currentTimeMillis());
+        userDoc.put("weeklyCycleId", currentWeeklyCycleId());
+        userDoc.put("monthlyCycleId", currentMonthlyCycleId());
+        userDoc.put("weeklyCycleStars", 0);
+        userDoc.put("monthlyCycleStars", 0);
+        userDoc.put("weeklyCycleMatches", 0);
+        userDoc.put("monthlyCycleMatches", 0);
+        return userDoc;
+    }
+
+    private void discardIncompleteUser(FirebaseUser user) {
+        user.delete().addOnCompleteListener(task -> auth.signOut());
     }
 
     public void resetPassword(String oldPassword, String newPassword, ResultCallback callback) {
@@ -260,13 +281,90 @@ public class FirebaseAuthRepository {
                         }
 
                         if (refreshedUser.isEmailVerified()) {
-                            callback.onSuccess();
+                            refreshedUser.getIdToken(true).addOnCompleteListener(tokenTask -> {
+                                if (!tokenTask.isSuccessful()) {
+                                    callback.onError("Prijava nije uspela. Proveri podatke.");
+                                    return;
+                                }
+                                ensureVerifiedUserProfile(refreshedUser, callback);
+                            });
                         } else {
                             auth.signOut();
                             callback.onEmailNotVerified();
                         }
                     });
                 });
+    }
+
+    private void ensureVerifiedUserProfile(FirebaseUser user, AuthResultCallback callback) {
+        db.collection("users")
+                .document(user.getUid())
+                .get()
+                .addOnCompleteListener(profileTask -> {
+                    if (!profileTask.isSuccessful() || profileTask.getResult() == null) {
+                        Log.e(TAG, "Loading user profile after verification failed", profileTask.getException());
+                        callback.onError("Prijava nije uspela. Profil nije ucitan.");
+                        return;
+                    }
+                    if (profileTask.getResult().exists()) {
+                        callback.onSuccess();
+                        return;
+                    }
+
+                    String[] pendingProfile = decodePendingProfile(user.getDisplayName());
+                    if (pendingProfile == null) {
+                        callback.onError("Prijava nije uspela. Profil nije pronadjen.");
+                        return;
+                    }
+
+                    String username = pendingProfile[0];
+                    String region = pendingProfile[1];
+                    db.collection("users")
+                            .document(user.getUid())
+                            .set(buildUserDocument(user, username, region))
+                            .addOnSuccessListener(unused -> {
+                                UserProfileChangeRequest completedProfile = new UserProfileChangeRequest.Builder()
+                                        .setDisplayName(username)
+                                        .build();
+                                user.updateProfile(completedProfile);
+                                callback.onSuccess();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Creating verified Firestore user profile failed", e);
+                                callback.onError("Prijava nije uspela. Profil nije sacuvan.");
+                            });
+                });
+    }
+
+    private String encodePendingProfile(String username, String region) {
+        return PENDING_PROFILE_PREFIX + encode(username) + "|" + encode(region);
+    }
+
+    private String[] decodePendingProfile(String displayName) {
+        if (displayName == null || !displayName.startsWith(PENDING_PROFILE_PREFIX)) {
+            return null;
+        }
+        String[] parts = displayName.substring(PENDING_PROFILE_PREFIX.length()).split("\\|", -1);
+        if (parts.length != 2) {
+            return null;
+        }
+        try {
+            return new String[]{decode(parts[0]), decode(parts[1])};
+        } catch (IllegalArgumentException e) {
+            Log.e(TAG, "Pending registration profile is invalid", e);
+            return null;
+        }
+    }
+
+    private String encode(String value) {
+        return Base64.encodeToString(
+                value.getBytes(StandardCharsets.UTF_8),
+                Base64.URL_SAFE | Base64.NO_WRAP | Base64.NO_PADDING
+        );
+    }
+
+    private String decode(String value) {
+        return new String(Base64.decode(value, Base64.URL_SAFE), StandardCharsets.UTF_8);
     }
 
     private void sendVerificationAndSignOut(FirebaseUser user, ResultCallback callback) {

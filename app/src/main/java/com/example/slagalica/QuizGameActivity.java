@@ -777,6 +777,7 @@ public class QuizGameActivity extends AppCompatActivity {
         tvHeaderRightName.setText(headerName(player2DisplayName));
         tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
         tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
+        AvatarFrameHelper.applyMatchFrames(tvHeaderLeftAvatar, tvHeaderRightAvatar, getIntent());
         tvHeaderLeftScore.setText(String.valueOf(player1Score));
         tvHeaderRightScore.setText(String.valueOf(player2Score));
     }

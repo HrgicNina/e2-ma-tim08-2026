@@ -31,6 +31,7 @@ import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.NotificationService;
+import com.example.slagalica.domain.RegionsService;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.AppNotification;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -47,6 +48,7 @@ public class HomeActivity extends AppCompatActivity {
     private TextView tvHomeTokens;
     private TextView tvHomeStars;
     private TextView tvHomeLeague;
+    private TextView btnProfile;
     private ListenerRegistration economyListener;
     private final LeaderboardService leaderboardService = new LeaderboardService();
 
@@ -62,7 +64,7 @@ public class HomeActivity extends AppCompatActivity {
         NotificationService notificationService = new NotificationService();
         String rewardNotificationIdFromIntent = getIntent().getStringExtra(EXTRA_OPEN_REWARD_NOTIFICATION_ID);
 
-        TextView btnProfile = findViewById(R.id.btnOpenProfile);
+        btnProfile = findViewById(R.id.btnOpenProfile);
         TextView btnOpenChat = findViewById(R.id.btnOpenChat);
         TextView btnOpenRankings = findViewById(R.id.btnOpenRankings);
         TextView btnSettings = findViewById(R.id.btnOpenSettings);
@@ -73,34 +75,23 @@ public class HomeActivity extends AppCompatActivity {
         tvHomeLeague = findViewById(R.id.tvHomeLeague);
         View homeStatsRow = findViewById(R.id.homeStatsRow);
         Button btnStartGame = findViewById(R.id.btnStartGame);
-        View friend1 = findViewById(R.id.friendItem1);
-        View friend2 = findViewById(R.id.friendItem2);
-        View friend3 = findViewById(R.id.friendItem3);
-        TextView tvFriendsLabel = findViewById(R.id.tvFriendsLabel);
+        Button btnOpenRegions = findViewById(R.id.btnOpenRegions);
+        View friendsContainer = findViewById(R.id.friendsContainer);
+        Button btnOpenFriends = findViewById(R.id.btnOpenFriends);
         Button btnGuestRegister = findViewById(R.id.btnGuestRegister);
 
         btnNotifications.setText("\uD83D\uDD14");
         btnOpenChat.setText("\uD83D\uDCAC");
         btnOpenRankings.setText("\uD83C\uDFC6");
         btnSettings.setText("\u2699\uFE0F");
-        authService.getCurrentUsername(username -> {
-            if (username != null && !username.trim().isEmpty()) {
-                btnProfile.setText(username.substring(0, 1).toUpperCase());
-                tvHomeUsername.setText(username);
-            } else {
-                btnProfile.setText("U");
-                tvHomeUsername.setText("korisnik");
-            }
-        });
+        refreshHomeProfile();
 
         if (sessionManager.isGuestMode()) {
             homeStatsRow.setVisibility(View.GONE);
 
             btnStartGame.setVisibility(View.VISIBLE);
-            tvFriendsLabel.setVisibility(View.GONE);
-            friend1.setVisibility(View.GONE);
-            friend2.setVisibility(View.GONE);
-            friend3.setVisibility(View.GONE);
+            btnOpenRegions.setVisibility(View.GONE);
+            friendsContainer.setVisibility(View.GONE);
 
             btnNotifications.setVisibility(View.GONE);
             btnOpenChat.setVisibility(View.GONE);
@@ -117,6 +108,8 @@ public class HomeActivity extends AppCompatActivity {
             tvHomeStars.setText(R.string.home_stars_value);
             tvHomeLeague.setText(R.string.home_league_value);
             btnGuestRegister.setVisibility(View.GONE);
+            btnOpenRegions.setVisibility(View.VISIBLE);
+            processRegionAwardsQuietly();
             grantDailyTokensOnStartup(economyService, tvHomeTokens, tvHomeStars, tvHomeLeague);
             bootstrapNotificationsAndRewards(notificationService, rewardNotificationIdFromIntent);
         }
@@ -124,18 +117,16 @@ public class HomeActivity extends AppCompatActivity {
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
         btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
         btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
+        btnOpenRegions.setOnClickListener(v -> startActivity(new Intent(this, RegionsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
         btnSettings.setOnClickListener(v -> showSettingsMenu(btnSettings));
+        btnOpenFriends.setOnClickListener(v -> startActivity(new Intent(this, FriendsActivity.class)));
 
         btnStartGame.setOnClickListener(v -> {
             Intent intent = new Intent(this, MatchActivity.class);
             intent.putExtra("auto_start_queue", true);
             startActivity(intent);
         });
-
-        friend1.setOnClickListener(v -> sendInviteToHardcodedFriend("marko"));
-        friend2.setOnClickListener(v -> sendInviteToHardcodedFriend("ana"));
-        friend3.setOnClickListener(v -> sendInviteToHardcodedFriend("milica"));
 
         btnGuestRegister.setOnClickListener(v -> {
             sessionManager.clearGuestMode();
@@ -148,7 +139,25 @@ public class HomeActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshHomeProfile();
         refreshEconomyOnHomeIfRegistered();
+    }
+
+    private void refreshHomeProfile() {
+        if (btnProfile == null || sessionManager == null || sessionManager.isGuestMode()) {
+            return;
+        }
+        authService.getCurrentUserProfile(profile -> runOnUiThread(() -> {
+            String username = profile.username == null ? "" : profile.username.trim();
+            if (username.isEmpty()) {
+                btnProfile.setText("U");
+            } else {
+                btnProfile.setText(username.substring(0, 1).toUpperCase());
+            }
+            AvatarFrameHelper.apply(btnProfile, profile.avatarFrameId);
+            TextView usernameView = findViewById(R.id.tvHomeUsername);
+            usernameView.setText(username.isEmpty() ? "korisnik" : username);
+        }));
     }
 
     @Override
@@ -377,13 +386,6 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    private void sendInviteToHardcodedFriend(String username) {
-        Intent intent = new Intent(this, MatchActivity.class);
-        intent.putExtra("auto_invite_target", username);
-        startActivity(intent);
-        Toast.makeText(this, "Saljem poziv igracu: " + username, Toast.LENGTH_SHORT).show();
-    }
-
     private void showSettingsMenu(View anchor) {
         PopupMenu popupMenu = new PopupMenu(this, anchor);
         popupMenu.getMenu().add(0, 1, 0, "Promeni lozinku");
@@ -412,10 +414,12 @@ public class HomeActivity extends AppCompatActivity {
                         if (item.localShown) {
                             continue;
                         }
-                        showLocalSystemNotification(item);
-                        if (!shownInAppPopup && shouldShowImmediateInAppPopup(item)) {
-                            showImmediateInAppPopup(item, notificationService);
-                            shownInAppPopup = true;
+                        if (!isOfflineInviteNotification(item)) {
+                            showLocalSystemNotification(item);
+                            if (!shownInAppPopup && shouldShowImmediateInAppPopup(item)) {
+                                showImmediateInAppPopup(item, notificationService);
+                                shownInAppPopup = true;
+                            }
                         }
                         notificationService.markAsLocalShown(item.id, new NotificationService.UiActionCallback() {
                             @Override
@@ -440,8 +444,28 @@ public class HomeActivity extends AppCompatActivity {
         if (item == null) {
             return false;
         }
-        // Reward notifications already have a dedicated reward dialog.
-        return !"rewards".equalsIgnoreCase(item.type);
+        return !"rewards".equalsIgnoreCase(item.type) && !isOfflineInviteNotification(item);
+    }
+
+    private void processRegionAwardsQuietly() {
+        new RegionsService().processPreviousMonthlyRegionAwards(new RegionsService.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                refreshHomeProfile();
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private boolean isOfflineInviteNotification(AppNotification item) {
+        return item != null && "open_match".equalsIgnoreCase(value(item.actionType));
+    }
+
+    private String value(String input) {
+        return input == null ? "" : input;
     }
 
     private void showImmediateInAppPopup(AppNotification item, NotificationService notificationService) {

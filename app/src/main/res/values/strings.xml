@@ -26,6 +26,8 @@
     <string name="btn_open_my_number">Moj broj</string>
     <string name="btn_open_notifications">Notifikacije</string>
     <string name="btn_register_now">Registrujte se</string>
+    <string name="btn_pick_region">Izaberi region</string>
+    <string name="btn_cancel">Otkaži</string>
     <string name="games_label">Igre:</string>
     <string name="home_start_game">Započni igru</string>
     <string name="home_friends_label">Prijatelji</string>
@@ -43,6 +45,12 @@
     <string name="rankings_cycle_range">Ciklus: %1$s</string>
     <string name="rankings_refreshed_at">Osvezeno: %1$s</string>
     <string name="rankings_empty">Nema igraca u tekucoj rang listi.</string>
+    <string name="regions_title">Regioni Srbije</string>
+    <string name="regions_col_icon">Ikona</string>
+    <string name="regions_col_region">Region</string>
+    <string name="regions_col_stars">Zvezde</string>
+    <string name="regions_empty">Nema podataka za regione.</string>
+    <string name="btn_open_regions">Regioni</string>
 
     <string name="go_register">Nemate nalog? Registrujte se</string>
     <string name="go_login">Imate nalog? Vratite se na prijavu</string>
@@ -323,10 +331,14 @@
     <string name="match_finished_message">Sve igre iz partije su prosle.</string>
 
     <string-array name="serbia_regions">
-        <item>Beograd</item>
         <item>Vojvodina</item>
-        <item>Sumadija i Zapadna Srbija</item>
-        <item>Juzna i Istocna Srbija</item>
+        <item>Podrinje i Posavina</item>
+        <item>Šumadija</item>
+        <item>Timok i Braničevo</item>
+        <item>Raška</item>
+        <item>Rasina i Toplica</item>
+        <item>Šopluk</item>
+        <item>Južno Pomoravlje</item>
         <item>Kosovo i Metohija</item>
     </string-array>
 </resources>
