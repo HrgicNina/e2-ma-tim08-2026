@@ -531,9 +531,13 @@ public class StepByStepActivity extends AppCompatActivity {
     private void bindMatchHeader() {
         tvHeaderLeftName.setText(headerName(player1DisplayName));
         tvHeaderRightName.setText(headerName(player2DisplayName));
-        tvHeaderLeftAvatar.setText(initialForName(player1DisplayName, "1"));
-        tvHeaderRightAvatar.setText(initialForName(player2DisplayName, "2"));
-        AvatarFrameHelper.applyMatchFrames(tvHeaderLeftAvatar, tvHeaderRightAvatar, getIntent());
+        AvatarFrameHelper.applyMatchAvatars(
+                tvHeaderLeftAvatar,
+                tvHeaderRightAvatar,
+                getIntent(),
+                player1DisplayName,
+                player2DisplayName
+        );
         tvHeaderLeftScore.setText(String.valueOf(player1Score));
         tvHeaderRightScore.setText(String.valueOf(player2Score));
     }
@@ -1022,6 +1026,7 @@ public class StepByStepActivity extends AppCompatActivity {
         startRound();
     }
 }
+
 
 
 

@@ -60,6 +60,7 @@ public class SlagalicaApp extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
+        SlagalicaMessagingService.syncCurrentToken();
 
         registerActivityLifecycleCallbacks(new ActivityLifecycleCallbacks() {
             @Override
@@ -79,6 +80,7 @@ public class SlagalicaApp extends Application {
             public void onActivityResumed(Activity activity) {
                 currentActivity = activity;
                 if (appForeground) {
+                    SlagalicaMessagingService.syncCurrentToken();
                     updateAppPresence(true);
                     if (!isMatchFlowActivity(activity)) {
                         clearMatchPresence();
@@ -343,6 +345,10 @@ public class SlagalicaApp extends Application {
     private void openMatchForInvite(Activity activity, String inviteId) {
         clearGlobalInviteTimeout();
         cancelBackgroundInviteNotification(inviteId);
+        if (globalInviteDialog != null) {
+            globalInviteDialog.setOnDismissListener(null);
+            globalInviteDialog = null;
+        }
         Intent intent = new Intent(activity, MatchActivity.class);
         intent.putExtra(MatchActivity.EXTRA_RESPOND_INVITE_ID, inviteId);
         activity.startActivity(intent);

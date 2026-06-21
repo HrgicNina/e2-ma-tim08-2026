@@ -30,9 +30,13 @@ public class MatchResultSplashActivity extends AppCompatActivity {
         TextView tvEconomy = findViewById(R.id.tvResultEconomy);
         Button btnGoHome = findViewById(R.id.btnResultGoHome);
 
-        tvLeftAvatar.setText(initials(player1Name));
-        tvRightAvatar.setText(initials(player2Name));
-        AvatarFrameHelper.applyMatchFrames(tvLeftAvatar, tvRightAvatar, getIntent());
+        AvatarFrameHelper.applyMatchAvatars(
+                tvLeftAvatar,
+                tvRightAvatar,
+                getIntent(),
+                player1Name,
+                player2Name
+        );
         tvLeftName.setText(player1Name);
         tvRightName.setText(player2Name);
         tvLeftScore.setText(String.valueOf(player1Score));
@@ -80,19 +84,6 @@ public class MatchResultSplashActivity extends AppCompatActivity {
         }
         String trimmed = value.trim();
         return trimmed.isEmpty() ? fallback : trimmed;
-    }
-
-    private String initials(String name) {
-        if (name == null || name.trim().isEmpty()) {
-            return "?";
-        }
-        String[] parts = name.trim().split("\\s+");
-        if (parts.length == 1) {
-            return parts[0].substring(0, 1).toUpperCase();
-        }
-        String first = parts[0].substring(0, 1).toUpperCase();
-        String second = parts[parts.length - 1].substring(0, 1).toUpperCase();
-        return first + second;
     }
 
 }

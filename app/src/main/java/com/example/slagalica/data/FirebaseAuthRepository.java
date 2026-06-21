@@ -14,6 +14,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.UserProfileChangeRequest;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
 
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -204,6 +205,7 @@ public class FirebaseAuthRepository {
         updates.put("appActive", false);
         updates.put("appLastSeenAt", Timestamp.now());
         updates.put("appLastSeenAtMillis", System.currentTimeMillis());
+        updates.put("fcmToken", FieldValue.delete());
         db.collection("users")
                 .document(user.getUid())
                 .update(updates)

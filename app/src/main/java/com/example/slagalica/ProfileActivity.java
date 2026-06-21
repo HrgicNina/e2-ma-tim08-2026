@@ -20,15 +20,13 @@ import com.example.slagalica.domain.ResultCallback;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.PlayerStats;
 
-import java.util.Locale;
 import java.util.Map;
 
 public class ProfileActivity extends AppCompatActivity {
 
     private final String[] gameIds = {"quiz", "connections", "associations", "master", "step", "number"};
     private final String[] gameLabels = {"KZZ", "Spoj", "Aso", "Sko", "Kor", "Broj"};
-    private final String[] avatarIds = {"owl", "star", "crown", "bolt", "heart", "diamond"};
-    private final String[] avatarSymbols = {"🦉", "⭐", "👑", "⚡", "♥", "♦"};
+    private final String[] avatarIds = AvatarFrameHelper.ANIMAL_AVATAR_IDS;
     private final int[] pieColors = {
             Color.rgb(0, 174, 29),
             Color.rgb(95, 195, 0),
@@ -108,6 +106,7 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void bindActions() {
+        tvAvatar.setOnClickListener(v -> showAvatarDialog());
         findViewById(R.id.btnAvatarChange).setOnClickListener(v -> showAvatarDialog());
         findViewById(R.id.btnProfileLogout).setOnClickListener(v -> logout());
         qrInviteView.setOnClickListener(v -> showInviteQrDialog());
@@ -125,12 +124,12 @@ public class ProfileActivity extends AppCompatActivity {
         tvEmail.setText(email == null ? "" : email);
         authService.getCurrentUserProfile(profile -> runOnUiThread(() -> {
             currentUsername = value(profile.username, "Korisnik");
-            currentAvatarId = value(profile.avatarId, "owl");
+            currentAvatarId = AvatarFrameHelper.normalizeAvatarId(profile.avatarId);
             currentAvatarFrameId = value(profile.avatarFrameId, "blue");
             tvUsername.setText(currentUsername);
             tvEmail.setText(value(profile.email, value(authService.getCurrentUserEmail(), "")));
             tvRegion.setText("Region: " + value(profile.region, "-"));
-            tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
+            tvAvatar.setText(AvatarFrameHelper.symbolForAvatar(currentAvatarId, currentUsername));
             AvatarFrameHelper.apply(tvAvatar, currentAvatarFrameId);
             String uid = authService.getCurrentUserId();
             currentInvitePayload = "slagalica://friend?uid=" + value(uid, "") + "&username=" + Uri.encode(currentUsername);
@@ -279,21 +278,22 @@ public class ProfileActivity extends AppCompatActivity {
     private void showAvatarDialog() {
         CharSequence[] labels = new CharSequence[avatarIds.length];
         for (int i = 0; i < avatarIds.length; i++) {
-            labels[i] = avatarSymbols[i] + "  Avatar " + (i + 1);
+            labels[i] = AvatarFrameHelper.labelForAvatar(avatarIds[i]);
         }
         new AlertDialog.Builder(this)
-                .setTitle("Izmeni avatar")
+                .setTitle("Izaberi avatar")
                 .setItems(labels, (dialog, which) -> saveAvatar(avatarIds[which]))
                 .show();
     }
 
     private void saveAvatar(String avatarId) {
-        authService.updateAvatar(avatarId, currentAvatarFrameId, new ResultCallback() {
+        String normalizedAvatarId = AvatarFrameHelper.normalizeAvatarId(avatarId);
+        authService.updateAvatar(normalizedAvatarId, currentAvatarFrameId, new ResultCallback() {
             @Override
             public void onSuccess() {
                 runOnUiThread(() -> {
-                    currentAvatarId = avatarId;
-                    tvAvatar.setText(symbolForAvatar(currentAvatarId, currentUsername));
+                    currentAvatarId = normalizedAvatarId;
+                    tvAvatar.setText(AvatarFrameHelper.symbolForAvatar(currentAvatarId, currentUsername));
                     AvatarFrameHelper.apply(tvAvatar, currentAvatarFrameId);
                     Toast.makeText(ProfileActivity.this, "Avatar je sacuvan.", Toast.LENGTH_SHORT).show();
                 });
@@ -329,16 +329,6 @@ public class ProfileActivity extends AppCompatActivity {
                 }
             });
         });
-    }
-
-    private String symbolForAvatar(String avatarId, String username) {
-        for (int i = 0; i < avatarIds.length; i++) {
-            if (avatarIds[i].equals(avatarId)) {
-                return avatarSymbols[i];
-            }
-        }
-        String fallback = value(username, "U").trim();
-        return fallback.isEmpty() ? "U" : fallback.substring(0, 1).toUpperCase(Locale.ROOT);
     }
 
     private String leagueName(long league) {
@@ -385,3 +375,4 @@ public class ProfileActivity extends AppCompatActivity {
         return (int) (value * getResources().getDisplayMetrics().density);
     }
 }
+

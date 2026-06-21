@@ -129,7 +129,7 @@ public class FriendsActivity extends AppCompatActivity {
             TextView tvStatus = row.findViewById(R.id.tvFriendStatus);
             Button btnInvite = row.findViewById(R.id.btnInviteFriend);
 
-            tvAvatar.setText(symbolForAvatar(friend.avatarId, friend.username));
+            tvAvatar.setText(AvatarFrameHelper.symbolForAvatar(friend.avatarId, friend.username));
             AvatarFrameHelper.apply(tvAvatar, friend.avatarFrameId);
             tvUsername.setText(value(friend.username));
             tvMeta.setText("Rang: " + rankLabel(friend.monthlyRank) + " | Zvezde: " + friend.stars + " | " + leagueIcon(friend.league) + " " + leagueName(friend.league));
@@ -192,6 +192,7 @@ public class FriendsActivity extends AppCompatActivity {
     private void inviteFriend(FriendProfile friend) {
         Intent intent = new Intent(this, MatchActivity.class);
         intent.putExtra(MatchActivity.EXTRA_AUTO_INVITE_TARGET, value(friend.uid));
+        intent.putExtra(MatchActivity.EXTRA_RETURN_TO_FRIENDS_ON_INVITE_DECLINED, true);
         startActivity(intent);
         Toast.makeText(this, "Poziv poslat: " + value(friend.username), Toast.LENGTH_SHORT).show();
     }
@@ -211,17 +212,6 @@ public class FriendsActivity extends AppCompatActivity {
 
     private String rankLabel(long rank) {
         return rank <= 0L ? "-" : String.valueOf(rank);
-    }
-
-    private String symbolForAvatar(String avatarId, String username) {
-        if ("star".equals(avatarId)) return "⭐";
-        if ("crown".equals(avatarId)) return "👑";
-        if ("bolt".equals(avatarId)) return "⚡";
-        if ("heart".equals(avatarId)) return "♥";
-        if ("diamond".equals(avatarId)) return "♦";
-        if ("owl".equals(avatarId)) return "🦉";
-        String fallback = value(username).trim();
-        return fallback.isEmpty() ? "U" : fallback.substring(0, 1).toUpperCase();
     }
 
     private String leagueName(long league) {

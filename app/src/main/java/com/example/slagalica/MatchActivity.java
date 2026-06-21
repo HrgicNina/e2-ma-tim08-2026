@@ -48,6 +48,7 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_AUTO_START_QUEUE = "auto_start_queue";
     public static final String EXTRA_AUTO_INVITE_TARGET = "auto_invite_target";
     public static final String EXTRA_RESPOND_INVITE_ID = "respond_invite_id";
+    public static final String EXTRA_RETURN_TO_FRIENDS_ON_INVITE_DECLINED = "return_to_friends_on_invite_declined";
     public static final String EXTRA_PROMPT_INVITE_RESPONSE = "prompt_invite_response";
     public static final String EXTRA_GAME_PLAYER1_SCORE = "game_player1_score";
     public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
@@ -56,6 +57,8 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_OPPONENT_FORFEITED = "match_opponent_forfeited";
     public static final String EXTRA_MATCH_PLAYER1_NAME = "match_player1_name";
     public static final String EXTRA_MATCH_PLAYER2_NAME = "match_player2_name";
+    public static final String EXTRA_MATCH_PLAYER1_AVATAR = "match_player1_avatar";
+    public static final String EXTRA_MATCH_PLAYER2_AVATAR = "match_player2_avatar";
     public static final String EXTRA_MATCH_PLAYER1_FRAME = "match_player1_frame";
     public static final String EXTRA_MATCH_PLAYER2_FRAME = "match_player2_frame";
     public static final String EXTRA_MATCH_BASE_PLAYER1_SCORE = "match_base_player1_score";
@@ -123,6 +126,8 @@ public class MatchActivity extends AppCompatActivity {
     private String opponentUsername = "-";
     private String player1DisplayName = "Igrac 1";
     private String player2DisplayName = "Igrac 2";
+    private String player1AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
+    private String player2AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
     private String player1AvatarFrame = "blue";
     private String player2AvatarFrame = "blue";
     private int myPlayerNumber = 1;
@@ -130,6 +135,7 @@ public class MatchActivity extends AppCompatActivity {
     private boolean autoStartQueueRequested = false;
     private String autoInviteTarget = null;
     private String respondInviteId = null;
+    private boolean returnToFriendsOnInviteDeclined = false;
     private boolean promptInviteResponse = false;
     private boolean guestMode = false;
     private boolean opponentForfeited = false;
@@ -211,6 +217,7 @@ public class MatchActivity extends AppCompatActivity {
         autoStartQueueRequested = getIntent().getBooleanExtra(EXTRA_AUTO_START_QUEUE, false);
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
         respondInviteId = getIntent().getStringExtra(EXTRA_RESPOND_INVITE_ID);
+        returnToFriendsOnInviteDeclined = getIntent().getBooleanExtra(EXTRA_RETURN_TO_FRIENDS_ON_INVITE_DECLINED, false);
         promptInviteResponse = getIntent().getBooleanExtra(EXTRA_PROMPT_INVITE_RESPONSE, false);
         if (!TextUtils.isEmpty(respondInviteId) && getApplication() instanceof SlagalicaApp) {
             MatchRealtimeClient existingClient = ((SlagalicaApp) getApplication())
@@ -460,6 +467,10 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     clearOutgoingInviteState();
                     Toast.makeText(MatchActivity.this, "Poziv odbijen: " + byUsername, Toast.LENGTH_SHORT).show();
+                    if (returnToFriendsOnInviteDeclined) {
+                        navigateBackToFriendsAfterInviteDeclined();
+                        return;
+                    }
                     renderMatch();
                 });
             }
@@ -881,6 +892,8 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void loadMatchAvatarFrames(Runnable onReady) {
+        player1AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
+        player2AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
         player1AvatarFrame = "blue";
         player2AvatarFrame = "blue";
         if (guestMode || TextUtils.isEmpty(myUid) || TextUtils.isEmpty(opponentUid)) {
@@ -900,17 +913,30 @@ public class MatchActivity extends AppCompatActivity {
         };
         uiHandler.postDelayed(deliverReady, 1500L);
         Tasks.whenAllComplete(myProfile, opponentProfile).addOnCompleteListener(unused -> {
+            String myAvatar = avatarFromProfileTask(myProfile);
+            String opponentAvatar = avatarFromProfileTask(opponentProfile);
             String myFrame = frameFromProfileTask(myProfile);
             String opponentFrame = frameFromProfileTask(opponentProfile);
             if (myPlayerNumber == 1) {
+                player1AvatarId = myAvatar;
+                player2AvatarId = opponentAvatar;
                 player1AvatarFrame = myFrame;
                 player2AvatarFrame = opponentFrame;
             } else {
+                player1AvatarId = opponentAvatar;
+                player2AvatarId = myAvatar;
                 player1AvatarFrame = opponentFrame;
                 player2AvatarFrame = myFrame;
             }
             deliverReady.run();
         });
+    }
+
+    private String avatarFromProfileTask(Task<DocumentSnapshot> task) {
+        if (task == null || !task.isSuccessful() || task.getResult() == null) {
+            return AvatarFrameHelper.DEFAULT_AVATAR_ID;
+        }
+        return AvatarFrameHelper.normalizeAvatarId(task.getResult().getString("avatarId"));
     }
 
     private String frameFromProfileTask(Task<DocumentSnapshot> task) {
@@ -943,6 +969,8 @@ public class MatchActivity extends AppCompatActivity {
         intent.putExtra(EXTRA_OPPONENT_FORFEITED, opponentForfeited);
         intent.putExtra(EXTRA_MATCH_PLAYER1_NAME, player1DisplayName);
         intent.putExtra(EXTRA_MATCH_PLAYER2_NAME, player2DisplayName);
+        intent.putExtra(EXTRA_MATCH_PLAYER1_AVATAR, player1AvatarId);
+        intent.putExtra(EXTRA_MATCH_PLAYER2_AVATAR, player2AvatarId);
         intent.putExtra(EXTRA_MATCH_PLAYER1_FRAME, player1AvatarFrame);
         intent.putExtra(EXTRA_MATCH_PLAYER2_FRAME, player2AvatarFrame);
         int basePlayer1 = myPlayerNumber == 1 ? myScore : opponentScore;
@@ -1097,7 +1125,10 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi rezultata).");
+                        long expectedDelta = winner
+                                ? 10L + Math.max(0, score / 40)
+                                : -Math.min(10L, Math.max(0L, starsBefore));
+                        callback.onReady(expectedDelta, 0L, null);
                     }
                 });
             }
@@ -1130,7 +1161,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi neresenog).");
+                        callback.onReady(0L, 0L, null);
                     }
                 });
             }
@@ -1167,7 +1198,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi kazne).");
+                        callback.onReady(-Math.min(10L, Math.max(0L, starsBefore)), 0L, null);
                     }
                 });
             }
@@ -1274,6 +1305,13 @@ public class MatchActivity extends AppCompatActivity {
         finish();
     }
 
+    private void navigateBackToFriendsAfterInviteDeclined() {
+        Intent intent = new Intent(this, FriendsActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        startActivity(intent);
+        finish();
+    }
+
     private void finishLocalRoom() {
         finishLocalRoom(true);
     }
@@ -1287,6 +1325,8 @@ public class MatchActivity extends AppCompatActivity {
         roomId = null;
         opponentUid = null;
         opponentUsername = "-";
+        player1AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
+        player2AvatarId = AvatarFrameHelper.DEFAULT_AVATAR_ID;
         player1AvatarFrame = "blue";
         player2AvatarFrame = "blue";
         rankedTokenReserved = false;
@@ -1361,6 +1401,8 @@ public class MatchActivity extends AppCompatActivity {
         Intent intent = new Intent(this, MatchResultSplashActivity.class);
         intent.putExtra(EXTRA_RESULT_PLAYER1_NAME, player1Name);
         intent.putExtra(EXTRA_RESULT_PLAYER2_NAME, player2Name);
+        intent.putExtra(EXTRA_MATCH_PLAYER1_AVATAR, player1AvatarId);
+        intent.putExtra(EXTRA_MATCH_PLAYER2_AVATAR, player2AvatarId);
         intent.putExtra(EXTRA_MATCH_PLAYER1_FRAME, player1AvatarFrame);
         intent.putExtra(EXTRA_MATCH_PLAYER2_FRAME, player2AvatarFrame);
         intent.putExtra(EXTRA_RESULT_PLAYER1_SCORE, player1Score);
@@ -1381,7 +1423,9 @@ public class MatchActivity extends AppCompatActivity {
         String info;
         if (inRoom) {
             if (showMatchFoundInfoOnce && currentGameIndex == 0) {
-                info = "Protivnik pronadjen. Pokrecem igru...";
+                info = friendlyRoom
+                        ? getString(R.string.match_friendly_accepted_info)
+                        : "Protivnik pronadjen. Pokrecem igru...";
             } else {
                 info = "";
             }

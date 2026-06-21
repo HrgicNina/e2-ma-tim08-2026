@@ -329,6 +329,7 @@
     <string name="match_not_connected">Povezivanje trenutno nije dostupno.</string>
     <string name="match_no_active_room">Nema aktivne partije.</string>
     <string name="match_friendly_info">Prijateljska partija: ne trosi tokene i ne menja zvezde.</string>
+    <string name="match_friendly_accepted_info">Prijatelj je prihvatio. Igra pocinje...</string>
     <string name="match_ranked_info">Rang partija: trosi 1 token i menja zvezde na kraju.</string>
     <string name="match_finished_title">Partija je zavrsena</string>
     <string name="match_finished_message">Sve igre iz partije su prosle.</string>

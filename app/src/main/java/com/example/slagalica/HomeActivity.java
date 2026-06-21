@@ -155,11 +155,7 @@ public class HomeActivity extends AppCompatActivity {
         }
         authService.getCurrentUserProfile(profile -> runOnUiThread(() -> {
             String username = profile.username == null ? "" : profile.username.trim();
-            if (username.isEmpty()) {
-                btnProfile.setText("U");
-            } else {
-                btnProfile.setText(username.substring(0, 1).toUpperCase());
-            }
+            btnProfile.setText(AvatarFrameHelper.symbolForAvatar(profile.avatarId, username));
             AvatarFrameHelper.apply(btnProfile, profile.avatarFrameId);
             TextView usernameView = findViewById(R.id.tvHomeUsername);
             usernameView.setText(username.isEmpty() ? "korisnik" : username);

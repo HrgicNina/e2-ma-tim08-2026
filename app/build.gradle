@@ -41,7 +41,7 @@ dependencies {
     implementation platform(libs.firebase.bom)
     implementation libs.firebase.auth
     implementation libs.firebase.firestore
-    implementation "com.google.firebase:firebase-messaging"
+    implementation libs.firebase.messaging
     implementation libs.zxing.android.embedded
     implementation "androidx.work:work-runtime:2.9.1"
     implementation "com.squareup.okhttp3:okhttp:4.12.0"
