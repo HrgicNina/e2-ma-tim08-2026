@@ -257,7 +257,6 @@ async function handleInviteSend(ws, payload) {
       inviteId,
       expiresInSeconds: INVITE_TIMEOUT_MS / 1000,
     });
-    info(ws, "Offline poziv i sistemska notifikacija su poslati.");
     return;
   }
 
@@ -329,28 +328,29 @@ function handleInviteRespond(ws, payload) {
   }
 
   const fromMeta = socketsMeta.get(fromWs);
-if (!fromMeta) return error(ws, "Igrac koji je poslao poziv nije dostupan.");
+  if (!fromMeta) return error(ws, "Igrac koji je poslao poziv nije dostupan.");
 
-if (fromMeta.roomId) {
-  error(ws, "Igrac koji je poslao poziv je vec u partiji.");
-  return error(fromWs, "Vec ste u partiji.");
-}
+  if (fromMeta.roomId) {
+    error(ws, "Igrac koji je poslao poziv je vec u partiji.");
+    return error(fromWs, "Vec ste u partiji.");
+  }
 
-if (meta.roomId) {
-  error(ws, "Vec ste u partiji.");
-  return error(fromWs, "Prijatelj je vec u partiji.");
-}
+  if (meta.roomId) {
+    error(ws, "Vec ste u partiji.");
+    return error(fromWs, "Prijatelj je vec u partiji.");
+  }
 
-if (invite.offline) {
-  updateOfflineMatchInviteStatus(inviteId, "accepted").catch(() => {});
-}
+  if (!startMatch(invite.fromUid, invite.toUid, true)) {
+    error(ws, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
+    return error(
+      fromWs,
+      "Partija ne moze da se pokrene jer je jedan igrac zauzet."
+    );
+  }
 
-if (!startMatch(invite.fromUid, invite.toUid, true)) {
-  error(ws, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
-  return error(
-    fromWs,
-    "Partija ne moze da se pokrene jer je jedan igrac zauzet."
-  );
+  if (invite.offline) {
+    updateOfflineMatchInviteStatus(inviteId, "accepted").catch(() => {});
+  }
 }
 
 function handleInviteCancel(ws, payload) {

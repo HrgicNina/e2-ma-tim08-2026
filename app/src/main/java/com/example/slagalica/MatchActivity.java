@@ -1125,7 +1125,10 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi rezultata).");
+                        long expectedDelta = winner
+                                ? 10L + Math.max(0, score / 40)
+                                : -Math.min(10L, Math.max(0L, starsBefore));
+                        callback.onReady(expectedDelta, 0L, null);
                     }
                 });
             }
@@ -1158,7 +1161,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi neresenog).");
+                        callback.onReady(0L, 0L, null);
                     }
                 });
             }
@@ -1195,7 +1198,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        callback.onReady(0L, 0L, "Promena naloga nije dostupna (greska pri obradi kazne).");
+                        callback.onReady(-Math.min(10L, Math.max(0L, starsBefore)), 0L, null);
                     }
                 });
             }

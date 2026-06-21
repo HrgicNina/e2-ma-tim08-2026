@@ -4,7 +4,7 @@ import com.example.slagalica.model.LeaderboardEntry;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
-import com.google.firebase.firestore.Transaction;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -177,7 +177,7 @@ public class LeaderboardRepository {
             item.uid = doc.getId();
             item.username = value(doc.getString("username"));
             item.league = value(doc.getLong("league"));
-            item.cycleStars = value(doc.getLong("cycleStars"));
+            item.cycleStars = value(doc.getLong(starsField));
             item.cycleMatches = matches;
             entries.add(item);
         }
@@ -230,8 +230,33 @@ public class LeaderboardRepository {
         void onError();
     }
 
-    private String value(String value) {
-        return value == null ? "" : value;
+    private List<LeaderboardEntry> mapCycleEntries(QuerySnapshot snapshot) {
+        List<LeaderboardEntry> entries = new ArrayList<>();
+        if (snapshot == null) {
+            return entries;
+        }
+        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+            long matches = value(doc.getLong("cycleMatches"));
+            if (matches <= 0) {
+                continue;
+            }
+            LeaderboardEntry item = new LeaderboardEntry();
+            item.uid = doc.getId();
+            item.username = value(doc.getString("username"));
+            item.league = value(doc.getLong("league"));
+            item.cycleStars = value(doc.getLong("cycleStars"));
+            item.cycleMatches = matches;
+            entries.add(item);
+        }
+        return entries;
+    }
+
+    private CycleWindow cycleFromDocument(DocumentSnapshot document) {
+        return new CycleWindow(
+                document.getId(),
+                value(document.getLong("startMs")),
+                value(document.getLong("endMs"))
+        );
     }
 
     private void loadCurrentLeaguesAndReturn(
