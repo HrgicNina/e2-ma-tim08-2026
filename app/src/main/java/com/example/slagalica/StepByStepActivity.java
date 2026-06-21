@@ -76,6 +76,7 @@ public class StepByStepActivity extends AppCompatActivity {
     private String matchRoomId = "";
     private int myPlayerNumber = 1;
     private boolean soloMode = false;
+    private boolean opponentForfeited = false;
     private int lastTimerSeconds = 70;
     private boolean remoteFinishHandled = false;
     private int lastBootstrapPublishedRound = -1;
@@ -142,6 +143,10 @@ public class StepByStepActivity extends AppCompatActivity {
         }
         myPlayerNumber = getIntent().getIntExtra("match_my_player_number", 1);
         soloMode = getIntent().getBooleanExtra(MatchActivity.EXTRA_MATCH_SOLO_MODE, false);
+        opponentForfeited = getIntent().getBooleanExtra(
+                MatchActivity.EXTRA_OPPONENT_FORFEITED,
+                soloMode
+        );
         player1Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER1_SCORE, 0);
         player2Score = getIntent().getIntExtra(MatchActivity.EXTRA_MATCH_BASE_PLAYER2_SCORE, 0);
         player1DisplayName = displayNameOrFallback(
@@ -242,6 +247,10 @@ public class StepByStepActivity extends AppCompatActivity {
             }
             renderHiddenClues();
             publishState(true);
+            if (isRoundStarterAbsent()) {
+                skipAbsentStarterToSteal();
+                return;
+            }
             startPrepCountdown();
         });
     }
@@ -310,7 +319,7 @@ public class StepByStepActivity extends AppCompatActivity {
     }
 
     private void openStealPhase() {
-        if (soloMode) {
+        if (soloMode && !isRoundStarterAbsent()) {
             finishRound();
             return;
         }
@@ -420,7 +429,7 @@ public class StepByStepActivity extends AppCompatActivity {
         btnSubmit.setEnabled(false);
         etAnswer.setEnabled(false);
 
-        if (currentRound == 1 && !soloMode) {
+        if (currentRound == 1) {
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.step_next_round_waiting);
             publishState(false);
@@ -437,7 +446,7 @@ public class StepByStepActivity extends AppCompatActivity {
                 @Override
                 public void onFinish() {
                     currentRound = 2;
-                    roundStartingPlayer = soloMode ? myPlayerNumber : 2;
+                    roundStartingPlayer = 2;
                     sendRoundChangeEvent();
                     etAnswer.setEnabled(true);
                     startRound();
@@ -856,15 +865,32 @@ public class StepByStepActivity extends AppCompatActivity {
     }
 
     private void enableSoloModeAfterForfeit() {
+        opponentForfeited = true;
         soloMode = true;
-        if (roundStartingPlayer != myPlayerNumber) {
+        if (currentPuzzle == null) {
+            return;
+        }
+        if (phase == Phase.ROUND_END && currentRound == 1) {
             cancelTimers();
             currentRound = 2;
-            roundStartingPlayer = myPlayerNumber;
+            roundStartingPlayer = 2;
             startRound();
             return;
         }
-        roundStartingPlayer = myPlayerNumber;
+        if (isRoundStarterAbsent()) {
+            if (phase == Phase.STEAL) {
+                etAnswer.setEnabled(true);
+                btnSubmit.setEnabled(true);
+                if (stealTimer == null && lastTimerSeconds > 0) {
+                    startStealTimer(lastTimerSeconds * 1000L);
+                }
+                refreshTurnIndicator();
+                return;
+            }
+            cancelTimers();
+            skipAbsentStarterToSteal();
+            return;
+        }
         tvCurrentPlayer.setText(getString(R.string.step_current_player, roundStartingPlayer));
         if (phase == Phase.STEAL) {
             finishRound();
@@ -873,11 +899,21 @@ public class StepByStepActivity extends AppCompatActivity {
         if (phase == Phase.MAIN) {
             etAnswer.setEnabled(true);
             btnSubmit.setEnabled(true);
-            if (mainTimer == null && lastTimerSeconds > 0) {
+            if (prepTimer == null && mainTimer == null && lastTimerSeconds > 0) {
                 startMainTimer(lastTimerSeconds * 1000L);
             }
         }
         refreshTurnIndicator();
+    }
+
+    private void skipAbsentStarterToSteal() {
+        revealedStepCount = 7;
+        renderClues();
+        openStealPhase();
+    }
+
+    private boolean isRoundStarterAbsent() {
+        return opponentForfeited && roundStartingPlayer != myPlayerNumber;
     }
 
     private void cancelMainAndStealTimers() {

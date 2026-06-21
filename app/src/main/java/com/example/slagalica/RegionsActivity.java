@@ -1,5 +1,6 @@
 package com.example.slagalica;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
@@ -16,19 +17,25 @@ import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.RegionsService;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.RegionLeaderboardEntry;
+import com.example.slagalica.model.RegionCatalog;
 import com.example.slagalica.model.RegionMapData;
 
 import java.util.List;
 
 public class RegionsActivity extends AppCompatActivity {
+    public static final String EXTRA_CHAT_MODE = "regions_chat_mode";
+
     private RegionMapView regionMapView;
     private LinearLayout rowsContainer;
+    private LinearLayout regionRankingPanel;
+    private TextView tvTitle;
     private TextView tvCycle;
     private TextView tvEmpty;
     private RegionsService regionsService;
     private String myUid = "";
     private RegionMapData currentData = new RegionMapData();
     private String selectedRegion = "";
+    private boolean chatMode = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +49,7 @@ public class RegionsActivity extends AppCompatActivity {
         }
 
         setContentView(R.layout.activity_regions);
+        chatMode = getIntent().getBooleanExtra(EXTRA_CHAT_MODE, false);
         regionsService = new RegionsService();
         myUid = value(new AuthService().getCurrentUserId());
         if (myUid.isEmpty()) {
@@ -52,14 +60,26 @@ public class RegionsActivity extends AppCompatActivity {
 
         regionMapView = findViewById(R.id.regionMapView);
         rowsContainer = findViewById(R.id.regionRowsContainer);
+        regionRankingPanel = findViewById(R.id.regionRankingPanel);
+        tvTitle = findViewById(R.id.tvRegionsTitle);
         tvCycle = findViewById(R.id.tvRegionsCycle);
         tvEmpty = findViewById(R.id.tvRegionsEmpty);
-        regionMapView.setRegionClickListener(this::showRegionStats);
+        regionMapView.setRegionClickListener(this::handleRegionClick);
+
+        if (chatMode) {
+            tvTitle.setVisibility(View.GONE);
+            tvCycle.setVisibility(View.GONE);
+            regionRankingPanel.setVisibility(View.GONE);
+        }
 
         load();
     }
 
     private void load() {
+        if (chatMode) {
+            loadData();
+            return;
+        }
         regionsService.processPreviousMonthlyRegionAwards(new RegionsService.ActionCallback() {
             @Override
             public void onSuccess() {
@@ -92,9 +112,13 @@ public class RegionsActivity extends AppCompatActivity {
         if (selectedRegion.isEmpty()) {
             selectedRegion = currentData.myRegion;
         }
-        tvCycle.setText("Mesecni ciklus: " + value(currentData.cycleLabel));
+        if (!chatMode) {
+            tvCycle.setText("Mesecni ciklus: " + value(currentData.cycleLabel));
+        }
         regionMapView.setData(currentData.points, currentData.myRegion, selectedRegion);
-        renderRows(currentData.rankings);
+        if (!chatMode) {
+            renderRows(currentData.rankings);
+        }
     }
 
     private void renderRows(List<RegionLeaderboardEntry> rows) {
@@ -222,6 +246,28 @@ public class RegionsActivity extends AppCompatActivity {
                         + "\nZvezde u ciklusu: " + entry.monthlyStars)
                 .setPositiveButton("OK", null)
                 .show();
+    }
+
+    private void handleRegionClick(String region) {
+        if (!chatMode) {
+            showRegionStats(region);
+            return;
+        }
+
+        String clickedRegion = RegionCatalog.canonicalName(value(region));
+        String playerRegion = RegionCatalog.canonicalName(value(currentData.myRegion));
+        if (clickedRegion.isEmpty() || !clickedRegion.equals(playerRegion)) {
+            Toast.makeText(
+                    this,
+                    getString(R.string.chat_region_restricted, clickedRegion),
+                    Toast.LENGTH_SHORT
+            ).show();
+            return;
+        }
+
+        selectedRegion = clickedRegion;
+        regionMapView.setData(currentData.points, currentData.myRegion, selectedRegion);
+        startActivity(new Intent(this, ChatActivity.class));
     }
 
     private View regionStatsTitle(RegionLeaderboardEntry entry) {

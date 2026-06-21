@@ -28,6 +28,7 @@ import androidx.core.content.ContextCompat;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.BackgroundNotificationScheduler;
 import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.FcmTokenRegistrar;
 import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.NotificationService;
@@ -102,6 +103,7 @@ public class HomeActivity extends AppCompatActivity {
             btnGuestRegister.setVisibility(View.VISIBLE);
         } else {
             requestPostNotificationsIfNeeded();
+            FcmTokenRegistrar.sync(this);
             BackgroundNotificationScheduler.ensureScheduled(this);
             homeStatsRow.setVisibility(View.VISIBLE);
             tvHomeTokens.setText(R.string.home_tokens_value);
@@ -115,7 +117,11 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
-        btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
+        btnOpenChat.setOnClickListener(v -> {
+            Intent intent = new Intent(this, RegionsActivity.class);
+            intent.putExtra(RegionsActivity.EXTRA_CHAT_MODE, true);
+            startActivity(intent);
+        });
         btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
         btnOpenRegions.setOnClickListener(v -> startActivity(new Intent(this, RegionsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));

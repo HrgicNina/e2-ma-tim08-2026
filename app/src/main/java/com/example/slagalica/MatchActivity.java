@@ -49,10 +49,12 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_AUTO_INVITE_TARGET = "auto_invite_target";
     public static final String EXTRA_RESPOND_INVITE_ID = "respond_invite_id";
     public static final String EXTRA_RETURN_TO_FRIENDS_ON_INVITE_DECLINED = "return_to_friends_on_invite_declined";
+    public static final String EXTRA_PROMPT_INVITE_RESPONSE = "prompt_invite_response";
     public static final String EXTRA_GAME_PLAYER1_SCORE = "game_player1_score";
     public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
     public static final String EXTRA_MATCH_FORFEIT = "match_forfeit";
     public static final String EXTRA_MATCH_SOLO_MODE = "match_solo_mode";
+    public static final String EXTRA_OPPONENT_FORFEITED = "match_opponent_forfeited";
     public static final String EXTRA_MATCH_PLAYER1_NAME = "match_player1_name";
     public static final String EXTRA_MATCH_PLAYER2_NAME = "match_player2_name";
     public static final String EXTRA_MATCH_PLAYER1_AVATAR = "match_player1_avatar";
@@ -134,6 +136,7 @@ public class MatchActivity extends AppCompatActivity {
     private String autoInviteTarget = null;
     private String respondInviteId = null;
     private boolean returnToFriendsOnInviteDeclined = false;
+    private boolean promptInviteResponse = false;
     private boolean guestMode = false;
     private boolean opponentForfeited = false;
     private boolean suppressInRoomInfoMessages = false;
@@ -215,6 +218,7 @@ public class MatchActivity extends AppCompatActivity {
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
         respondInviteId = getIntent().getStringExtra(EXTRA_RESPOND_INVITE_ID);
         returnToFriendsOnInviteDeclined = getIntent().getBooleanExtra(EXTRA_RETURN_TO_FRIENDS_ON_INVITE_DECLINED, false);
+        promptInviteResponse = getIntent().getBooleanExtra(EXTRA_PROMPT_INVITE_RESPONSE, false);
         if (!TextUtils.isEmpty(respondInviteId) && getApplication() instanceof SlagalicaApp) {
             MatchRealtimeClient existingClient = ((SlagalicaApp) getApplication())
                     .takeInviteClientForMatch(respondInviteId);
@@ -450,6 +454,7 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onInviteSent(String inviteId, int expiresInSeconds) {
                 runOnUiThread(() -> {
+                    pendingInviteTargetForFallback = null;
                     outgoingInvitePending = true;
                     outgoingInviteId = inviteId;
                     tvMatchInfo.setText("Poziv poslat. Cekanje odgovora (" + expiresInSeconds + "s)...");
@@ -554,7 +559,7 @@ public class MatchActivity extends AppCompatActivity {
                     String finalPlayer2Name = player2DisplayName;
                     boolean wasFriendly = friendlyRoom;
                     boolean wasGuest = guestMode;
-                    if (!wasGuest) {
+                    if (!wasGuest && !wasFriendly) {
                         recordMatchStatsOnce(iAmWinner, draw);
                     }
                     finishLocalRoom(false);
@@ -800,9 +805,14 @@ public class MatchActivity extends AppCompatActivity {
             String inviteId = respondInviteId;
             respondInviteId = null;
             if (!guestMode && !inRoom && !queueing && wsAuthenticated) {
-                realtimeClient.respondInvite(inviteId, true);
-                tvMatchInfo.setText("Prihvatam poziv...");
-                renderMatch();
+                if (promptInviteResponse) {
+                    promptInviteResponse = false;
+                    showInviteDialog(inviteId, "", "Prijatelj");
+                } else {
+                    realtimeClient.respondInvite(inviteId, true);
+                    tvMatchInfo.setText("Prihvatam poziv...");
+                    renderMatch();
+                }
             }
             return;
         }
@@ -956,6 +966,7 @@ public class MatchActivity extends AppCompatActivity {
         intent.putExtra("match_game_index", currentGameIndex);
         intent.putExtra("match_my_player_number", myPlayerNumber);
         intent.putExtra(EXTRA_MATCH_SOLO_MODE, opponentForfeited);
+        intent.putExtra(EXTRA_OPPONENT_FORFEITED, opponentForfeited);
         intent.putExtra(EXTRA_MATCH_PLAYER1_NAME, player1DisplayName);
         intent.putExtra(EXTRA_MATCH_PLAYER2_NAME, player2DisplayName);
         intent.putExtra(EXTRA_MATCH_PLAYER1_AVATAR, player1AvatarId);
@@ -1006,7 +1017,7 @@ public class MatchActivity extends AppCompatActivity {
         String finalPlayer2Name = player2DisplayName;
         boolean wasFriendly = friendlyRoom;
         boolean wasGuest = guestMode;
-        if (!wasGuest) {
+        if (!wasGuest && !wasFriendly) {
             recordMatchStatsOnce(true, false);
         }
 
@@ -1241,6 +1252,8 @@ public class MatchActivity extends AppCompatActivity {
     private void forfeitMatchAndGoHome() {
         localForfeitExitRequested = true;
 
+        boolean wasGuest = guestMode;
+        boolean wasFriendly = friendlyRoom;
         boolean rankedPenaltyApplies = !guestMode && !friendlyRoom && !resultApplied;
         if (!guestMode) {
             recordMatchStatsOnce(false, false);
@@ -1254,14 +1267,35 @@ public class MatchActivity extends AppCompatActivity {
         }
 
         if (rankedPenaltyApplies) {
-            applyForfeitLoserResult((starDelta, tokenDelta, note) -> navigateHomeAfterForfeit());
+            applyForfeitLoserResult((starDelta, tokenDelta, note) ->
+                    navigateHomeAfterForfeit(rankedForfeitMessage(starDelta, note)));
             return;
         }
-        navigateHomeAfterForfeit();
+        if (wasFriendly) {
+            navigateHomeAfterForfeit(
+                    "Izgubili ste partiju odustajanjem. Prijateljska partija ne utice na zvezde ni statistiku."
+            );
+        } else if (wasGuest) {
+            navigateHomeAfterForfeit("Izgubili ste partiju odustajanjem. Gost ne dobija niti gubi zvezde.");
+        } else {
+            navigateHomeAfterForfeit("Izgubili ste partiju odustajanjem. Rezultat je vec obradjen.");
+        }
     }
 
-    private void navigateHomeAfterForfeit() {
-        Toast.makeText(this, "Izgubili ste partiju odustajanjem. Izgubili ste 10 zvezda.", Toast.LENGTH_LONG).show();
+    private String rankedForfeitMessage(long starDelta, String note) {
+        String base = "Izgubili ste rangiranu partiju odustajanjem.";
+        if (!TextUtils.isEmpty(note)) {
+            return base + " " + note;
+        }
+        long lostStars = Math.max(0L, -starDelta);
+        if (lostStars == 0L) {
+            return base + " Niste izgubili zvezde jer ih trenutno nemate.";
+        }
+        return base + " Oduzeto zvezda: " + lostStars + ".";
+    }
+
+    private void navigateHomeAfterForfeit(String message) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
         Intent intent = new Intent(this, HomeActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         startActivity(intent);
@@ -1307,7 +1341,7 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void recordGameStatsIfNeeded(Intent data, int basePlayer1, int basePlayer2) {
-        if (guestMode || TextUtils.isEmpty(myUid) || data == null) {
+        if (guestMode || friendlyRoom || TextUtils.isEmpty(myUid) || data == null) {
             return;
         }
         int points = PlayerStatsService.pointsForCurrentPlayer(data, myPlayerNumber, basePlayer1, basePlayer2);
@@ -1324,7 +1358,7 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void recordMatchStatsOnce(boolean win, boolean draw) {
-        if (matchStatsSubmitted || guestMode || TextUtils.isEmpty(myUid)) {
+        if (matchStatsSubmitted || guestMode || friendlyRoom || TextUtils.isEmpty(myUid)) {
             return;
         }
         matchStatsSubmitted = true;

@@ -27,7 +27,7 @@ public class ChatRepository {
     }
 
     public interface ActionCallback {
-        void onSuccess();
+        void onSuccess(String messageId);
         void onError(String message);
     }
 
@@ -116,7 +116,7 @@ public class ChatRepository {
                 .document(roomId)
                 .collection("messages")
                 .add(payload)
-                .addOnSuccessListener(doc -> callback.onSuccess())
+                .addOnSuccessListener(doc -> callback.onSuccess(doc.getId()))
                 .addOnFailureListener(e -> callback.onError("Poruka nije poslata."));
     }
 
@@ -161,7 +161,13 @@ public class ChatRepository {
         void onError(String message);
     }
 
-    public void createChatNotifications(List<String> targetUids, String senderName, String previewMessage, String roomId) {
+    public void createChatNotifications(
+            List<String> targetUids,
+            String senderName,
+            String previewMessage,
+            String roomId,
+            String messageId
+    ) {
         if (targetUids == null || targetUids.isEmpty()) {
             return;
         }
@@ -184,7 +190,7 @@ public class ChatRepository {
                     db.collection("users")
                             .document(targetUid)
                             .collection("notifications")
-                            .document(),
+                            .document("chat_" + messageId),
                     payload
             );
             count++;

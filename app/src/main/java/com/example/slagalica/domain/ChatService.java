@@ -24,7 +24,7 @@ public class ChatService {
     }
 
     public interface ActionCallback {
-        void onSuccess();
+        void onSuccess(String messageId);
         void onError(String message);
     }
 
@@ -105,8 +105,8 @@ public class ChatService {
     public void sendMessage(String roomId, String myUid, String myUsername, String text, ActionCallback callback) {
         repository.sendMessage(roomId, myUid, myUsername, text, new ChatRepository.ActionCallback() {
             @Override
-            public void onSuccess() {
-                callback.onSuccess();
+            public void onSuccess(String messageId) {
+                callback.onSuccess(messageId);
             }
 
             @Override
@@ -116,7 +116,14 @@ public class ChatService {
         });
     }
 
-    public void notifyRegionMembersIfNeeded(String myUid, String myUsername, String myRegion, String roomId, String messageText) {
+    public void notifyRegionMembersIfNeeded(
+            String myUid,
+            String myUsername,
+            String myRegion,
+            String roomId,
+            String messageText,
+            String messageId
+    ) {
         if (TextUtils.isEmpty(myRegion)) {
             return;
         }
@@ -133,7 +140,7 @@ public class ChatService {
                     }
                     targets.add(user.uid);
                 }
-                repository.createChatNotifications(targets, myUsername, trimPreview(messageText), roomId);
+                repository.createChatNotifications(targets, myUsername, trimPreview(messageText), roomId, messageId);
             }
 
             @Override

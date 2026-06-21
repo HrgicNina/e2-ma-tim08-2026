@@ -234,11 +234,13 @@ public class ChatActivity extends AppCompatActivity {
         btnSend.setEnabled(false);
         chatService.sendMessage(roomId, myUid, myUsername, text, new ChatService.ActionCallback() {
             @Override
-            public void onSuccess() {
+            public void onSuccess(String messageId) {
                     etMessage.setText("");
                     sendingMessage = false;
                     btnSend.setEnabled(true);
-                    notifyRegionMembersIfNeeded(text);
+                    chatService.notifyRegionMembersIfNeeded(
+                            myUid, myUsername, myRegion, roomId, text, messageId
+                    );
             }
 
             @Override
@@ -248,10 +250,6 @@ public class ChatActivity extends AppCompatActivity {
                 Toast.makeText(ChatActivity.this, message, Toast.LENGTH_SHORT).show();
             }
         });
-    }
-
-    private void notifyRegionMembersIfNeeded(String messageText) {
-        chatService.notifyRegionMembersIfNeeded(myUid, myUsername, myRegion, roomId, messageText);
     }
 
     private void setChatPresence(boolean active) {

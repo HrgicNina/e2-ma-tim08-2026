@@ -1,8 +1,11 @@
 package com.example.slagalica.data;
 
 import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.SetOptions;
 import com.google.firebase.firestore.Transaction;
 
 import java.text.SimpleDateFormat;
@@ -173,36 +176,46 @@ public class PlayerEconomyRepository {
         String weeklyCycleId = currentWeeklyCycleId();
         String monthlyCycleId = currentMonthlyCycleId();
         db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
-            Long stars = transaction.get(ref).getLong("stars");
-            Long tokens = transaction.get(ref).getLong("tokens");
-            String storedWeeklyCycleId = value(transaction.get(ref).getString("weeklyCycleId"));
-            String storedMonthlyCycleId = value(transaction.get(ref).getString("monthlyCycleId"));
-            Long weeklyCycleStars = transaction.get(ref).getLong("weeklyCycleStars");
-            Long monthlyCycleStars = transaction.get(ref).getLong("monthlyCycleStars");
-            Long weeklyCycleMatches = transaction.get(ref).getLong("weeklyCycleMatches");
-            Long monthlyCycleMatches = transaction.get(ref).getLong("monthlyCycleMatches");
+            DocumentSnapshot user = transaction.get(ref);
+            Long stars = user.getLong("stars");
+            Long tokens = user.getLong("tokens");
+            String username = value(user.getString("username"));
+            Long league = user.getLong("league");
+            Long awardedMilestones = user.getLong("starTokenMilestonesAwarded");
+            String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
+            String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
+            Long weeklyCycleStars = user.getLong("weeklyCycleStars");
+            Long monthlyCycleStars = user.getLong("monthlyCycleStars");
+            Long weeklyCycleMatches = user.getLong("weeklyCycleMatches");
+            Long monthlyCycleMatches = user.getLong("monthlyCycleMatches");
             if (stars == null) stars = 0L;
             if (tokens == null) tokens = 0L;
             if (weeklyCycleStars == null) weeklyCycleStars = 0L;
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
+            if (league == null) league = 0L;
+            if (awardedMilestones == null) awardedMilestones = stars / 50;
 
             long bonusFromScore = Math.max(0, score / 40);
             long delta = winner ? (10 + bonusFromScore) : (bonusFromScore - 10);
             long newStars = Math.max(0, stars + delta);
             long actualDelta = newStars - stars;
 
-            long oldTokenMilestones = stars / 50;
             long newTokenMilestones = newStars / 50;
-            long extraTokens = Math.max(0, newTokenMilestones - oldTokenMilestones);
+            long extraTokens = Math.max(0, newTokenMilestones - awardedMilestones);
+            long newAwardedMilestones = Math.max(awardedMilestones, newTokenMilestones);
             long newTokens = tokens + extraTokens;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
+                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
+                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -215,6 +228,7 @@ public class PlayerEconomyRepository {
                     ref,
                     "stars", newStars,
                     "tokens", newTokens,
+                    "starTokenMilestonesAwarded", newAwardedMilestones,
                     "weeklyCycleId", weeklyCycleId,
                     "monthlyCycleId", monthlyCycleId,
                     "weeklyCycleStars", newWeeklyCycleStars,
@@ -222,6 +236,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
 
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
@@ -236,35 +252,39 @@ public class PlayerEconomyRepository {
         String weeklyCycleId = currentWeeklyCycleId();
         String monthlyCycleId = currentMonthlyCycleId();
         db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
-            Long stars = transaction.get(ref).getLong("stars");
-            Long tokens = transaction.get(ref).getLong("tokens");
-            String storedWeeklyCycleId = value(transaction.get(ref).getString("weeklyCycleId"));
-            String storedMonthlyCycleId = value(transaction.get(ref).getString("monthlyCycleId"));
-            Long weeklyCycleStars = transaction.get(ref).getLong("weeklyCycleStars");
-            Long monthlyCycleStars = transaction.get(ref).getLong("monthlyCycleStars");
-            Long weeklyCycleMatches = transaction.get(ref).getLong("weeklyCycleMatches");
-            Long monthlyCycleMatches = transaction.get(ref).getLong("monthlyCycleMatches");
+            DocumentSnapshot user = transaction.get(ref);
+            Long stars = user.getLong("stars");
+            Long tokens = user.getLong("tokens");
+            String username = value(user.getString("username"));
+            Long league = user.getLong("league");
+            String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
+            String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
+            Long weeklyCycleStars = user.getLong("weeklyCycleStars");
+            Long monthlyCycleStars = user.getLong("monthlyCycleStars");
+            Long weeklyCycleMatches = user.getLong("weeklyCycleMatches");
+            Long monthlyCycleMatches = user.getLong("monthlyCycleMatches");
             if (stars == null) stars = 0L;
             if (tokens == null) tokens = 0L;
             if (weeklyCycleStars == null) weeklyCycleStars = 0L;
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
+            if (league == null) league = 0L;
 
-            long delta = 5L;
-            long newStars = Math.max(0, stars + delta);
-            long actualDelta = newStars - stars;
-
-            long oldTokenMilestones = stars / 50;
-            long newTokenMilestones = newStars / 50;
-            long extraTokens = Math.max(0, newTokenMilestones - oldTokenMilestones);
-            long newTokens = tokens + extraTokens;
+            // The specification does not award stars for a draw.
+            long newStars = stars;
+            long actualDelta = 0L;
+            long newTokens = tokens;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
+                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
+                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -284,6 +304,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
 
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
@@ -298,29 +320,37 @@ public class PlayerEconomyRepository {
         String weeklyCycleId = currentWeeklyCycleId();
         String monthlyCycleId = currentMonthlyCycleId();
         db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
-            Long stars = transaction.get(ref).getLong("stars");
-            Long tokens = transaction.get(ref).getLong("tokens");
-            String storedWeeklyCycleId = value(transaction.get(ref).getString("weeklyCycleId"));
-            String storedMonthlyCycleId = value(transaction.get(ref).getString("monthlyCycleId"));
-            Long weeklyCycleStars = transaction.get(ref).getLong("weeklyCycleStars");
-            Long monthlyCycleStars = transaction.get(ref).getLong("monthlyCycleStars");
-            Long weeklyCycleMatches = transaction.get(ref).getLong("weeklyCycleMatches");
-            Long monthlyCycleMatches = transaction.get(ref).getLong("monthlyCycleMatches");
+            DocumentSnapshot user = transaction.get(ref);
+            Long stars = user.getLong("stars");
+            Long tokens = user.getLong("tokens");
+            String username = value(user.getString("username"));
+            Long league = user.getLong("league");
+            String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
+            String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
+            Long weeklyCycleStars = user.getLong("weeklyCycleStars");
+            Long monthlyCycleStars = user.getLong("monthlyCycleStars");
+            Long weeklyCycleMatches = user.getLong("weeklyCycleMatches");
+            Long monthlyCycleMatches = user.getLong("monthlyCycleMatches");
             if (stars == null) stars = 0L;
             if (tokens == null) tokens = 0L;
             if (weeklyCycleStars == null) weeklyCycleStars = 0L;
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
+            if (league == null) league = 0L;
 
             long newStars = Math.max(0, stars - 10);
             long actualDelta = newStars - stars;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
+                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
+                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
+                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -339,6 +369,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
 
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
@@ -367,6 +399,109 @@ public class PlayerEconomyRepository {
         start.set(Calendar.SECOND, 0);
         start.set(Calendar.MILLISECOND, 0);
         return "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
+    }
+
+    private void incrementCycle(
+            Transaction transaction,
+            String uid,
+            String username,
+            long league,
+            String cycleId,
+            long starDelta,
+            boolean monthly
+    ) {
+        if (cycleId.isEmpty()) return;
+        writeCycleMetadata(transaction, cycleId, monthly);
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("username", username);
+        entry.put("league", league);
+        entry.put("cycleStars", FieldValue.increment(starDelta));
+        entry.put("cycleMatches", FieldValue.increment(1));
+        entry.put("updatedAtMillis", System.currentTimeMillis());
+        transaction.set(
+                db.collection("leaderboardCycles").document(cycleId)
+                        .collection("entries").document(uid),
+                entry,
+                SetOptions.merge()
+        );
+    }
+
+    private void archiveCycle(
+            Transaction transaction,
+            String uid,
+            String username,
+            long league,
+            String cycleId,
+            long cycleStars,
+            long cycleMatches,
+            boolean monthly
+    ) {
+        if (cycleId.isEmpty() || cycleMatches <= 0) return;
+        writeCycleMetadata(transaction, cycleId, monthly);
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("username", username);
+        entry.put("league", league);
+        entry.put("cycleStars", cycleStars);
+        entry.put("cycleMatches", cycleMatches);
+        entry.put("updatedAtMillis", System.currentTimeMillis());
+        transaction.set(
+                db.collection("leaderboardCycles").document(cycleId)
+                        .collection("entries").document(uid),
+                entry,
+                SetOptions.merge()
+        );
+    }
+
+    private void writeCycleMetadata(Transaction transaction, String cycleId, boolean monthly) {
+        long[] window = cycleWindow(cycleId, monthly);
+        if (window == null) return;
+        Map<String, Object> cycle = new HashMap<>();
+        cycle.put("cycleId", cycleId);
+        cycle.put("monthly", monthly);
+        cycle.put("startMs", window[0]);
+        cycle.put("endMs", window[1]);
+        cycle.put("processed", false);
+        cycle.put("updatedAtMillis", System.currentTimeMillis());
+        transaction.set(
+                db.collection("leaderboardCycles").document(cycleId),
+                cycle,
+                SetOptions.merge()
+        );
+    }
+
+    private long[] cycleWindow(String cycleId, boolean monthly) {
+        try {
+            Calendar start = Calendar.getInstance();
+            if (monthly) {
+                if (!cycleId.startsWith("M_") || cycleId.length() != 8) return null;
+                start.set(Calendar.YEAR, Integer.parseInt(cycleId.substring(2, 6)));
+                start.set(Calendar.MONTH, Integer.parseInt(cycleId.substring(6, 8)) - 1);
+                start.set(Calendar.DAY_OF_MONTH, 1);
+            } else {
+                if (!cycleId.startsWith("W_") || cycleId.length() != 10) return null;
+                start.set(Calendar.YEAR, Integer.parseInt(cycleId.substring(2, 6)));
+                start.set(Calendar.MONTH, Integer.parseInt(cycleId.substring(6, 8)) - 1);
+                start.set(Calendar.DAY_OF_MONTH, Integer.parseInt(cycleId.substring(8, 10)));
+            }
+            start.set(Calendar.HOUR_OF_DAY, 0);
+            start.set(Calendar.MINUTE, 0);
+            start.set(Calendar.SECOND, 0);
+            start.set(Calendar.MILLISECOND, 0);
+            Calendar end = (Calendar) start.clone();
+            if (monthly) {
+                end.add(Calendar.MONTH, 1);
+                end.add(Calendar.MILLISECOND, -1);
+            } else {
+                end.add(Calendar.DAY_OF_MONTH, 6);
+                end.set(Calendar.HOUR_OF_DAY, 23);
+                end.set(Calendar.MINUTE, 59);
+                end.set(Calendar.SECOND, 59);
+                end.set(Calendar.MILLISECOND, 999);
+            }
+            return new long[]{start.getTimeInMillis(), end.getTimeInMillis()};
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 
     private String value(String input) {

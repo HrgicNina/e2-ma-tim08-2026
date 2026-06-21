@@ -1,5 +1,10 @@
 const { WebSocketServer } = require("ws");
 const crypto = require("crypto");
+const {
+  startFirebaseBridge,
+  createOfflineMatchInvite,
+  updateOfflineMatchInviteStatus,
+} = require("./firebaseBridge");
 
 const PORT = process.env.PORT || 8080;
 const wss = new WebSocketServer({ port: PORT });
@@ -201,7 +206,7 @@ function handleQueueCancel(ws) {
   send(ws, "queue.cancelled", {});
 }
 
-function handleInviteSend(ws, payload) {
+async function handleInviteSend(ws, payload) {
   const meta = socketsMeta.get(ws);
   if (!meta) return error(ws, "Niste autentikovani.");
   const target = (payload.target || "").trim();
@@ -217,7 +222,44 @@ function handleInviteSend(ws, payload) {
       }
     }
   }
-  if (!targetWs) return error(ws, "Prijatelj nije online.");
+  if (!targetWs) {
+    const inviteId = crypto.randomUUID();
+    const expiresAtMillis = Date.now() + INVITE_TIMEOUT_MS;
+    let targetUser;
+    try {
+      targetUser = await createOfflineMatchInvite({
+        inviteId,
+        fromUid: meta.uid,
+        fromUsername: meta.username || meta.uid,
+        targetIdentity: target,
+        expiresAtMillis,
+      });
+    } catch (e) {
+      return error(ws, `Offline poziv nije poslat: ${e.message}`);
+    }
+
+    const timeoutHandle = setTimeout(() => {
+      const activeInvite = invites.get(inviteId);
+      if (!activeInvite) return;
+      invites.delete(inviteId);
+      updateOfflineMatchInviteStatus(inviteId, "expired").catch(() => {});
+      const fromWs = clientsByUid.get(activeInvite.fromUid);
+      if (fromWs) send(fromWs, "invite.expired", { inviteId });
+    }, INVITE_TIMEOUT_MS);
+
+    invites.set(inviteId, {
+      fromUid: meta.uid,
+      toUid: targetUser.uid,
+      timeoutHandle,
+      offline: true,
+    });
+    send(ws, "invite.sent", {
+      inviteId,
+      expiresInSeconds: INVITE_TIMEOUT_MS / 1000,
+    });
+    info(ws, "Offline poziv i sistemska notifikacija su poslati.");
+    return;
+  }
 
   const targetMeta = socketsMeta.get(targetWs);
   if (!targetMeta) return error(ws, "Prijatelj nije dostupan.");
@@ -272,9 +314,13 @@ function handleInviteRespond(ws, payload) {
   }
 
   const fromWs = clientsByUid.get(invite.fromUid);
-  if (!fromWs) return error(ws, "Igrac koji je poslao poziv nije online.");
+  if (!fromWs) {
+    if (invite.offline) updateOfflineMatchInviteStatus(inviteId, "expired").catch(() => {});
+    return error(ws, "Igrac koji je poslao poziv nije online.");
+  }
 
   if (!accept) {
+    if (invite.offline) updateOfflineMatchInviteStatus(inviteId, "declined").catch(() => {});
     send(fromWs, "invite.declined", {
       byUid: meta.uid,
       byUsername: meta.username || meta.uid,
@@ -283,20 +329,28 @@ function handleInviteRespond(ws, payload) {
   }
 
   const fromMeta = socketsMeta.get(fromWs);
-  if (!fromMeta) return error(ws, "Igrac koji je poslao poziv nije dostupan.");
-  if (fromMeta.roomId) {
-    error(ws, "Igrac koji je poslao poziv je vec u partiji.");
-    return error(fromWs, "Vec ste u partiji.");
-  }
-  if (meta.roomId) {
-    error(ws, "Vec ste u partiji.");
-    return error(fromWs, "Prijatelj je vec u partiji.");
-  }
+if (!fromMeta) return error(ws, "Igrac koji je poslao poziv nije dostupan.");
 
-  if (!startMatch(invite.fromUid, invite.toUid, true)) {
-    error(ws, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
-    return error(fromWs, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
-  }
+if (fromMeta.roomId) {
+  error(ws, "Igrac koji je poslao poziv je vec u partiji.");
+  return error(fromWs, "Vec ste u partiji.");
+}
+
+if (meta.roomId) {
+  error(ws, "Vec ste u partiji.");
+  return error(fromWs, "Prijatelj je vec u partiji.");
+}
+
+if (invite.offline) {
+  updateOfflineMatchInviteStatus(inviteId, "accepted").catch(() => {});
+}
+
+if (!startMatch(invite.fromUid, invite.toUid, true)) {
+  error(ws, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
+  return error(
+    fromWs,
+    "Partija ne moze da se pokrene jer je jedan igrac zauzet."
+  );
 }
 
 function handleInviteCancel(ws, payload) {
@@ -311,6 +365,7 @@ function handleInviteCancel(ws, payload) {
   if (invite.timeoutHandle) {
     clearTimeout(invite.timeoutHandle);
   }
+  if (invite.offline) updateOfflineMatchInviteStatus(inviteId, "cancelled").catch(() => {});
 
   const toWs = clientsByUid.get(invite.toUid);
   if (toWs) {
@@ -442,6 +497,9 @@ wss.on("connection", (ws) => {
           clearTimeout(invite.timeoutHandle);
         }
         invites.delete(inviteId);
+        if (invite.offline) {
+          updateOfflineMatchInviteStatus(inviteId, "cancelled").catch(() => {});
+        }
         if (invite.fromUid === meta.uid) {
           const toWs = clientsByUid.get(invite.toUid);
           if (toWs) {
@@ -466,4 +524,4 @@ wss.on("connection", (ws) => {
   });
 });
 
-console.log(`Slagalica WS server listening on ws://localhost:${PORT}`);
+startFirebaseBridge().catch(() => {});
