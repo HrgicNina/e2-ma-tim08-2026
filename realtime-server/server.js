@@ -92,11 +92,14 @@ function getOpponentUid(room, uid) {
 function startMatch(uidA, uidB, friendly) {
   const wsA = clientsByUid.get(uidA);
   const wsB = clientsByUid.get(uidB);
-  if (!wsA || !wsB) return;
+  if (!wsA || !wsB) return false;
 
   const metaA = socketsMeta.get(wsA);
   const metaB = socketsMeta.get(wsB);
-  if (!metaA || !metaB) return;
+  if (!metaA || !metaB || metaA.roomId || metaB.roomId) return false;
+
+  removeFromQueue(uidA);
+  removeFromQueue(uidB);
 
   const roomId = crypto.randomUUID();
   const room = {
@@ -124,6 +127,7 @@ function startMatch(uidA, uidB, friendly) {
     opponentUid: uidA,
     opponentUsername: metaA.username,
   });
+  return true;
 }
 
 function finishMatch(roomId, winnerUid, loserUid, forfeit = false, draw = false) {
@@ -259,12 +263,13 @@ function handleInviteRespond(ws, payload) {
   const accept = !!payload.accept;
   const invite = invites.get(inviteId);
   if (!invite) return error(ws, "Poziv vise ne postoji.");
+
+  if (invite.toUid !== meta.uid) return error(ws, "Nije vas poziv.");
+
   invites.delete(inviteId);
   if (invite.timeoutHandle) {
     clearTimeout(invite.timeoutHandle);
   }
-
-  if (invite.toUid !== meta.uid) return error(ws, "Nije vas poziv.");
 
   const fromWs = clientsByUid.get(invite.fromUid);
   if (!fromWs) return error(ws, "Igrac koji je poslao poziv nije online.");
@@ -276,7 +281,22 @@ function handleInviteRespond(ws, payload) {
     });
     return;
   }
-  startMatch(invite.fromUid, invite.toUid, true);
+
+  const fromMeta = socketsMeta.get(fromWs);
+  if (!fromMeta) return error(ws, "Igrac koji je poslao poziv nije dostupan.");
+  if (fromMeta.roomId) {
+    error(ws, "Igrac koji je poslao poziv je vec u partiji.");
+    return error(fromWs, "Vec ste u partiji.");
+  }
+  if (meta.roomId) {
+    error(ws, "Vec ste u partiji.");
+    return error(fromWs, "Prijatelj je vec u partiji.");
+  }
+
+  if (!startMatch(invite.fromUid, invite.toUid, true)) {
+    error(ws, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
+    return error(fromWs, "Partija ne moze da se pokrene jer je jedan igrac zauzet.");
+  }
 }
 
 function handleInviteCancel(ws, payload) {
@@ -407,6 +427,11 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     const meta = socketsMeta.get(ws);
     if (!meta) return;
+
+    if (clientsByUid.get(meta.uid) !== ws) {
+      socketsMeta.delete(ws);
+      return;
+    }
 
     removeFromQueue(meta.uid);
     clientsByUid.delete(meta.uid);

@@ -5,7 +5,7 @@ import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.QuerySnapshot;
+import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.Transaction;
 
 import java.text.SimpleDateFormat;
@@ -49,6 +49,7 @@ public class LeaderboardRepository {
     private static final int[] WEEKLY_REWARDS = {5, 3, 2};
     private static final int[] MONTHLY_REWARDS = {10, 6, 4};
     private static final long TWO_MINUTES_MS = 2 * 60 * 1000L;
+    private static final long LEADERBOARD_PAGE_SIZE = 200L;
 
     private final FirebaseFirestore db = FirebaseFirestore.getInstance();
 
@@ -168,17 +169,20 @@ public class LeaderboardRepository {
         String cycleStarsField = monthly ? "monthlyCycleStars" : "weeklyCycleStars";
         String cycleMatchesField = monthly ? "monthlyCycleMatches" : "weeklyCycleMatches";
 
-        db.collection("users")
-                .whereEqualTo(cycleIdField, cycleId)
-                .limit(200)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    List<LeaderboardEntry> ranked = mapEntries(snapshot, cycleStarsField, cycleMatchesField);
-                    ranked.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
-                    List<WinnerReward> rewards = buildRewards(ranked, monthly, cycleId, cycle.label());
-                    applyRewardsSequentially(rewards, 0, callback);
-                })
-                .addOnFailureListener(e -> callback.onError("Ne mogu da rasporedim nagrade za rang listu."));
+        loadAllCycleUsers(cycleIdField, cycleId, new CycleUsersCallback() {
+            @Override
+            public void onSuccess(List<DocumentSnapshot> documents) {
+                List<LeaderboardEntry> ranked = mapEntries(documents, cycleStarsField, cycleMatchesField);
+                ranked.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
+                List<WinnerReward> rewards = buildRewards(ranked, monthly, cycleId, cycle.label());
+                applyRewardsSequentially(rewards, 0, callback);
+            }
+
+            @Override
+            public void onError() {
+                callback.onError("Ne mogu da rasporedim nagrade za rang listu.");
+            }
+        });
     }
 
     private void applyRewardsSequentially(List<WinnerReward> rewards, int index, ActionCallback callback) {
@@ -300,24 +304,27 @@ public class LeaderboardRepository {
         String cycleStarsField = monthly ? "monthlyCycleStars" : "weeklyCycleStars";
         String cycleMatchesField = monthly ? "monthlyCycleMatches" : "weeklyCycleMatches";
 
-        db.collection("users")
-                .whereEqualTo(cycleIdField, cycle.id)
-                .limit(200)
-                .get()
-                .addOnSuccessListener(snapshot -> {
-                    List<LeaderboardEntry> entries = mapEntries(snapshot, cycleStarsField, cycleMatchesField);
-                    entries.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
-                    callback.onSuccess(cycle, entries);
-                })
-                .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam rang listu."));
+        loadAllCycleUsers(cycleIdField, cycle.id, new CycleUsersCallback() {
+            @Override
+            public void onSuccess(List<DocumentSnapshot> documents) {
+                List<LeaderboardEntry> entries = mapEntries(documents, cycleStarsField, cycleMatchesField);
+                entries.sort((a, b) -> Long.compare(b.cycleStars, a.cycleStars));
+                callback.onSuccess(cycle, entries);
+            }
+
+            @Override
+            public void onError() {
+                callback.onError("Ne mogu da ucitam rang listu.");
+            }
+        });
     }
 
-    private List<LeaderboardEntry> mapEntries(QuerySnapshot snapshot, String starsField, String matchesField) {
+    private List<LeaderboardEntry> mapEntries(List<DocumentSnapshot> documents, String starsField, String matchesField) {
         List<LeaderboardEntry> entries = new ArrayList<>();
-        if (snapshot == null || snapshot.isEmpty()) {
+        if (documents == null || documents.isEmpty()) {
             return entries;
         }
-        for (DocumentSnapshot doc : snapshot.getDocuments()) {
+        for (DocumentSnapshot doc : documents) {
             Long matches = doc.getLong(matchesField);
             if (matches == null || matches <= 0) {
                 continue;
@@ -331,6 +338,52 @@ public class LeaderboardRepository {
             entries.add(item);
         }
         return entries;
+    }
+
+    private void loadAllCycleUsers(String cycleIdField, String cycleId, CycleUsersCallback callback) {
+        loadCycleUsersPage(cycleIdField, cycleId, null, new ArrayList<>(), callback);
+    }
+
+    private void loadCycleUsersPage(
+            String cycleIdField,
+            String cycleId,
+            DocumentSnapshot lastDocument,
+            List<DocumentSnapshot> collected,
+            CycleUsersCallback callback
+    ) {
+        Query query = db.collection("users")
+                .whereEqualTo(cycleIdField, cycleId)
+                .orderBy(com.google.firebase.firestore.FieldPath.documentId())
+                .limit(LEADERBOARD_PAGE_SIZE);
+        if (lastDocument != null) {
+            query = query.startAfter(lastDocument);
+        }
+        query.get()
+                .addOnSuccessListener(snapshot -> {
+                    if (snapshot == null || snapshot.isEmpty()) {
+                        callback.onSuccess(collected);
+                        return;
+                    }
+                    collected.addAll(snapshot.getDocuments());
+                    if (snapshot.size() < LEADERBOARD_PAGE_SIZE) {
+                        callback.onSuccess(collected);
+                        return;
+                    }
+                    List<DocumentSnapshot> page = snapshot.getDocuments();
+                    loadCycleUsersPage(
+                            cycleIdField,
+                            cycleId,
+                            page.get(page.size() - 1),
+                            collected,
+                            callback
+                    );
+                })
+                .addOnFailureListener(e -> callback.onError());
+    }
+
+    private interface CycleUsersCallback {
+        void onSuccess(List<DocumentSnapshot> documents);
+        void onError();
     }
 
     private String value(String value) {
