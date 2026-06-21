@@ -14,10 +14,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/**
- * Read-only client repository for leaderboards.
- * Cycle rollover and reward distribution are owned by the scheduled backend function.
- */
 public class LeaderboardRepository {
 
     public interface LoadCallback {
@@ -123,9 +119,6 @@ public class LeaderboardRepository {
                 .addOnFailureListener(e -> callback.onError("Ne mogu da ucitam istoriju ciklusa."));
     }
 
-    /**
-     * Kept for API compatibility with existing screens. The backend scheduler now owns this work.
-     */
     public void processCycleRolloverAndRewards(ActionCallback callback) {
         callback.onSuccess();
     }
@@ -142,7 +135,6 @@ public class LeaderboardRepository {
                         loadCurrentLeaguesAndReturn(cycle, entries, callback);
                         return;
                     }
-                    // Compatibility for users who played before per-cycle ledgers were introduced.
                     loadLegacyLeaderboard(monthly, cycle, callback);
                 })
                 .addOnFailureListener(e -> loadLegacyLeaderboard(monthly, cycle, callback));

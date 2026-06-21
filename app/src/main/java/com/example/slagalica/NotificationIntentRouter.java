@@ -29,6 +29,12 @@ public final class NotificationIntentRouter {
             }
         } else if ("open_rankings".equals(normalizedAction) || "ranking".equalsIgnoreCase(value(type))) {
             intent = new Intent(context, RankingsActivity.class);
+        } else if ("respond_match_invite".equals(normalizedAction)) {
+            intent = new Intent(context, MatchActivity.class);
+            if (!value(actionPayload).isEmpty()) {
+                intent.putExtra(MatchActivity.EXTRA_RESPOND_INVITE_ID, actionPayload);
+                intent.putExtra(MatchActivity.EXTRA_PROMPT_INVITE_RESPONSE, true);
+            }
         } else if ("open_match".equals(normalizedAction)) {
             intent = new Intent(context, MatchActivity.class);
             if (!value(actionPayload).isEmpty()) {
