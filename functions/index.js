@@ -158,7 +158,6 @@ exports.createRegionChatNotifications = onDocumentCreated(
   }
 );
 
-// Any current or future notification producer (including league changes) automatically gets push delivery.
 exports.pushSystemNotification = onDocumentCreated(
   "users/{uid}/notifications/{notificationId}",
   async (event) => {

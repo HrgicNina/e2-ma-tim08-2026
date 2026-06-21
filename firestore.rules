@@ -27,7 +27,6 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      // Public profile lookup is required before authentication for username-based login.
       allow read: if true;
       allow create, update: if ownUser(uid);
       allow delete: if false;
@@ -38,7 +37,6 @@ service cloud.firestore {
 
       match /notifications/{notificationId} {
         allow read, update: if ownUser(uid);
-        // Friend-match invitations are currently created by the authenticated sender.
         allow create: if signedIn() &&
           request.resource.data.type in ['other', 'chat', 'ranking', 'rewards'];
         allow delete: if ownUser(uid);
@@ -64,6 +62,12 @@ service cloud.firestore {
         request.resource.data.text.size() > 0 &&
         request.resource.data.text.size() <= 1000;
       allow update, delete: if false;
+    }
+
+    match /matchInvites/{inviteId} {
+      allow read: if signedIn() &&
+        (resource.data.fromUid == request.auth.uid || resource.data.toUid == request.auth.uid);
+      allow create, update, delete: if false;
     }
 
     match /leaderboardCycles/{cycleId} {
@@ -95,7 +99,6 @@ service cloud.firestore {
       allow write: if signedIn();
     }
 
-    // Existing teammate features retain their current client-side implementation.
     match /regionLeaderboards/{document=**} {
       allow read, write: if signedIn();
     }

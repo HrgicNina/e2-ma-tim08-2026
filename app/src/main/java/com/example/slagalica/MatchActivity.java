@@ -48,6 +48,7 @@ public class MatchActivity extends AppCompatActivity {
     public static final String EXTRA_AUTO_START_QUEUE = "auto_start_queue";
     public static final String EXTRA_AUTO_INVITE_TARGET = "auto_invite_target";
     public static final String EXTRA_RESPOND_INVITE_ID = "respond_invite_id";
+    public static final String EXTRA_PROMPT_INVITE_RESPONSE = "prompt_invite_response";
     public static final String EXTRA_GAME_PLAYER1_SCORE = "game_player1_score";
     public static final String EXTRA_GAME_PLAYER2_SCORE = "game_player2_score";
     public static final String EXTRA_MATCH_FORFEIT = "match_forfeit";
@@ -129,6 +130,7 @@ public class MatchActivity extends AppCompatActivity {
     private boolean autoStartQueueRequested = false;
     private String autoInviteTarget = null;
     private String respondInviteId = null;
+    private boolean promptInviteResponse = false;
     private boolean guestMode = false;
     private boolean opponentForfeited = false;
     private boolean suppressInRoomInfoMessages = false;
@@ -209,6 +211,7 @@ public class MatchActivity extends AppCompatActivity {
         autoStartQueueRequested = getIntent().getBooleanExtra(EXTRA_AUTO_START_QUEUE, false);
         autoInviteTarget = getIntent().getStringExtra(EXTRA_AUTO_INVITE_TARGET);
         respondInviteId = getIntent().getStringExtra(EXTRA_RESPOND_INVITE_ID);
+        promptInviteResponse = getIntent().getBooleanExtra(EXTRA_PROMPT_INVITE_RESPONSE, false);
         if (!TextUtils.isEmpty(respondInviteId) && getApplication() instanceof SlagalicaApp) {
             MatchRealtimeClient existingClient = ((SlagalicaApp) getApplication())
                     .takeInviteClientForMatch(respondInviteId);
@@ -444,6 +447,7 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onInviteSent(String inviteId, int expiresInSeconds) {
                 runOnUiThread(() -> {
+                    pendingInviteTargetForFallback = null;
                     outgoingInvitePending = true;
                     outgoingInviteId = inviteId;
                     tvMatchInfo.setText("Poziv poslat. Cekanje odgovora (" + expiresInSeconds + "s)...");
@@ -790,9 +794,14 @@ public class MatchActivity extends AppCompatActivity {
             String inviteId = respondInviteId;
             respondInviteId = null;
             if (!guestMode && !inRoom && !queueing && wsAuthenticated) {
-                realtimeClient.respondInvite(inviteId, true);
-                tvMatchInfo.setText("Prihvatam poziv...");
-                renderMatch();
+                if (promptInviteResponse) {
+                    promptInviteResponse = false;
+                    showInviteDialog(inviteId, "", "Prijatelj");
+                } else {
+                    realtimeClient.respondInvite(inviteId, true);
+                    tvMatchInfo.setText("Prihvatam poziv...");
+                    renderMatch();
+                }
             }
             return;
         }

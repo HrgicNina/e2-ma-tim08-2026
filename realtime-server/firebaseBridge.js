@@ -3,7 +3,7 @@ const path = require("path");
 
 const PROJECT_ID = "slagalica-30ba3";
 const POLL_INTERVAL_MS = 2_000;
-const CYCLE_INTERVAL_MS = 2 * 60_000;
+const CYCLE_INTERVAL_MS = 10_000;
 const APP_ACTIVE_STALE_MS = 90_000;
 const RECENT_ON_START_MS = 2 * 60_000;
 
@@ -24,6 +24,7 @@ const seenNotifications = new Set();
 const bridgeStartedAt = Date.now();
 let polling = false;
 let processingCycles = false;
+let activeFirestore = null;
 
 function loadFirebaseTools() {
   const appData = process.env.APPDATA;
@@ -46,7 +47,6 @@ function loadFirebaseTools() {
       urlPrefix: "https://fcm.googleapis.com",
       apiVersion: "v1",
     }),
-    email: account.user && account.user.email ? account.user.email : "Firebase CLI nalog",
   };
 }
 
@@ -252,7 +252,6 @@ async function sendNotificationFcm(fcm, firestore, user, notification) {
       });
       sent++;
     } catch (error) {
-      console.warn(`[Firebase bridge] FCM nije poslat za ${user.username || user.uid}: ${error.message}`);
     }
   }
   return sent;
@@ -281,7 +280,6 @@ async function pollNotifications(fcm, firestore, users) {
       const sent = await sendNotificationFcm(fcm, firestore, user, notification);
       if (sent > 0) {
         seenNotifications.add(key);
-        console.log(`[Firebase bridge] FCM -> ${user.username || user.uid}: ${text(notification, "title")}`);
       }
     }
   }
@@ -389,27 +387,93 @@ async function processLeaderboardCycles(firestore) {
           )],
         }
       );
-      console.log(`[Firebase bridge] Obradjen rang ciklus ${cycleId}.`);
     }
   } finally {
     processingCycles = false;
   }
 }
 
+async function createOfflineMatchInvite({
+  inviteId,
+  fromUid,
+  fromUsername,
+  targetIdentity,
+  expiresAtMillis,
+}) {
+  if (!activeFirestore) {
+    throw new Error("Firebase bridge nije spreman.");
+  }
+  const documents = await listDocuments(activeFirestore, "users", 100);
+  const normalizedTarget = String(targetIdentity || "").trim().toLowerCase();
+  const target = documents.find((document) =>
+    documentId(document).toLowerCase() === normalizedTarget ||
+    text(document, "username").toLowerCase() === normalizedTarget
+  );
+  if (!target) throw new Error("Prijatelj ne postoji.");
+  const toUid = documentId(target);
+  if (toUid === fromUid) throw new Error("Ne mozete pozvati sebe.");
+  if (bool(target, "inMatch")) throw new Error("Prijatelj je vec u partiji.");
+  const toUsername = text(target, "username") || toUid;
+  const sender = fromUsername || fromUid;
+
+  const writes = [
+    updateWrite(`matchInvites/${inviteId}`, {
+      inviteId: stringField(inviteId),
+      fromUid: stringField(fromUid),
+      fromUsername: stringField(sender),
+      toUid: stringField(toUid),
+      toUsername: stringField(toUsername),
+      status: stringField("pending"),
+      createdAt: timestampField(),
+      expiresAtMillis: integerField(expiresAtMillis),
+    }),
+    updateWrite(
+      `users/${toUid}/notifications/invite_${inviteId}`,
+      notificationFields(
+        "other",
+        "Poziv za prijateljsku partiju",
+        `${sender} vas poziva na prijateljsku partiju. Poziv vazi 10 sekundi.`,
+        "respond_match_invite",
+        inviteId
+      )
+    ),
+  ];
+  await activeFirestore.post(
+    `/projects/${PROJECT_ID}/databases/(default)/documents:commit`,
+    { writes }
+  );
+  return { uid: toUid, username: toUsername };
+}
+
+async function updateOfflineMatchInviteStatus(inviteId, status) {
+  if (!activeFirestore || !inviteId) return;
+  await activeFirestore.post(
+    `/projects/${PROJECT_ID}/databases/(default)/documents:commit`,
+    {
+      writes: [updateWrite(
+        `matchInvites/${inviteId}`,
+        {
+          status: stringField(status),
+          respondedAt: timestampField(),
+        },
+        ["status", "respondedAt"]
+      )],
+    }
+  );
+}
+
 async function startFirebaseBridge() {
   if (process.env.FIREBASE_BRIDGE_ENABLED === "0") {
-    console.log("[Firebase bridge] Iskljucen preko FIREBASE_BRIDGE_ENABLED=0.");
     return;
   }
   let clients;
   try {
     clients = loadFirebaseTools();
   } catch (error) {
-    console.warn(`[Firebase bridge] Nije pokrenut: ${error.message}`);
     return;
   }
-  const { firestore, fcm, email } = clients;
-  console.log(`[Firebase bridge] Aktiviran za ${PROJECT_ID} (${email}).`);
+  const { firestore, fcm } = clients;
+  activeFirestore = firestore;
 
   const poll = async () => {
     if (polling) return;
@@ -420,23 +484,22 @@ async function startFirebaseBridge() {
       await pollChatMessages(firestore, users);
       await pollNotifications(fcm, firestore, users);
     } catch (error) {
-      console.warn(`[Firebase bridge] Poll greska: ${error.message}`);
     } finally {
       polling = false;
     }
   };
 
   await poll();
-  await processLeaderboardCycles(firestore).catch((error) =>
-    console.warn(`[Firebase bridge] Rang greska: ${error.message}`)
-  );
+  await processLeaderboardCycles(firestore).catch(() => {});
   setInterval(poll, POLL_INTERVAL_MS);
   setInterval(
-    () => processLeaderboardCycles(firestore).catch((error) =>
-      console.warn(`[Firebase bridge] Rang greska: ${error.message}`)
-    ),
+    () => processLeaderboardCycles(firestore).catch(() => {}),
     CYCLE_INTERVAL_MS
   );
 }
 
-module.exports = { startFirebaseBridge };
+module.exports = {
+  startFirebaseBridge,
+  createOfflineMatchInvite,
+  updateOfflineMatchInviteStatus,
+};
