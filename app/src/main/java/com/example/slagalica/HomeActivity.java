@@ -314,16 +314,28 @@ public class HomeActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(String message) {
-                        runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                        if (!isQuotaLikeError(message)) {
+                            runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
                     }
                 });
             }
 
             @Override
             public void onError(String message) {
-                runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                if (!isQuotaLikeError(message)) {
+                    runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                }
             }
         });
+    }
+
+    private boolean isQuotaLikeError(String message) {
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("resource_exhausted") || normalized.contains("quota");
     }
 
     private void refreshEconomyOnHomeIfRegistered() {

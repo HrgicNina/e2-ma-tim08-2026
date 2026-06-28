@@ -171,6 +171,9 @@ function handleAuth(ws, payload) {
   const prev = clientsByUid.get(uid);
   if (prev && prev !== ws) {
     // Stara konekcija za isti uid se gasi da ne postoji dupli session.
+    send(prev, "error", {
+      message: "Ovaj nalog je otvoren na drugom uredjaju. Za test partije koristite dva razlicita naloga.",
+    });
     try {
       prev.close(1000, "replaced_session");
     } catch (_) {

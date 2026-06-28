@@ -156,6 +156,7 @@ public class MastermindGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mastermind_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         gameService = new MastermindGameService();
         matchRoomId = getIntent().getStringExtra("match_room_id");

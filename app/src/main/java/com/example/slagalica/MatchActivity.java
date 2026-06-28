@@ -517,6 +517,7 @@ public class MatchActivity extends AppCompatActivity {
             public void onQueueJoined() {
                 runOnUiThread(() -> {
                     queueing = true;
+                    pendingJoinRequest = false;
                     tvMatchInfo.setText(getString(R.string.match_waiting));
                     renderMatch();
                 });
@@ -542,13 +543,9 @@ public class MatchActivity extends AppCompatActivity {
                     if (forfeit && iAmWinner) {
                         opponentForfeited = true;
                         notifyCurrentGameOpponentForfeit();
-                        if (currentGameIndex >= GAME_NAMES.length - 1) {
-                            finalizeSoloWinAfterForfeit();
-                        } else {
-                            Toast.makeText(MatchActivity.this, "Protivnik je napustio partiju. Nastavljate sami.", Toast.LENGTH_LONG).show();
-                            tvMatchInfo.setText("Protivnik je odustao. Nastavite igru.");
-                            renderMatch();
-                        }
+                        Toast.makeText(MatchActivity.this, "Protivnik je napustio partiju. Nastavljate sami.", Toast.LENGTH_LONG).show();
+                        tvMatchInfo.setText("Protivnik je odustao. Nastavite igru.");
+                        renderMatch();
                         return;
                     }
                     myScore = yourScore;
@@ -704,46 +701,128 @@ public class MatchActivity extends AppCompatActivity {
     }
 
     private void startRankedQueue() {
-        if (inRoom || queueing) return;
+        if (inRoom || queueing || pendingJoinRequest) return;
         if (!wsConnected) {
             renderMatch();
             return;
         }
         queueTimeoutHandling = false;
+        pendingJoinRequest = true;
+        tvMatchInfo.setText(getString(R.string.match_waiting));
+        renderMatch();
         if (guestMode) {
                 if (wsAuthenticated) {
                     realtimeClient.joinRandomQueue();
                 } else {
-                    pendingJoinRequest = true;
                     tvMatchInfo.setText(getString(R.string.match_waiting));
                     renderMatch();
                 }
                 scheduleQueueTimeout();
                 return;
             }
+        joinQueueAfterTokenStep();
+        scheduleQueueTimeout();
+        economyService.grantDailyTokensIfNeeded(myUid, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> values) {
+                tokens = values.get("tokens");
+                stars = values.get("stars");
+                Long refreshedLeague = values.get("league");
+                if (refreshedLeague != null) {
+                    league = refreshedLeague;
+                }
+                runOnUiThread(() -> {
+                    tvMatchTokens.setText("Tokeni\n" + tokens);
+                    tvMatchStars.setText("Zvezde\n" + stars);
+                    tvMatchLeague.setText("Liga\n" + league);
+                });
+                reserveTokenInBackground();
+            }
+
+            @Override
+            public void onError(String message) {
+                reserveTokenInBackground();
+            }
+        });
+    }
+
+    private void reserveTokenInBackground() {
         economyService.reserveTokenForRankedMatch(myUid, new EconomyService.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> values) {
                 rankedTokenReserved = true;
                 tokens = values.get("tokens");
-                if (wsAuthenticated) {
-                    realtimeClient.joinRandomQueue();
-                } else {
-                    pendingJoinRequest = true;
-                    tvMatchInfo.setText(getString(R.string.match_waiting));
+                if (!inRoom && !queueing && !pendingJoinRequest) {
+                    refundLateReservedToken();
+                    return;
                 }
                 runOnUiThread(() -> {
                     tvMatchTokens.setText("Tokeni\n" + tokens);
                     renderMatch();
                 });
-                scheduleQueueTimeout();
             }
 
             @Override
             public void onError(String message) {
-                runOnUiThread(() -> Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show());
+                if (isNoTokensError(message)) {
+                    boolean matchAlreadyStarted = inRoom;
+                    if (!matchAlreadyStarted) {
+                        pendingJoinRequest = false;
+                        queueing = false;
+                        cancelQueueTimeout();
+                        realtimeClient.cancelQueue();
+                    }
+                    runOnUiThread(() -> {
+                        if (!matchAlreadyStarted) {
+                            Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
+                        }
+                        renderMatch();
+                    });
+                    return;
+                }
+                rankedTokenReserved = false;
+                runOnUiThread(() -> renderMatch());
             }
         });
+    }
+
+    private void refundLateReservedToken() {
+        if (!rankedTokenReserved) {
+            return;
+        }
+        economyService.refundReservedToken(myUid, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> values) {
+                rankedTokenReserved = false;
+                Long refreshedTokens = values.get("tokens");
+                tokens = refreshedTokens == null ? tokens : refreshedTokens;
+                runOnUiThread(() -> {
+                    tvMatchTokens.setText("Tokeni\n" + tokens);
+                    renderMatch();
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
+    }
+
+    private void joinQueueAfterTokenStep() {
+        if (wsAuthenticated) {
+            realtimeClient.joinRandomQueue();
+        } else {
+            pendingJoinRequest = true;
+            tvMatchInfo.setText(getString(R.string.match_waiting));
+        }
+    }
+
+    private boolean isNoTokensError(String message) {
+        if (TextUtils.isEmpty(message)) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("nemate dovoljno tokena") || normalized.contains("no_tokens");
     }
 
     private void cancelQueue() {
@@ -1263,15 +1342,15 @@ public class MatchActivity extends AppCompatActivity {
         }
         if (inRoom && roomId != null) {
             realtimeClient.forfeit(roomId);
-            finishLocalRoom();
+            finishLocalRoom(false);
             if (rankedTokenReserved && !friendlyRoom) {
                 rankedTokenReserved = false;
             }
         }
 
         if (rankedPenaltyApplies) {
-            applyForfeitLoserResult((starDelta, tokenDelta, note) ->
-                    navigateHomeAfterForfeit(rankedForfeitMessage(starDelta, note)));
+            applyForfeitLoserResultInBackground();
+            navigateHomeAfterForfeit("Izgubili ste rangiranu partiju odustajanjem.");
             return;
         }
         if (wasFriendly) {
@@ -1295,6 +1374,22 @@ public class MatchActivity extends AppCompatActivity {
             return base + " Niste izgubili zvezde jer ih trenutno nemate.";
         }
         return base + " Oduzeto zvezda: " + lostStars + ".";
+    }
+
+    private void applyForfeitLoserResultInBackground() {
+        economyService.applyForfeitLoserPenalty(myUid, new EconomyService.EconomyCallback() {
+            @Override
+            public void onSuccess(Map<String, Long> values) {
+                resultApplied = true;
+                stars = values.get("stars");
+                tokens = values.get("tokens");
+                triggerLeaderboardRolloverCheck();
+            }
+
+            @Override
+            public void onError(String message) {
+            }
+        });
     }
 
     private void navigateHomeAfterForfeit(String message) {

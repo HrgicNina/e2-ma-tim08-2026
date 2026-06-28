@@ -97,10 +97,11 @@ public class PlayerEconomyRepository {
     public void grantDailyTokensIfNeeded(String uid, EconomyCallback callback) {
         DocumentReference ref = db.collection("users").document(uid);
         db.runTransaction((Transaction.Function<Map<String, Long>>) transaction -> {
-            Long tokens = transaction.get(ref).getLong("tokens");
-            Long stars = transaction.get(ref).getLong("stars");
-            Long league = transaction.get(ref).getLong("league");
-            Long lastGrantAt = transaction.get(ref).getLong("lastDailyTokenGrantAt");
+            DocumentSnapshot user = transaction.get(ref);
+            Long tokens = user.getLong("tokens");
+            Long stars = user.getLong("stars");
+            Long league = user.getLong("league");
+            Long lastGrantAt = user.getLong("lastDailyTokenGrantAt");
             if (tokens == null) tokens = 0L;
             if (stars == null) stars = 0L;
             if (league == null) league = 0L;
@@ -114,11 +115,33 @@ public class PlayerEconomyRepository {
             long todayStart = cal.getTimeInMillis();
 
             long newTokens = tokens;
-            if (lastGrantAt <= 0L) {
-                transaction.update(ref, "lastDailyTokenGrantAt", System.currentTimeMillis());
+            long now = System.currentTimeMillis();
+            if (!user.exists()) {
+                newTokens = 5L;
+                Map<String, Object> defaults = new HashMap<>();
+                defaults.put("tokens", newTokens);
+                defaults.put("stars", 0L);
+                defaults.put("league", 0L);
+                defaults.put("starTokenMilestonesAwarded", 0L);
+                defaults.put("lastDailyTokenGrantAt", now);
+                defaults.put("weeklyCycleId", currentWeeklyCycleId());
+                defaults.put("monthlyCycleId", currentMonthlyCycleId());
+                defaults.put("weeklyCycleStars", 0L);
+                defaults.put("monthlyCycleStars", 0L);
+                defaults.put("weeklyCycleMatches", 0L);
+                defaults.put("monthlyCycleMatches", 0L);
+                transaction.set(ref, defaults, SetOptions.merge());
+            } else if (lastGrantAt <= 0L) {
+                Map<String, Object> defaults = new HashMap<>();
+                defaults.put("tokens", newTokens);
+                defaults.put("stars", stars);
+                defaults.put("league", league);
+                defaults.put("starTokenMilestonesAwarded", user.getLong("starTokenMilestonesAwarded") == null ? 0L : user.getLong("starTokenMilestonesAwarded"));
+                defaults.put("lastDailyTokenGrantAt", now);
+                transaction.set(ref, defaults, SetOptions.merge());
             } else if (lastGrantAt < todayStart) {
                 newTokens = tokens + 5;
-                transaction.update(ref, "tokens", newTokens, "lastDailyTokenGrantAt", System.currentTimeMillis());
+                transaction.update(ref, "tokens", newTokens, "lastDailyTokenGrantAt", now);
             }
 
             Map<String, Long> out = new HashMap<>();
@@ -127,7 +150,12 @@ public class PlayerEconomyRepository {
             out.put("league", league);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
-                .addOnFailureListener(e -> callback.onError("Neuspesna dnevna dodela tokena."));
+                .addOnFailureListener(e -> {
+                    String details = errorDetails(e);
+                    callback.onError(details.isEmpty()
+                            ? "Neuspesna dnevna dodela tokena."
+                            : "Neuspesna dnevna dodela tokena. " + details);
+                });
     }
 
     public void reserveTokenForRankedMatch(String uid, EconomyCallback callback) {
@@ -148,8 +176,11 @@ public class PlayerEconomyRepository {
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> {
                     String msg = "Neuspesno rezervisanje tokena.";
-                    if (e.getMessage() != null && e.getMessage().contains("NO_TOKENS")) {
+                    String details = errorDetails(e);
+                    if (details.contains("NO_TOKENS")) {
                         msg = "Nemate dovoljno tokena za partiju.";
+                    } else if (!details.isEmpty()) {
+                        msg = msg + " " + details;
                     }
                     callback.onError(msg);
                 });
@@ -506,5 +537,18 @@ public class PlayerEconomyRepository {
 
     private String value(String input) {
         return input == null ? "" : input;
+    }
+
+    private String errorDetails(Throwable throwable) {
+        StringBuilder out = new StringBuilder();
+        Throwable current = throwable;
+        while (current != null) {
+            if (current.getMessage() != null && !current.getMessage().trim().isEmpty()) {
+                if (out.length() > 0) out.append(" ");
+                out.append(current.getMessage());
+            }
+            current = current.getCause();
+        }
+        return out.toString();
     }
 }

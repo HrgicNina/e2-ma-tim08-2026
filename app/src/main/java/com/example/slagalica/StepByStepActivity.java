@@ -135,6 +135,7 @@ public class StepByStepActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_step_by_step);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         service = new StepByStepService();
         matchRoomId = getIntent().getStringExtra("match_room_id");
