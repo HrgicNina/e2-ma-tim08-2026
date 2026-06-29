@@ -127,6 +127,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connections_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         connectionsService = new ConnectionsGameService(new ConnectionsRepository());
         matchRoomId = getIntent().getStringExtra("match_room_id");
@@ -258,7 +259,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         cancelRoundTimer();
         cancelTransitionTimer();
         phase = Phase.STARTER;
-        currentPlayer = currentRound == 0 ? 1 : 2;
+        currentPlayer = soloMode ? myPlayerNumber : (currentRound == 0 ? 1 : 2);
         selectedLeft = -1;
         selectedRight = -1;
         lastTimerSeconds = ConnectionsGameService.PHASE_TIME_MILLIS / 1000;
@@ -391,21 +392,22 @@ public class ConnectionsGameActivity extends AppCompatActivity {
 
         ConnectionRound round = rounds.get(currentRound);
         if (connectionsService.isCorrect(round, selectedLeft, selectedRight)) {
+            int scoringPlayer = activeScoringPlayer();
             matchedLeft[selectedLeft] = true;
             matchedRight[selectedRight] = true;
-            matchOwnerLeft[selectedLeft] = currentPlayer;
-            matchOwnerRight[selectedRight] = currentPlayer;
-            if (currentPlayer == 1) {
+            matchOwnerLeft[selectedLeft] = scoringPlayer;
+            matchOwnerRight[selectedRight] = scoringPlayer;
+            if (scoringPlayer == 1) {
                 player1Score += ConnectionsGameService.POINTS_PER_MATCH;
             } else {
                 player2Score += ConnectionsGameService.POINTS_PER_MATCH;
             }
-            if (currentPlayer == myPlayerNumber) {
+            if (scoringPlayer == myPlayerNumber) {
                 statsMatched++;
             }
         } else {
             wrongLeft[selectedLeft] = true;
-            if (currentPlayer == myPlayerNumber) {
+            if (activeScoringPlayer() == myPlayerNumber) {
                 statsMissed++;
             }
         }
@@ -442,7 +444,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         cancelRoundTimer();
         selectedLeft = -1;
         selectedRight = -1;
-        if (phase == Phase.STARTER && connectionsService.hasUnmatchedPairs(matchedLeft)) {
+        if (phase == Phase.STARTER && !soloMode && connectionsService.hasUnmatchedPairs(matchedLeft)) {
             openStealPhase();
             return;
         }
@@ -451,7 +453,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
 
     private void openStealPhase() {
         phase = Phase.STEAL;
-        currentPlayer = currentPlayer == 1 ? 2 : 1;
+        currentPlayer = soloMode ? myPlayerNumber : (currentPlayer == 1 ? 2 : 1);
         resetWrongLeft();
         lastTimerSeconds = ConnectionsGameService.PHASE_TIME_MILLIS / 1000;
         refreshUiFromState();
@@ -459,6 +461,10 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         if (isController()) {
             startTimer(ConnectionsGameService.PHASE_TIME_MILLIS);
         }
+    }
+
+    private int activeScoringPlayer() {
+        return soloMode ? myPlayerNumber : currentPlayer;
     }
 
     private void finishRound() {
@@ -942,6 +948,10 @@ public class ConnectionsGameActivity extends AppCompatActivity {
 
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
+        if (isRunningPhase() && currentPlayer != myPlayerNumber) {
+            cancelRoundTimer();
+            currentPlayer = myPlayerNumber;
+        }
         refreshUiFromState();
         if (isRunningPhase() && roundTimer == null && lastTimerSeconds > 0) {
             startTimer(Math.max(1000L, lastTimerSeconds * 1000L));

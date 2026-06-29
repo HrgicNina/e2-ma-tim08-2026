@@ -236,8 +236,14 @@ public class RegionsActivity extends AppCompatActivity {
         if (entry == null) {
             return;
         }
-        new AlertDialog.Builder(this)
-                .setCustomTitle(regionStatsTitle(entry))
+        final AlertDialog[] dialogRef = new AlertDialog[1];
+        AlertDialog dialog = new AlertDialog.Builder(this)
+                .setCustomTitle(regionStatsTitle(entry, () -> {
+                    if (dialogRef[0] != null) {
+                        dialogRef[0].dismiss();
+                    }
+                    startActivity(new Intent(this, ChatActivity.class));
+                }))
                 .setMessage("Prva mesta: " + entry.firstPlaces
                         + "\nDruga mesta: " + entry.secondPlaces
                         + "\nTreca mesta: " + entry.thirdPlaces
@@ -245,7 +251,9 @@ public class RegionsActivity extends AppCompatActivity {
                         + "\nUkupno registrovani igraci: " + entry.totalPlayers
                         + "\nZvezde u ciklusu: " + entry.monthlyStars)
                 .setPositiveButton("OK", null)
-                .show();
+                .create();
+        dialogRef[0] = dialog;
+        dialog.show();
     }
 
     private void handleRegionClick(String region) {
@@ -270,11 +278,15 @@ public class RegionsActivity extends AppCompatActivity {
         startActivity(new Intent(this, ChatActivity.class));
     }
 
-    private View regionStatsTitle(RegionLeaderboardEntry entry) {
+    private View regionStatsTitle(RegionLeaderboardEntry entry, Runnable openChat) {
         LinearLayout title = new LinearLayout(this);
         title.setOrientation(LinearLayout.HORIZONTAL);
         title.setGravity(Gravity.CENTER_VERTICAL);
         title.setPadding(dp(24), dp(20), dp(24), dp(8));
+        title.setLayoutParams(new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
 
         int avatarResource = regionAvatarResource(entry.region);
         if (avatarResource != 0) {
@@ -290,12 +302,33 @@ public class RegionsActivity extends AppCompatActivity {
         regionName.setTextSize(20);
         regionName.setTypeface(regionName.getTypeface(), android.graphics.Typeface.BOLD);
         LinearLayout.LayoutParams nameParams = new LinearLayout.LayoutParams(
+                0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
+                1f
         );
         nameParams.setMarginStart(avatarResource == 0 ? 0 : dp(10));
         title.addView(regionName, nameParams);
+
+        if (isMyRegion(entry.region)) {
+            TextView chatButton = new TextView(this);
+            chatButton.setText("\uD83D\uDCAC");
+            chatButton.setTextSize(20);
+            chatButton.setGravity(Gravity.CENTER);
+            chatButton.setContentDescription("Otvori cet regiona");
+            chatButton.setBackgroundResource(R.drawable.region_picker_background);
+            chatButton.setSelected(true);
+            chatButton.setOnClickListener(v -> openChat.run());
+            LinearLayout.LayoutParams chatParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+            chatParams.setMarginStart(dp(8));
+            title.addView(chatButton, chatParams);
+        }
         return title;
+    }
+
+    private boolean isMyRegion(String region) {
+        String selected = RegionCatalog.canonicalName(value(region));
+        String mine = RegionCatalog.canonicalName(value(currentData.myRegion));
+        return !selected.isEmpty() && selected.equals(mine);
     }
 
     private RegionLeaderboardEntry findRegion(String region) {

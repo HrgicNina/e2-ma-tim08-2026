@@ -133,6 +133,7 @@ public class QuizGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_quiz_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         quizService = new QuizGameService(new QuizRepository());
         matchRoomId = getIntent().getStringExtra("match_room_id");

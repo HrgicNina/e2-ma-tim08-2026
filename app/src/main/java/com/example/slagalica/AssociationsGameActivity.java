@@ -142,6 +142,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_associations_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         associationsService = new AssociationsGameService(new AssociationsRepository());
         matchRoomId = getIntent().getStringExtra("match_room_id");
@@ -305,7 +306,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         cancelRoundTimer();
         cancelTransitionTimer();
         phase = Phase.ACTIVE;
-        currentPlayer = currentRound == 0 ? 1 : 2;
+        currentPlayer = soloMode ? myPlayerNumber : (currentRound == 0 ? 1 : 2);
         roundAwardedPoints = 0;
         selectedColumn = -1;
         canGuess = false;
@@ -479,7 +480,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         String guess = columnInputs[column].getText().toString();
         if (associationsService.isColumnGuessCorrect(puzzles.get(currentRound), column, guess)) {
             solvedColumns[column] = true;
-            if (currentPlayer == myPlayerNumber) {
+            if (activeScoringPlayer() == myPlayerNumber) {
                 statsSolvedCount++;
             }
             addPoints(associationsService.scoreColumn(openedClues, column));
@@ -510,7 +511,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         String guess = etFinalGuess.getText().toString();
         if (associationsService.isFinalGuessCorrect(puzzles.get(currentRound), guess)) {
             addPoints(associationsService.scoreFinal(openedClues, solvedColumns));
-            if (currentPlayer == myPlayerNumber) {
+            if (activeScoringPlayer() == myPlayerNumber) {
                 statsSolvedCount++;
             }
             finalSolved = true;
@@ -541,7 +542,7 @@ public class AssociationsGameActivity extends AppCompatActivity {
         cancelRoundTimer();
         clearEditableGuesses();
         hideKeyboard();
-        currentPlayer = currentPlayer == 1 ? 2 : 1;
+        currentPlayer = soloMode ? myPlayerNumber : (currentPlayer == 1 ? 2 : 1);
         selectedColumn = -1;
         canGuess = !hasClosedPlayableClue();
         refreshUiFromState();
@@ -638,12 +639,16 @@ public class AssociationsGameActivity extends AppCompatActivity {
     private void addPoints(int points) {
         int awarded = Math.max(0, Math.min(points, 30 - roundAwardedPoints));
         roundAwardedPoints += awarded;
-        if (currentPlayer == 1) {
+        if (activeScoringPlayer() == 1) {
             player1Score += awarded;
         } else {
             player2Score += awarded;
         }
         updateScoreText();
+    }
+
+    private int activeScoringPlayer() {
+        return soloMode ? myPlayerNumber : currentPlayer;
     }
 
     private void refreshButtons() {
@@ -1156,6 +1161,10 @@ public class AssociationsGameActivity extends AppCompatActivity {
 
     private void enableSoloModeAfterForfeit() {
         soloMode = true;
+        if (phase == Phase.ACTIVE && currentPlayer != myPlayerNumber) {
+            cancelRoundTimer();
+            currentPlayer = myPlayerNumber;
+        }
         refreshUiFromState();
         if (phase == Phase.ACTIVE && roundTimer == null && lastTimerSeconds > 0) {
             startTimer(Math.max(1000L, lastTimerSeconds * 1000L));

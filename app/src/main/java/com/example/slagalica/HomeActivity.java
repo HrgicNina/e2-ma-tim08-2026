@@ -117,11 +117,7 @@ public class HomeActivity extends AppCompatActivity {
         }
 
         btnProfile.setOnClickListener(v -> startActivity(new Intent(this, ProfileActivity.class)));
-        btnOpenChat.setOnClickListener(v -> {
-            Intent intent = new Intent(this, RegionsActivity.class);
-            intent.putExtra(RegionsActivity.EXTRA_CHAT_MODE, true);
-            startActivity(intent);
-        });
+        btnOpenChat.setOnClickListener(v -> startActivity(new Intent(this, ChatActivity.class)));
         btnOpenRankings.setOnClickListener(v -> startActivity(new Intent(this, RankingsActivity.class)));
         btnOpenRegions.setOnClickListener(v -> startActivity(new Intent(this, RegionsActivity.class)));
         btnNotifications.setOnClickListener(v -> startActivity(new Intent(this, NotificationsActivity.class)));
@@ -302,9 +298,10 @@ public class HomeActivity extends AppCompatActivity {
                 economyService.getEconomy(uid, new EconomyService.EconomyCallback() {
                     @Override
                     public void onSuccess(Map<String, Long> refreshed) {
-                        Long tokens = refreshed.get("tokens");
-                        Long stars = refreshed.get("stars");
-                        Long league = refreshed.get("league");
+                        Map<String, Long> visible = visibleEconomy(refreshed);
+                        Long tokens = visible.get("tokens");
+                        Long stars = visible.get("stars");
+                        Long league = visible.get("league");
                         runOnUiThread(() -> {
                             tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                             tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
@@ -314,16 +311,28 @@ public class HomeActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(String message) {
-                        runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                        if (!isQuotaLikeError(message)) {
+                            runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                        }
                     }
                 });
             }
 
             @Override
             public void onError(String message) {
-                runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                if (!isQuotaLikeError(message)) {
+                    runOnUiThread(() -> Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show());
+                }
             }
         });
+    }
+
+    private boolean isQuotaLikeError(String message) {
+        if (message == null) {
+            return false;
+        }
+        String normalized = message.toLowerCase();
+        return normalized.contains("resource_exhausted") || normalized.contains("quota");
     }
 
     private void refreshEconomyOnHomeIfRegistered() {
@@ -337,9 +346,10 @@ public class HomeActivity extends AppCompatActivity {
         economyService.getEconomy(uid, new EconomyService.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> refreshed) {
-                Long tokens = refreshed.get("tokens");
-                Long stars = refreshed.get("stars");
-                Long league = refreshed.get("league");
+                Map<String, Long> visible = visibleEconomy(refreshed);
+                Long tokens = visible.get("tokens");
+                Long stars = visible.get("stars");
+                Long league = visible.get("league");
                 runOnUiThread(() -> {
                     tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                     tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
@@ -365,9 +375,10 @@ public class HomeActivity extends AppCompatActivity {
         economyListener = economyService.observeEconomy(uid, new EconomyService.EconomyObserver() {
             @Override
             public void onChanged(Map<String, Long> values) {
-                Long tokens = values.get("tokens");
-                Long stars = values.get("stars");
-                Long league = values.get("league");
+                Map<String, Long> visible = visibleEconomy(values);
+                Long tokens = visible.get("tokens");
+                Long stars = visible.get("stars");
+                Long league = visible.get("league");
                 runOnUiThread(() -> {
                     tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                     tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
@@ -379,6 +390,11 @@ public class HomeActivity extends AppCompatActivity {
             public void onError(String message) {
             }
         });
+    }
+
+    private Map<String, Long> visibleEconomy(Map<String, Long> remote) {
+        String uid = authService == null ? null : authService.getCurrentUserId();
+        return LocalEconomyFallback.merge(this, uid, remote);
     }
 
     private void stopEconomyRealtimeListener() {

@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.LeaderboardService;
 import com.example.slagalica.domain.SessionManager;
+import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.model.LeaderboardEntry;
 
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.List;
 public class RankingsActivity extends AppCompatActivity {
 
     private final LeaderboardService leaderboardService = new LeaderboardService();
+    private final AuthService authService = new AuthService();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private TextView tvCycleRange;
@@ -169,6 +171,14 @@ public class RankingsActivity extends AppCompatActivity {
 
     private void render(LeaderboardService.CycleWindow cycle, List<LeaderboardEntry> entries) {
         tvCycleRange.setText(getString(R.string.rankings_cycle_range_selectable, cycle.label));
+        if (selectedCycleId.isEmpty()) {
+            entries = LocalEconomyFallback.mergeLeaderboardEntries(
+                    this,
+                    authService.getCurrentUserId(),
+                    monthlyMode,
+                    entries
+            );
+        }
 
         llRows.removeAllViews();
         tvEmpty.setVisibility(entries == null || entries.isEmpty() ? TextView.VISIBLE : TextView.GONE);

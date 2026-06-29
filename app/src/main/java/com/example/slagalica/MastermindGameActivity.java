@@ -156,6 +156,7 @@ public class MastermindGameActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_mastermind_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         gameService = new MastermindGameService();
         matchRoomId = getIntent().getStringExtra("match_room_id");
@@ -328,13 +329,17 @@ public class MastermindGameActivity extends AppCompatActivity {
         phase = Phase.ROUND;
         remoteFinishHandled = false;
         activeRow = 0;
+        stealAttemptUsed = false;
+        if (isRoundStarterAbsent()) {
+            skipAbsentStarterRound();
+            return;
+        }
         if (matchRoomId.isEmpty()) {
             currentSecret = gameService.generateSecretCode();
         } else {
             int seed = (matchRoomId + "_master_" + currentRound).hashCode();
             currentSecret = gameService.generateSecretCode(new Random(seed));
         }
-        stealAttemptUsed = false;
 
         resetBoardVisuals();
 
@@ -345,10 +350,6 @@ public class MastermindGameActivity extends AppCompatActivity {
         tvTimer.setText(getString(R.string.master_timer_seconds, 30));
         setInteractionEnabled(false);
         refreshTurnIndicator();
-        if (isRoundStarterAbsent()) {
-            openStealPhase();
-            return;
-        }
         startPrepCountdown();
     }
 
@@ -419,7 +420,11 @@ public class MastermindGameActivity extends AppCompatActivity {
         if (phase == Phase.STEAL || phase == Phase.FINISHED) {
             return;
         }
-        if (soloMode && !isRoundStarterAbsent()) {
+        if (isRoundStarterAbsent()) {
+            skipAbsentStarterRound();
+            return;
+        }
+        if (soloMode) {
             finishRound();
             return;
         }
@@ -553,6 +558,10 @@ public class MastermindGameActivity extends AppCompatActivity {
         setInteractionEnabled(false);
 
         if (currentRound == 1) {
+            if (opponentForfeited && myPlayerNumber != 2) {
+                finishGame();
+                return;
+            }
             phase = Phase.ROUND_END;
             tvPhaseInfo.setText(R.string.master_showing_secret);
             publishState();
@@ -577,6 +586,10 @@ public class MastermindGameActivity extends AppCompatActivity {
             return;
         }
 
+        finishGame();
+    }
+
+    private void finishGame() {
         phase = Phase.FINISHED;
         btnSubmit.setEnabled(false);
         tvPhaseInfo.setText(R.string.master_game_finished);
@@ -1083,20 +1096,15 @@ public class MastermindGameActivity extends AppCompatActivity {
             cancelTimers();
             currentRound = 2;
             roundStarter = 2;
+            if (isRoundStarterAbsent()) {
+                skipAbsentStarterRound();
+                return;
+            }
             startRound();
             return;
         }
         if (isRoundStarterAbsent()) {
-            if (phase == Phase.STEAL) {
-                setInteractionEnabled(true);
-                if (stealTimer == null && lastTimerSeconds > 0) {
-                    startStealTimer(lastTimerSeconds * 1000L);
-                }
-                refreshTurnIndicator();
-                return;
-            }
-            cancelTimers();
-            openStealPhase();
+            skipAbsentStarterRound();
             return;
         }
         tvCurrentPlayer.setText(getString(R.string.master_current_player, roundStarter));
@@ -1109,6 +1117,18 @@ public class MastermindGameActivity extends AppCompatActivity {
             startRoundTimer(lastTimerSeconds * 1000L);
         }
         refreshTurnIndicator();
+    }
+
+    private void skipAbsentStarterRound() {
+        cancelTimers();
+        setInteractionEnabled(false);
+        if (currentRound == 1 && myPlayerNumber == 2) {
+            currentRound = 2;
+            roundStarter = 2;
+            startRound();
+            return;
+        }
+        finishGame();
     }
 
     private boolean isRoundStarterAbsent() {

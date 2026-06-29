@@ -159,6 +159,7 @@ public class MyNumberGameActivity extends AppCompatActivity implements SensorEve
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_my_number_game);
+        ForfeitButtonHelper.attach(this, v -> showLeaveGameDialog());
 
         gameService = new MyNumberGameService();
         matchRoomId = getIntent().getStringExtra("match_room_id");
