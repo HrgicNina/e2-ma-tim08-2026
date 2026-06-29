@@ -127,12 +127,12 @@
     <TextView
         android:id="@+id/tvAssociationsCurrentPlayer"
         android:layout_width="wrap_content"
-        android:layout_height="20dp"
-        android:layout_marginTop="4dp"
+        android:layout_height="1dp"
         android:gravity="center_vertical"
         android:textColor="@color/app_on_surface"
         android:textSize="13sp"
-        android:textStyle="bold" />
+        android:textStyle="bold"
+        android:visibility="gone" />
 
     <TextView
         android:id="@+id/tvAssociationsPhaseInfo"
@@ -151,6 +151,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_marginTop="4dp"
+        android:layout_marginBottom="64dp"
         android:layout_weight="1"
         android:orientation="vertical">
 
@@ -181,7 +182,7 @@
                 <Button android:id="@+id/btnA2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnA3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnA4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
-                <EditText android:id="@+id/btnSolveA" android:layout_width="match_parent" android:layout_height="34dp" android:layout_marginTop="4dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
+                <EditText android:id="@+id/btnSolveA" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="3dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -205,7 +206,7 @@
                 <Button android:id="@+id/btnB2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnB3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnB4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
-                <EditText android:id="@+id/btnSolveB" android:layout_width="match_parent" android:layout_height="34dp" android:layout_marginTop="4dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
+                <EditText android:id="@+id/btnSolveB" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="3dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
 
@@ -274,7 +275,7 @@
                 <Button android:id="@+id/btnC2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnC3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnC4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
-                <EditText android:id="@+id/btnSolveC" android:layout_width="match_parent" android:layout_height="34dp" android:layout_marginTop="4dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
+                <EditText android:id="@+id/btnSolveC" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="3dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
             </LinearLayout>
 
             <LinearLayout
@@ -298,7 +299,7 @@
                 <Button android:id="@+id/btnD2" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnD3" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
                 <Button android:id="@+id/btnD4" android:layout_width="match_parent" android:layout_height="0dp" android:layout_marginTop="3dp" android:layout_weight="1" android:background="@drawable/associations_closed_bg" android:backgroundTint="@null" android:textAllCaps="false" android:textColor="#FFFFFF" android:textSize="14sp" />
-                <EditText android:id="@+id/btnSolveD" android:layout_width="match_parent" android:layout_height="34dp" android:layout_marginTop="4dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
+                <EditText android:id="@+id/btnSolveD" android:layout_width="match_parent" android:layout_height="30dp" android:layout_marginTop="3dp" android:background="@drawable/associations_solution_bg" android:gravity="center" android:hint="@string/associations_column_placeholder" android:imeOptions="actionDone" android:inputType="textCapSentences" android:paddingStart="4dp" android:paddingEnd="4dp" android:singleLine="true" android:textColor="@color/app_on_surface" android:textColorHint="#527391" android:textSize="14sp" />
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

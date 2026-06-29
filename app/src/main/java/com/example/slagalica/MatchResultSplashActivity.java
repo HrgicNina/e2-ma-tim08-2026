@@ -51,23 +51,29 @@ public class MatchResultSplashActivity extends AppCompatActivity {
         }
 
         long starDelta = getIntent().getLongExtra(MatchActivity.EXTRA_RESULT_STAR_DELTA, 0L);
+        long tokenDelta = getIntent().getLongExtra(MatchActivity.EXTRA_RESULT_TOKEN_DELTA, 0L);
         String note = getIntent().getStringExtra(MatchActivity.EXTRA_RESULT_ECONOMY_NOTE);
         if (note != null && !note.trim().isEmpty()) {
             tvEconomy.setText(note);
         } else {
             int myScore = isCurrentPlayer1 ? player1Score : player2Score;
             int opponentScore = isCurrentPlayer1 ? player2Score : player1Score;
+            String economyText;
 
             if (myScore < opponentScore && myScore >= 40) {
                 long loserBonus = myScore / 40L;
-                tvEconomy.setText("Izgubili ste: 10 zvezda\nDobili ste: " + loserBonus + " zvezda");
+                economyText = "Izgubili ste: 10 zvezda\nDobili ste: " + loserBonus + " zvezda";
             } else if (starDelta > 0) {
-                tvEconomy.setText("Dobili ste: " + starDelta + " zvezda");
+                economyText = "Dobili ste: " + starDelta + " zvezda";
             } else if (starDelta < 0) {
-                tvEconomy.setText("Izgubili ste: " + Math.abs(starDelta) + " zvezda");
+                economyText = "Izgubili ste: " + Math.abs(starDelta) + " zvezda";
             } else {
-                tvEconomy.setText("Bez promene zvezda");
+                economyText = "Bez promene zvezda";
             }
+            if (tokenDelta > 0) {
+                economyText += "\nDobili ste: " + tokenDelta + " token";
+            }
+            tvEconomy.setText(economyText);
         }
 
         btnGoHome.setOnClickListener(v -> {

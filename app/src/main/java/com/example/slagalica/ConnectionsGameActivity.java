@@ -444,7 +444,7 @@ public class ConnectionsGameActivity extends AppCompatActivity {
         cancelRoundTimer();
         selectedLeft = -1;
         selectedRight = -1;
-        if (phase == Phase.STARTER && connectionsService.hasUnmatchedPairs(matchedLeft)) {
+        if (phase == Phase.STARTER && !soloMode && connectionsService.hasUnmatchedPairs(matchedLeft)) {
             openStealPhase();
             return;
         }

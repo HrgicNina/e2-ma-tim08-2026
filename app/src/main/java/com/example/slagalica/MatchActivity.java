@@ -683,9 +683,10 @@ public class MatchActivity extends AppCompatActivity {
         economyService.getEconomy(myUid, new EconomyService.EconomyCallback() {
             @Override
             public void onSuccess(Map<String, Long> refreshed) {
-                tokens = refreshed.get("tokens");
-                stars = refreshed.get("stars");
-                league = refreshed.get("league");
+                Map<String, Long> visible = LocalEconomyFallback.merge(MatchActivity.this, myUid, refreshed);
+                tokens = visible.get("tokens");
+                stars = visible.get("stars");
+                league = visible.get("league");
                 runOnUiThread(() -> {
                     tvMatchTokens.setText("Tokeni\n" + tokens);
                     tvMatchStars.setText("Zvezde\n" + stars);
@@ -1202,16 +1203,41 @@ public class MatchActivity extends AppCompatActivity {
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> {
-                    Toast.makeText(MatchActivity.this, message, Toast.LENGTH_SHORT).show();
                     if (callback != null) {
-                        long expectedDelta = winner
-                                ? 10L + Math.max(0, score / 40)
-                                : -Math.min(10L, Math.max(0L, starsBefore));
-                        callback.onReady(expectedDelta, 0L, null);
+                        EconomyFallbackResult fallback = applyLocalRankedResultFallback(winner, score);
+                        callback.onReady(fallback.starDelta, fallback.tokenDelta, null);
                     }
                 });
             }
         });
+    }
+
+    private EconomyFallbackResult applyLocalRankedResultFallback(boolean winner, int score) {
+        long starsBefore = stars;
+        long tokensBefore = tokens;
+        long bonusFromScore = Math.max(0L, score / 40L);
+        long plannedDelta = winner ? 10L + bonusFromScore : bonusFromScore - 10L;
+        long newStars = Math.max(0L, starsBefore + plannedDelta);
+        long starDelta = newStars - starsBefore;
+        long previousTokenMilestones = Math.max(0L, starsBefore / 50L);
+        long newTokenMilestones = Math.max(0L, newStars / 50L);
+        long tokenDelta = Math.max(0L, newTokenMilestones - previousTokenMilestones);
+        stars = newStars;
+        tokens = Math.max(0L, tokensBefore + tokenDelta);
+        LocalEconomyFallback.saveMatchResult(this, myUid, myUsername, league, stars, tokens, starDelta);
+        tvMatchStars.setText("Zvezde\n" + stars);
+        tvMatchTokens.setText("Tokeni\n" + tokens);
+        return new EconomyFallbackResult(starDelta, tokenDelta);
+    }
+
+    private static class EconomyFallbackResult {
+        final long starDelta;
+        final long tokenDelta;
+
+        EconomyFallbackResult(long starDelta, long tokenDelta) {
+            this.starDelta = starDelta;
+            this.tokenDelta = tokenDelta;
+        }
     }
 
     private void applyRankedDrawResult(EconomyDeltaCallback callback) {

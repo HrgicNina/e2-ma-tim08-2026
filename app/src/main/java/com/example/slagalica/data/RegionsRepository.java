@@ -126,7 +126,6 @@ public class RegionsRepository {
                             ? ""
                             : value(meta.getString("avatarFramesAppliedCycleId"));
                     if (previousCycleId.equals(processed) && !rankingStored) {
-                        // Ciklus je zavrsila prethodna verzija aplikacije u jednom atomskom batch-u.
                         callback.onSuccess();
                         return;
                     }

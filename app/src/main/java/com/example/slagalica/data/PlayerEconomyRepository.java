@@ -210,8 +210,6 @@ public class PlayerEconomyRepository {
             DocumentSnapshot user = transaction.get(ref);
             Long stars = user.getLong("stars");
             Long tokens = user.getLong("tokens");
-            String username = value(user.getString("username"));
-            Long league = user.getLong("league");
             Long awardedMilestones = user.getLong("starTokenMilestonesAwarded");
             String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
             String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
@@ -225,7 +223,6 @@ public class PlayerEconomyRepository {
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
-            if (league == null) league = 0L;
             if (awardedMilestones == null) awardedMilestones = stars / 50;
 
             long bonusFromScore = Math.max(0, score / 40);
@@ -239,14 +236,10 @@ public class PlayerEconomyRepository {
             long newTokens = tokens + extraTokens;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
-                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
-                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -267,15 +260,17 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
-
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
-                .addOnFailureListener(e -> callback.onError("Neuspesna obrada rezultata partije."));
+                .addOnFailureListener(e -> {
+                    String details = errorDetails(e);
+                    callback.onError(details.isEmpty()
+                            ? "Neuspesna obrada rezultata partije."
+                            : "Neuspesna obrada rezultata partije. " + details);
+                });
     }
 
     public void applyRankedDrawResult(String uid, EconomyCallback callback) {
@@ -286,8 +281,6 @@ public class PlayerEconomyRepository {
             DocumentSnapshot user = transaction.get(ref);
             Long stars = user.getLong("stars");
             Long tokens = user.getLong("tokens");
-            String username = value(user.getString("username"));
-            Long league = user.getLong("league");
             String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
             String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
             Long weeklyCycleStars = user.getLong("weeklyCycleStars");
@@ -300,22 +293,16 @@ public class PlayerEconomyRepository {
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
-            if (league == null) league = 0L;
 
-            // The specification does not award stars for a draw.
             long newStars = stars;
             long actualDelta = 0L;
             long newTokens = tokens;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
-                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
-                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -335,9 +322,6 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
-
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
@@ -354,8 +338,6 @@ public class PlayerEconomyRepository {
             DocumentSnapshot user = transaction.get(ref);
             Long stars = user.getLong("stars");
             Long tokens = user.getLong("tokens");
-            String username = value(user.getString("username"));
-            Long league = user.getLong("league");
             String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
             String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
             Long weeklyCycleStars = user.getLong("weeklyCycleStars");
@@ -368,20 +350,15 @@ public class PlayerEconomyRepository {
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
-            if (league == null) league = 0L;
 
             long newStars = Math.max(0, stars - 10);
             long actualDelta = newStars - stars;
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedWeeklyCycleId,
-                        weeklyCycleStars, weeklyCycleMatches, false);
                 weeklyCycleStars = 0L;
                 weeklyCycleMatches = 0L;
             }
             if (!monthlyCycleId.equals(storedMonthlyCycleId)) {
-                archiveCycle(transaction, uid, username, league, storedMonthlyCycleId,
-                        monthlyCycleStars, monthlyCycleMatches, true);
                 monthlyCycleStars = 0L;
                 monthlyCycleMatches = 0L;
             }
@@ -400,9 +377,6 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
-
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", tokens);
@@ -442,7 +416,6 @@ public class PlayerEconomyRepository {
             boolean monthly
     ) {
         if (cycleId.isEmpty()) return;
-        writeCycleMetadata(transaction, cycleId, monthly);
         Map<String, Object> entry = new HashMap<>();
         entry.put("username", username);
         entry.put("league", league);
