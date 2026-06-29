@@ -37,7 +37,7 @@ public class RankingsActivity extends AppCompatActivity {
     private final Runnable refreshRunnable = new Runnable() {
         @Override
         public void run() {
-            loadCurrentMode();
+            syncLocalRankingThenLoad();
             handler.postDelayed(this, leaderboardService.getRefreshIntervalMs());
         }
     };
@@ -65,21 +65,22 @@ public class RankingsActivity extends AppCompatActivity {
         btnWeekly.setOnClickListener(v -> {
             monthlyMode = false;
             selectedCycleId = "";
-            loadCurrentMode();
+            syncLocalRankingThenLoad();
         });
         btnMonthly.setOnClickListener(v -> {
             monthlyMode = true;
             selectedCycleId = "";
-            loadCurrentMode();
+            syncLocalRankingThenLoad();
         });
         tvCycleRange.setOnClickListener(v -> showCycleMenu());
-
-        bootstrapRolloverAndLoad();
+        processRolloverInBackground();
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        syncLocalRankingThenLoad();
+        handler.removeCallbacks(refreshRunnable);
         handler.postDelayed(refreshRunnable, leaderboardService.getRefreshIntervalMs());
     }
 
@@ -142,24 +143,40 @@ public class RankingsActivity extends AppCompatActivity {
                 return false;
             }
             selectedCycleId = index == 0 ? "" : cycles.get(index).id;
-            loadCurrentMode();
+            syncLocalRankingThenLoad();
             return true;
         });
         menu.show();
     }
 
-    private void bootstrapRolloverAndLoad() {
+    private void processRolloverInBackground() {
         leaderboardService.processCycleRolloverAndRewards(new LeaderboardService.ActionCallback() {
             @Override
             public void onSuccess() {
-                runOnUiThread(() -> loadCurrentMode());
+                runOnUiThread(() -> {
+                    if (selectedCycleId.isEmpty()) {
+                        syncLocalRankingThenLoad();
+                    }
+                });
             }
 
             @Override
             public void onError(String message) {
-                runOnUiThread(() -> loadCurrentMode());
             }
         });
+    }
+
+    private void syncLocalRankingThenLoad() {
+        if (!selectedCycleId.isEmpty()) {
+            loadCurrentMode();
+            return;
+        }
+        loadCurrentMode();
+        LocalEconomyFallback.syncRankingToRemote(
+                this,
+                authService.getCurrentUserId(),
+                () -> runOnUiThread(this::loadCurrentMode)
+        );
     }
 
     private void refreshToggleButtons() {
@@ -179,7 +196,6 @@ public class RankingsActivity extends AppCompatActivity {
                     entries
             );
         }
-
         llRows.removeAllViews();
         tvEmpty.setVisibility(entries == null || entries.isEmpty() ? TextView.VISIBLE : TextView.GONE);
         if (entries == null || entries.isEmpty()) {

@@ -1190,6 +1190,8 @@ public class MatchActivity extends AppCompatActivity {
                 tokens = values.get("tokens");
                 long starDelta = stars - starsBefore;
                 long tokenDelta = tokens - tokensBefore;
+                LocalEconomyFallback.saveMatchResult(MatchActivity.this, myUid, myUsername, league, stars, tokens, starDelta);
+                LocalEconomyFallback.syncRankingToRemote(MatchActivity.this, myUid, () -> {});
                 triggerLeaderboardRolloverCheck();
                 runOnUiThread(() -> {
                     tvMatchStars.setText("Zvezde\n" + stars);
@@ -1225,6 +1227,7 @@ public class MatchActivity extends AppCompatActivity {
         stars = newStars;
         tokens = Math.max(0L, tokensBefore + tokenDelta);
         LocalEconomyFallback.saveMatchResult(this, myUid, myUsername, league, stars, tokens, starDelta);
+        LocalEconomyFallback.syncRankingToRemote(this, myUid, () -> {});
         tvMatchStars.setText("Zvezde\n" + stars);
         tvMatchTokens.setText("Tokeni\n" + tokens);
         return new EconomyFallbackResult(starDelta, tokenDelta);

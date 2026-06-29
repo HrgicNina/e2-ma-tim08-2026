@@ -4,6 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.example.slagalica.model.LeaderboardEntry;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+import com.google.firebase.firestore.WriteBatch;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -27,6 +30,10 @@ final class LocalEconomyFallback {
     private static final String MONTHLY_ID = "_monthly_id";
     private static final String MONTHLY_STARS = "_monthly_stars";
     private static final String MONTHLY_MATCHES = "_monthly_matches";
+
+    interface SyncCallback {
+        void onComplete();
+    }
 
     private LocalEconomyFallback() {
     }
@@ -58,13 +65,13 @@ final class LocalEconomyFallback {
         String monthlyId = currentMonthlyCycleId();
         long weeklyStars = weeklyId.equals(prefs.getString(uid + WEEKLY_ID, ""))
                 ? prefs.getLong(uid + WEEKLY_STARS, 0L)
-                : 0L;
+                : Math.max(0L, stars - starDelta);
         long weeklyMatches = weeklyId.equals(prefs.getString(uid + WEEKLY_ID, ""))
                 ? prefs.getLong(uid + WEEKLY_MATCHES, 0L)
                 : 0L;
         long monthlyStars = monthlyId.equals(prefs.getString(uid + MONTHLY_ID, ""))
                 ? prefs.getLong(uid + MONTHLY_STARS, 0L)
-                : 0L;
+                : Math.max(0L, stars - starDelta);
         long monthlyMatches = monthlyId.equals(prefs.getString(uid + MONTHLY_ID, ""))
                 ? prefs.getLong(uid + MONTHLY_MATCHES, 0L)
                 : 0L;
@@ -157,12 +164,119 @@ final class LocalEconomyFallback {
         return out;
     }
 
+    static void syncRankingToRemote(Context context, String uid, SyncCallback callback) {
+        if (uid == null || uid.trim().isEmpty()) {
+            callback.onComplete();
+            return;
+        }
+        SharedPreferences prefs = prefs(context);
+        String weeklyId = prefs.getString(uid + WEEKLY_ID, "");
+        String monthlyId = prefs.getString(uid + MONTHLY_ID, "");
+        long weeklyMatches = prefs.getLong(uid + WEEKLY_MATCHES, 0L);
+        long monthlyMatches = prefs.getLong(uid + MONTHLY_MATCHES, 0L);
+        boolean hasWeekly = currentWeeklyCycleId().equals(weeklyId) && weeklyMatches > 0L;
+        boolean hasMonthly = currentMonthlyCycleId().equals(monthlyId) && monthlyMatches > 0L;
+        if (!hasWeekly && !hasMonthly) {
+            callback.onComplete();
+            return;
+        }
+
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        String username = prefs.getString(uid + USERNAME, "");
+        long league = prefs.getLong(uid + LEAGUE, 0L);
+        Map<String, Object> userUpdate = new HashMap<>();
+        userUpdate.put("stars", Math.max(0L, prefs.getLong(uid + STARS, 0L)));
+        userUpdate.put("tokens", Math.max(0L, prefs.getLong(uid + TOKENS, 0L)));
+
+        if (hasWeekly) {
+            userUpdate.put("weeklyCycleId", weeklyId);
+            userUpdate.put("weeklyCycleStars", Math.max(0L, prefs.getLong(uid + WEEKLY_STARS, 0L)));
+            userUpdate.put("weeklyCycleMatches", Math.max(1L, weeklyMatches));
+        }
+        if (hasMonthly) {
+            userUpdate.put("monthlyCycleId", monthlyId);
+            userUpdate.put("monthlyCycleStars", Math.max(0L, prefs.getLong(uid + MONTHLY_STARS, 0L)));
+            userUpdate.put("monthlyCycleMatches", Math.max(1L, monthlyMatches));
+        }
+
+        db.collection("users").document(uid)
+                .set(userUpdate, SetOptions.merge())
+                .addOnCompleteListener(userTask -> {
+                    WriteBatch batch = db.batch();
+                    if (hasWeekly) {
+                        writeRemoteCycle(
+                                batch,
+                                db,
+                                weeklyId,
+                                false,
+                                uid,
+                                username,
+                                league,
+                                Math.max(0L, prefs.getLong(uid + WEEKLY_STARS, 0L)),
+                                Math.max(1L, weeklyMatches)
+                        );
+                    }
+                    if (hasMonthly) {
+                        writeRemoteCycle(
+                                batch,
+                                db,
+                                monthlyId,
+                                true,
+                                uid,
+                                username,
+                                league,
+                                Math.max(0L, prefs.getLong(uid + MONTHLY_STARS, 0L)),
+                                Math.max(1L, monthlyMatches)
+                        );
+                    }
+                    batch.commit().addOnCompleteListener(task -> callback.onComplete());
+                });
+    }
+
     private static SharedPreferences prefs(Context context) {
         return context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
     }
 
     private static long value(Long input) {
         return input == null ? 0L : input;
+    }
+
+    private static void writeRemoteCycle(
+            WriteBatch batch,
+            FirebaseFirestore db,
+            String cycleId,
+            boolean monthly,
+            String uid,
+            String username,
+            long league,
+            long stars,
+            long matches
+    ) {
+        long[] window = cycleWindow(cycleId, monthly);
+        if (window == null || matches <= 0L) {
+            return;
+        }
+        Map<String, Object> cycle = new HashMap<>();
+        cycle.put("cycleId", cycleId);
+        cycle.put("monthly", monthly);
+        cycle.put("startMs", window[0]);
+        cycle.put("endMs", window[1]);
+        cycle.put("processed", false);
+        cycle.put("rewardsProcessed", false);
+        cycle.put("updatedAtMillis", System.currentTimeMillis());
+        batch.set(db.collection("leaderboardCycles").document(cycleId), cycle, SetOptions.merge());
+
+        Map<String, Object> entry = new HashMap<>();
+        entry.put("username", username == null ? "" : username);
+        entry.put("league", Math.max(0L, league));
+        entry.put("cycleStars", stars);
+        entry.put("cycleMatches", matches);
+        entry.put("updatedAtMillis", System.currentTimeMillis());
+        batch.set(
+                db.collection("leaderboardCycles").document(cycleId).collection("entries").document(uid),
+                entry,
+                SetOptions.merge()
+        );
     }
 
     private static String currentWeeklyCycleId() {
@@ -176,6 +290,10 @@ final class LocalEconomyFallback {
         return "W_" + new SimpleDateFormat("yyyyMMdd", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
     }
 
+    static String currentWeeklyCycleIdForRanking() {
+        return currentWeeklyCycleId();
+    }
+
     private static String currentMonthlyCycleId() {
         Calendar start = Calendar.getInstance();
         start.set(Calendar.DAY_OF_MONTH, 1);
@@ -184,5 +302,44 @@ final class LocalEconomyFallback {
         start.set(Calendar.SECOND, 0);
         start.set(Calendar.MILLISECOND, 0);
         return "M_" + new SimpleDateFormat("yyyyMM", Locale.getDefault()).format(new Date(start.getTimeInMillis()));
+    }
+
+    static String currentMonthlyCycleIdForRanking() {
+        return currentMonthlyCycleId();
+    }
+
+    private static long[] cycleWindow(String cycleId, boolean monthly) {
+        try {
+            Calendar start = Calendar.getInstance();
+            if (monthly) {
+                if (!cycleId.startsWith("M_") || cycleId.length() != 8) return null;
+                start.set(Calendar.YEAR, Integer.parseInt(cycleId.substring(2, 6)));
+                start.set(Calendar.MONTH, Integer.parseInt(cycleId.substring(6, 8)) - 1);
+                start.set(Calendar.DAY_OF_MONTH, 1);
+            } else {
+                if (!cycleId.startsWith("W_") || cycleId.length() != 10) return null;
+                start.set(Calendar.YEAR, Integer.parseInt(cycleId.substring(2, 6)));
+                start.set(Calendar.MONTH, Integer.parseInt(cycleId.substring(6, 8)) - 1);
+                start.set(Calendar.DAY_OF_MONTH, Integer.parseInt(cycleId.substring(8, 10)));
+            }
+            start.set(Calendar.HOUR_OF_DAY, 0);
+            start.set(Calendar.MINUTE, 0);
+            start.set(Calendar.SECOND, 0);
+            start.set(Calendar.MILLISECOND, 0);
+            Calendar end = (Calendar) start.clone();
+            if (monthly) {
+                end.add(Calendar.MONTH, 1);
+                end.add(Calendar.MILLISECOND, -1);
+            } else {
+                end.add(Calendar.DAY_OF_MONTH, 6);
+                end.set(Calendar.HOUR_OF_DAY, 23);
+                end.set(Calendar.MINUTE, 59);
+                end.set(Calendar.SECOND, 59);
+                end.set(Calendar.MILLISECOND, 999);
+            }
+            return new long[]{start.getTimeInMillis(), end.getTimeInMillis()};
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }
