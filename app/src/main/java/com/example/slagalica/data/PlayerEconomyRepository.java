@@ -247,6 +247,8 @@ public class PlayerEconomyRepository {
             long newMonthlyCycleStars = monthlyCycleStars + actualDelta;
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
+            String username = value(user.getString("username"));
+            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
@@ -260,6 +262,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
@@ -310,6 +314,8 @@ public class PlayerEconomyRepository {
             long newMonthlyCycleStars = monthlyCycleStars + actualDelta;
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
+            String username = value(user.getString("username"));
+            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
@@ -322,6 +328,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
@@ -366,6 +374,8 @@ public class PlayerEconomyRepository {
             long newMonthlyCycleStars = monthlyCycleStars + actualDelta;
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
+            String username = value(user.getString("username"));
+            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
@@ -377,6 +387,8 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
+            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", tokens);
@@ -416,6 +428,7 @@ public class PlayerEconomyRepository {
             boolean monthly
     ) {
         if (cycleId.isEmpty()) return;
+        writeCycleMetadata(transaction, cycleId, monthly);
         Map<String, Object> entry = new HashMap<>();
         entry.put("username", username);
         entry.put("league", league);
@@ -465,6 +478,7 @@ public class PlayerEconomyRepository {
         cycle.put("startMs", window[0]);
         cycle.put("endMs", window[1]);
         cycle.put("processed", false);
+        cycle.put("rewardsProcessed", false);
         cycle.put("updatedAtMillis", System.currentTimeMillis());
         transaction.set(
                 db.collection("leaderboardCycles").document(cycleId),
@@ -510,6 +524,10 @@ public class PlayerEconomyRepository {
 
     private String value(String input) {
         return input == null ? "" : input;
+    }
+
+    private long value(Long input) {
+        return input == null ? 0L : input;
     }
 
     private String errorDetails(Throwable throwable) {
