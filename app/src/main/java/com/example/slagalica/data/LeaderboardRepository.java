@@ -272,7 +272,6 @@ public class LeaderboardRepository {
             String claimedField = monthly ? "monthlyRewardClaimedCycleId" : "weeklyRewardClaimedCycleId";
             batch.update(
                     db.collection("users").document(entry.uid),
-                    "tokens", FieldValue.increment(reward),
                     claimedField, cycle.id
             );
 
@@ -285,6 +284,8 @@ public class LeaderboardRepository {
             notification.put("createdAt", Timestamp.now());
             notification.put("actionType", "open_ranking_rewards");
             notification.put("actionPayload", cycle.id);
+            notification.put("rewardTokens", reward);
+            notification.put("rewardClaimed", false);
             batch.set(
                     db.collection("users").document(entry.uid)
                             .collection("notifications").document("ranking_reward_" + cycle.id),

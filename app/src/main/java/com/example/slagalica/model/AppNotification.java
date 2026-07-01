@@ -10,6 +10,8 @@ public class AppNotification {
     public long createdAtMillis;
     public String actionType;
     public String actionPayload;
+    public long rewardTokens;
+    public boolean rewardClaimed;
 
     public AppNotification() {
     }

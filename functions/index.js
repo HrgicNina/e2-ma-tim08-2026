@@ -9,7 +9,7 @@ initializeApp();
 const db = getFirestore();
 const WEEKLY_REWARDS = [5, 3, 2];
 const MONTHLY_REWARDS = [10, 6, 4];
-const APP_ACTIVE_STALE_MS = 90 * 1000;
+const APP_ACTIVE_STALE_MS = 20 * 1000;
 
 exports.processLeaderboardCycles = onSchedule(
   {
@@ -96,7 +96,6 @@ async function rewardUser(uid, cycleId, monthly, rank, tokens, cycle) {
     if (!user.exists || stringValue(user.get(claimedField)) === cycleId) return;
 
     tx.update(userRef, {
-      tokens: FieldValue.increment(tokens),
       [claimedField]: cycleId,
     });
     tx.set(rankingRef, notificationPayload(
@@ -112,7 +111,8 @@ async function rewardUser(uid, cycleId, monthly, rank, tokens, cycle) {
       `Osvojeno mesto #${rank} na ${monthly ? "mesecnoj" : "nedeljnoj"} rang listi ` +
         `(ciklus: ${label}). Dobijas ${tokens} tokena.`,
       "open_ranking_rewards",
-      cycleId
+      cycleId,
+      tokens
     ));
   });
 }
@@ -184,7 +184,11 @@ exports.pushSystemNotification = onDocumentCreated(
 
     for (let offset = 0; offset < tokens.length; offset += 500) {
       const tokenChunk = tokens.slice(offset, offset + 500);
-      const response = await getMessaging().sendEachForMulticast({ tokens: tokenChunk, data });
+      const response = await getMessaging().sendEachForMulticast({
+        tokens: tokenChunk,
+        data,
+        android: { priority: "high" },
+      });
       const cleanup = [];
       response.responses.forEach((item, index) => {
         const code = item.error && item.error.code;
@@ -201,8 +205,8 @@ exports.pushSystemNotification = onDocumentCreated(
   }
 );
 
-function notificationPayload(type, title, message, actionType, actionPayload) {
-  return {
+function notificationPayload(type, title, message, actionType, actionPayload, rewardTokens = 0) {
+  const payload = {
     type,
     title,
     message,
@@ -212,6 +216,11 @@ function notificationPayload(type, title, message, actionType, actionPayload) {
     actionType,
     actionPayload,
   };
+  if (rewardTokens > 0) {
+    payload.rewardTokens = rewardTokens;
+    payload.rewardClaimed = false;
+  }
+  return payload;
 }
 
 function rewardForRank(rank, monthly) {
