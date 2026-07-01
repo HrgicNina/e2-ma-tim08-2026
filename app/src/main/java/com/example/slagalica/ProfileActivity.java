@@ -2,10 +2,15 @@ package com.example.slagalica;
 
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.Typeface;
 import android.net.Uri;
 import android.os.Bundle;
-import android.widget.Button;
+import android.view.Gravity;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -15,6 +20,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.FcmTokenRegistrar;
 import com.example.slagalica.domain.EconomyService;
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.domain.PlayerStatsService;
 import com.example.slagalica.domain.ResultCallback;
 import com.example.slagalica.domain.SessionManager;
@@ -52,7 +58,7 @@ public class ProfileActivity extends AppCompatActivity {
     private StatsCircleView viewWinCircle;
     private StatsBarChartView viewGameBars;
     private StatsPieChartView viewStatsPie;
-    private Button[] gameButtons;
+    private View[] gameButtons;
 
     private AuthService authService;
     private SessionManager sessionManager;
@@ -95,7 +101,7 @@ public class ProfileActivity extends AppCompatActivity {
         viewWinCircle = findViewById(R.id.viewWinCircle);
         viewGameBars = findViewById(R.id.viewGameBars);
         viewStatsPie = findViewById(R.id.viewStatsPie);
-        gameButtons = new Button[]{
+        gameButtons = new View[]{
                 findViewById(R.id.btnStatsQuiz),
                 findViewById(R.id.btnStatsConnections),
                 findViewById(R.id.btnStatsAssociations),
@@ -170,7 +176,7 @@ public class ProfileActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvTokens.setText("Tokeni " + safe(tokens));
                     tvStars.setText("Zvezde " + safe(stars));
-                    tvLeague.setText(leagueIcon(safe(league)) + " " + leagueName(safe(league)));
+                    tvLeague.setText(LeagueRules.labelForLeague(safe(league)));
                 });
             }
 
@@ -207,9 +213,10 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void renderStats() {
-        int winPercent = percent(currentStats.wins, currentStats.wins + currentStats.losses);
+        int winPercent = percent(currentStats.wins, currentStats.matchesTotal);
+        int lossPercent = percent(currentStats.losses, currentStats.matchesTotal);
         viewWinCircle.setPercent(winPercent);
-        tvStatsTotalMatches.setText(currentStats.matchesTotal + " partija");
+        tvStatsTotalMatches.setText(currentStats.matchesTotal + " partija\nPobede " + winPercent + "% | Porazi " + lossPercent + "%");
         float[] bars = new float[gameIds.length];
         for (int i = 0; i < gameIds.length; i++) {
             bars[i] = percentFloat(currentStats.value(gameIds[i]), currentStats.maxValue(gameIds[i]));
@@ -228,10 +235,12 @@ public class ProfileActivity extends AppCompatActivity {
             renderPie("Spojnice", new long[]{currentStats.connectionsMatched, currentStats.connectionsMissed},
                     new String[]{"spojen par", "nespojen par"});
         } else if ("associations".equals(gameId)) {
-            long[] values = new long[6];
-            String[] labels = new String[]{"0 rešenja", "1 rešenje", "2 rešenja", "3 rešenja", "4 rešenja", "cela asocijacija"};
-            System.arraycopy(currentStats.associationsSolvedCounts, 0, values, 0, values.length);
-            renderPie("Asocijacije", values, labels);
+            long solved = currentStats.associationsSolvedCounts[5];
+            long unsolved = 0L;
+            for (int i = 0; i < 5; i++) {
+                unsolved += currentStats.associationsSolvedCounts[i];
+            }
+            renderPie("Asocijacije", new long[]{solved, unsolved}, new String[]{"reseno", "nereseno"});
         } else if ("master".equals(gameId)) {
             long[] values = new long[]{currentStats.mastermindAttempts[1], currentStats.mastermindAttempts[2],
                     currentStats.mastermindAttempts[3], currentStats.mastermindAttempts[4],
@@ -276,14 +285,63 @@ public class ProfileActivity extends AppCompatActivity {
     }
 
     private void showAvatarDialog() {
-        CharSequence[] labels = new CharSequence[avatarIds.length];
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setMinimumHeight(dp(222));
+        container.setBackgroundColor(Color.WHITE);
+
+        TextView header = new TextView(this);
+        header.setText("Izaberi avatar");
+        header.setTextColor(Color.WHITE);
+        header.setTextSize(17f);
+        header.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setPadding(dp(16), 0, dp(16), 0);
+        header.setBackgroundColor(getColor(R.color.app_primary_blue));
+        container.addView(header, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(48)
+        ));
+
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout rows = new LinearLayout(this);
+        rows.setOrientation(LinearLayout.VERTICAL);
+        rows.setPadding(0, dp(6), 0, dp(8));
+        scrollView.addView(rows, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
+        container.addView(scrollView, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+        ));
+
+        AlertDialog dialog = new AlertDialog.Builder(this).create();
         for (int i = 0; i < avatarIds.length; i++) {
-            labels[i] = AvatarFrameHelper.labelForAvatar(avatarIds[i]);
+            final int index = i;
+            TextView row = new TextView(this);
+            row.setText(AvatarFrameHelper.labelForAvatar(avatarIds[i]));
+            row.setTextColor(Color.rgb(15, 45, 77));
+            row.setTextSize(15f);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setPadding(dp(18), 0, dp(18), 0);
+            row.setOnClickListener(v -> {
+                dialog.dismiss();
+                saveAvatar(avatarIds[index]);
+            });
+            rows.addView(row, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    dp(42)
+            ));
         }
-        new AlertDialog.Builder(this)
-                .setTitle("Izaberi avatar")
-                .setItems(labels, (dialog, which) -> saveAvatar(avatarIds[which]))
-                .show();
+        dialog.setView(container, 0, 0, 0, 0);
+        dialog.setOnShowListener(d -> {
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setLayout(dp(246), ViewGroup.LayoutParams.WRAP_CONTENT);
+            }
+        });
+        dialog.show();
     }
 
     private void saveAvatar(String avatarId) {
@@ -329,24 +387,6 @@ public class ProfileActivity extends AppCompatActivity {
                 }
             });
         });
-    }
-
-    private String leagueName(long league) {
-        if (league >= 5) return "Legenda";
-        if (league == 4) return "Dijamant liga";
-        if (league == 3) return "Zlatna liga";
-        if (league == 2) return "Srebrna liga";
-        if (league == 1) return "Bronzana liga";
-        return "Početna liga";
-    }
-
-    private String leagueIcon(long league) {
-        if (league >= 5) return "🏆";
-        if (league == 4) return "◆";
-        if (league == 3) return "🥇";
-        if (league == 2) return "🥈";
-        if (league == 1) return "🥉";
-        return "★";
     }
 
     private int percent(long part, long total) {

@@ -249,7 +249,7 @@ public class RegionsRepository {
         Double y = user.getDouble("regionPointY");
         if (x != null && y != null
                 && x >= 0d && x <= 1d && y >= 0d && y <= 1d
-                && RegionCatalog.containsPoint(region, x.floatValue(), y.floatValue())) {
+                && RegionCatalog.containsSafePoint(region, x.floatValue(), y.floatValue())) {
             point.x = x.floatValue();
             point.y = y.floatValue();
         } else {

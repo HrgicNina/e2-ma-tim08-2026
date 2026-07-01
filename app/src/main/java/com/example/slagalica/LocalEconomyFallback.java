@@ -3,6 +3,7 @@ package com.example.slagalica;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.model.LeaderboardEntry;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.SetOptions;
@@ -108,8 +109,10 @@ final class LocalEconomyFallback {
         long remoteTokens = value(out.get("tokens"));
         long localStars = prefs.getLong(starsKey, remoteStars);
         long localTokens = prefs.getLong(tokensKey, remoteTokens);
-        out.put("stars", Math.max(remoteStars, localStars));
+        long visibleStars = Math.max(remoteStars, localStars);
+        out.put("stars", visibleStars);
         out.put("tokens", Math.max(remoteTokens, localTokens));
+        out.put("league", LeagueRules.leagueForStars(visibleStars));
         return out;
     }
 
@@ -145,7 +148,7 @@ final class LocalEconomyFallback {
             mine = new LeaderboardEntry();
             mine.uid = uid;
             mine.username = prefs.getString(uid + USERNAME, "");
-            mine.league = prefs.getLong(uid + LEAGUE, 0L);
+            mine.league = LeagueRules.leagueForStars(prefs.getLong(uid + STARS, 0L));
             out.add(mine);
         }
         mine.cycleStars = Math.max(mine.cycleStars, localStars);
@@ -153,7 +156,7 @@ final class LocalEconomyFallback {
         if (mine.username == null || mine.username.trim().isEmpty()) {
             mine.username = prefs.getString(uid + USERNAME, "");
         }
-        mine.league = Math.max(mine.league, prefs.getLong(uid + LEAGUE, 0L));
+        mine.league = LeagueRules.leagueForStars(prefs.getLong(uid + STARS, 0L));
         Collections.sort(out, (a, b) -> {
             int byStars = Long.compare(b.cycleStars, a.cycleStars);
             if (byStars != 0) return byStars;
@@ -183,10 +186,12 @@ final class LocalEconomyFallback {
 
         FirebaseFirestore db = FirebaseFirestore.getInstance();
         String username = prefs.getString(uid + USERNAME, "");
-        long league = prefs.getLong(uid + LEAGUE, 0L);
+        long stars = Math.max(0L, prefs.getLong(uid + STARS, 0L));
+        long league = LeagueRules.leagueForStars(stars);
         Map<String, Object> userUpdate = new HashMap<>();
-        userUpdate.put("stars", Math.max(0L, prefs.getLong(uid + STARS, 0L)));
+        userUpdate.put("stars", stars);
         userUpdate.put("tokens", Math.max(0L, prefs.getLong(uid + TOKENS, 0L)));
+        userUpdate.put("league", league);
 
         if (hasWeekly) {
             userUpdate.put("weeklyCycleId", weeklyId);

@@ -10,6 +10,7 @@ public final class RegionCatalog {
     private static final double MAP_MAX_LON = 23.25;
     private static final double MAP_MIN_LAT = 41.65;
     private static final double MAP_MAX_LAT = 46.32;
+    private static final float POINT_INSET = 0.18f;
 
     private static final RegionDefinition[] REGIONS = {
             new RegionDefinition("Vojvodina", "VO", 0xFFFFF3A5, 0.43f, 0.20f, 0.18f, 0.72f, 0.07f, 0.33f),
@@ -93,7 +94,7 @@ public final class RegionCatalog {
 
     public static float[] randomPoint(String region, Random random) {
         RegionDefinition def = find(region);
-        float[][] polygon = polygon(def.name);
+        float[][] polygon = pointPolygon(def.name);
         float minX = Float.MAX_VALUE;
         float maxX = -Float.MAX_VALUE;
         float minY = Float.MAX_VALUE;
@@ -107,7 +108,7 @@ public final class RegionCatalog {
         for (int attempt = 0; attempt < 256; attempt++) {
             float x = lerp(minX, maxX, random.nextFloat());
             float y = lerp(minY, maxY, random.nextFloat());
-            if (containsPoint(def.name, x, y)) {
+            if (containsPoint(polygon, x, y)) {
                 return new float[]{x, y};
             }
         }
@@ -129,6 +130,15 @@ public final class RegionCatalog {
 
     public static boolean containsPoint(String region, float x, float y) {
         float[][] polygon = polygon(region);
+        return containsPoint(polygon, x, y);
+    }
+
+    public static boolean containsSafePoint(String region, float x, float y) {
+        float[][] polygon = pointPolygon(region);
+        return containsPoint(polygon, x, y);
+    }
+
+    private static boolean containsPoint(float[][] polygon, float x, float y) {
         boolean inside = false;
         for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
             float xi = polygon[i][0];
@@ -142,6 +152,24 @@ public final class RegionCatalog {
             }
         }
         return inside;
+    }
+
+    private static float[][] pointPolygon(String region) {
+        float[][] source = polygon(region);
+        float centerX = 0f;
+        float centerY = 0f;
+        for (float[] vertex : source) {
+            centerX += vertex[0];
+            centerY += vertex[1];
+        }
+        centerX /= source.length;
+        centerY /= source.length;
+        float[][] out = new float[source.length][2];
+        for (int i = 0; i < source.length; i++) {
+            out[i][0] = source[i][0] + (centerX - source[i][0]) * POINT_INSET;
+            out[i][1] = source[i][1] + (centerY - source[i][1]) * POINT_INSET;
+        }
+        return out;
     }
 
     public static float[][] polygon(String region) {

@@ -151,7 +151,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:gravity="center"
-                android:text="@string/profile_qr_description"
+                android:text="@string/profile_qr_label"
                 android:textColor="@color/app_on_surface"
                 android:textSize="9sp"
                 android:textStyle="bold" />
@@ -169,8 +169,7 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="0.92"
+            android:layout_height="142dp"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -191,15 +190,16 @@
 
                 <com.example.slagalica.StatsCircleView
                     android:id="@+id/viewWinCircle"
-                    android:layout_width="88dp"
-                    android:layout_height="88dp"
-                    android:layout_marginTop="2dp" />
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
+                    android:layout_marginTop="5dp" />
 
                 <TextView
                     android:id="@+id/tvStatsTotalMatches"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center"
+                    android:layout_marginTop="8dp"
+                    android:gravity="start"
                     android:text="0 partija"
                     android:textColor="@color/app_on_surface"
                     android:textSize="11sp"
@@ -240,76 +240,87 @@
             android:gravity="center"
             android:orientation="horizontal">
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsQuiz"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="KZZ"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Ko zna zna"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_question" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsConnections"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="Spoj"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Spojnice"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_connections" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsAssociations"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="Aso"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Asocijacije"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_bulb" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsMaster"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="Sko"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Skočko"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_spade" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsStep"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="2dp"
                 android:layout_marginEnd="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="Kor"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Korak po korak"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_steps" />
 
-            <Button
+            <ImageButton
                 android:id="@+id/btnStatsNumber"
                 android:layout_width="0dp"
                 android:layout_height="match_parent"
                 android:layout_marginStart="2dp"
                 android:layout_weight="1"
-                android:padding="0dp"
-                android:text="Broj"
-                android:textSize="10sp" />
+                android:background="@drawable/stats_game_tab_bg"
+                android:contentDescription="Moj broj"
+                android:padding="7dp"
+                android:scaleType="center"
+                android:src="@drawable/ic_stats_equals" />
         </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
+            android:layout_height="160dp"
             android:layout_marginTop="6dp"
-            android:layout_weight="1"
             android:background="@drawable/profile_qr_bg"
             android:gravity="center_vertical"
             android:orientation="horizontal"

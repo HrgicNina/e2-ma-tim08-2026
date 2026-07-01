@@ -1,5 +1,7 @@
 package com.example.slagalica.data;
 
+import com.example.slagalica.domain.LeagueRules;
+import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FieldValue;
@@ -106,6 +108,8 @@ public class PlayerEconomyRepository {
             if (stars == null) stars = 0L;
             if (league == null) league = 0L;
             if (lastGrantAt == null) lastGrantAt = 0L;
+            long currentLeague = LeagueRules.leagueForStars(stars);
+            long dailyGrant = LeagueRules.dailyTokenGrant(currentLeague);
 
             Calendar cal = Calendar.getInstance();
             cal.set(Calendar.HOUR_OF_DAY, 0);
@@ -117,7 +121,7 @@ public class PlayerEconomyRepository {
             long newTokens = tokens;
             long now = System.currentTimeMillis();
             if (!user.exists()) {
-                newTokens = 5L;
+                newTokens = LeagueRules.dailyTokenGrant(0L);
                 Map<String, Object> defaults = new HashMap<>();
                 defaults.put("tokens", newTokens);
                 defaults.put("stars", 0L);
@@ -135,19 +139,19 @@ public class PlayerEconomyRepository {
                 Map<String, Object> defaults = new HashMap<>();
                 defaults.put("tokens", newTokens);
                 defaults.put("stars", stars);
-                defaults.put("league", league);
+                defaults.put("league", currentLeague);
                 defaults.put("starTokenMilestonesAwarded", user.getLong("starTokenMilestonesAwarded") == null ? 0L : user.getLong("starTokenMilestonesAwarded"));
                 defaults.put("lastDailyTokenGrantAt", now);
                 transaction.set(ref, defaults, SetOptions.merge());
             } else if (lastGrantAt < todayStart) {
-                newTokens = tokens + 5;
-                transaction.update(ref, "tokens", newTokens, "lastDailyTokenGrantAt", now);
+                newTokens = tokens + dailyGrant;
+                transaction.update(ref, "tokens", newTokens, "league", currentLeague, "lastDailyTokenGrantAt", now);
             }
 
             Map<String, Long> out = new HashMap<>();
             out.put("tokens", newTokens);
             out.put("stars", stars);
-            out.put("league", league);
+            out.put("league", currentLeague);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> {
@@ -210,7 +214,6 @@ public class PlayerEconomyRepository {
             DocumentSnapshot user = transaction.get(ref);
             Long stars = user.getLong("stars");
             Long tokens = user.getLong("tokens");
-            Long awardedMilestones = user.getLong("starTokenMilestonesAwarded");
             String storedWeeklyCycleId = value(user.getString("weeklyCycleId"));
             String storedMonthlyCycleId = value(user.getString("monthlyCycleId"));
             Long weeklyCycleStars = user.getLong("weeklyCycleStars");
@@ -223,17 +226,14 @@ public class PlayerEconomyRepository {
             if (monthlyCycleStars == null) monthlyCycleStars = 0L;
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
-            if (awardedMilestones == null) awardedMilestones = stars / 50;
 
+            long previousLeague = LeagueRules.leagueForStars(stars);
             long bonusFromScore = Math.max(0, score / 40);
             long delta = winner ? (10 + bonusFromScore) : (bonusFromScore - 10);
             long newStars = Math.max(0, stars + delta);
             long actualDelta = newStars - stars;
-
-            long newTokenMilestones = newStars / 50;
-            long extraTokens = Math.max(0, newTokenMilestones - awardedMilestones);
-            long newAwardedMilestones = Math.max(awardedMilestones, newTokenMilestones);
-            long newTokens = tokens + extraTokens;
+            long newTokens = tokens;
+            long newLeague = LeagueRules.leagueForStars(newStars);
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
                 weeklyCycleStars = 0L;
@@ -248,13 +248,12 @@ public class PlayerEconomyRepository {
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
             String username = value(user.getString("username"));
-            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
                     "stars", newStars,
                     "tokens", newTokens,
-                    "starTokenMilestonesAwarded", newAwardedMilestones,
+                    "league", newLeague,
                     "weeklyCycleId", weeklyCycleId,
                     "monthlyCycleId", monthlyCycleId,
                     "weeklyCycleStars", newWeeklyCycleStars,
@@ -262,11 +261,14 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
+            incrementCycle(transaction, uid, username, newLeague, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, newLeague, monthlyCycleId, actualDelta, true);
+            addLeagueChangeNotification(transaction, ref, previousLeague, newLeague);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
+            out.put("league", newLeague);
+            out.put("previousLeague", previousLeague);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> {
@@ -301,6 +303,8 @@ public class PlayerEconomyRepository {
             long newStars = stars;
             long actualDelta = 0L;
             long newTokens = tokens;
+            long previousLeague = LeagueRules.leagueForStars(stars);
+            long newLeague = LeagueRules.leagueForStars(newStars);
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
                 weeklyCycleStars = 0L;
@@ -315,12 +319,12 @@ public class PlayerEconomyRepository {
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
             String username = value(user.getString("username"));
-            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
                     "stars", newStars,
                     "tokens", newTokens,
+                    "league", newLeague,
                     "weeklyCycleId", weeklyCycleId,
                     "monthlyCycleId", monthlyCycleId,
                     "weeklyCycleStars", newWeeklyCycleStars,
@@ -328,11 +332,13 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
+            incrementCycle(transaction, uid, username, newLeague, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, newLeague, monthlyCycleId, actualDelta, true);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", newTokens);
+            out.put("league", newLeague);
+            out.put("previousLeague", previousLeague);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> callback.onError("Neuspesna obrada neresenog rezultata."));
@@ -359,8 +365,10 @@ public class PlayerEconomyRepository {
             if (weeklyCycleMatches == null) weeklyCycleMatches = 0L;
             if (monthlyCycleMatches == null) monthlyCycleMatches = 0L;
 
+            long previousLeague = LeagueRules.leagueForStars(stars);
             long newStars = Math.max(0, stars - 10);
             long actualDelta = newStars - stars;
+            long newLeague = LeagueRules.leagueForStars(newStars);
 
             if (!weeklyCycleId.equals(storedWeeklyCycleId)) {
                 weeklyCycleStars = 0L;
@@ -375,11 +383,11 @@ public class PlayerEconomyRepository {
             long newWeeklyCycleMatches = weeklyCycleMatches + 1;
             long newMonthlyCycleMatches = monthlyCycleMatches + 1;
             String username = value(user.getString("username"));
-            long league = value(user.getLong("league"));
 
             transaction.update(
                     ref,
                     "stars", newStars,
+                    "league", newLeague,
                     "weeklyCycleId", weeklyCycleId,
                     "monthlyCycleId", monthlyCycleId,
                     "weeklyCycleStars", newWeeklyCycleStars,
@@ -387,11 +395,14 @@ public class PlayerEconomyRepository {
                     "weeklyCycleMatches", newWeeklyCycleMatches,
                     "monthlyCycleMatches", newMonthlyCycleMatches
             );
-            incrementCycle(transaction, uid, username, league, weeklyCycleId, actualDelta, false);
-            incrementCycle(transaction, uid, username, league, monthlyCycleId, actualDelta, true);
+            incrementCycle(transaction, uid, username, newLeague, weeklyCycleId, actualDelta, false);
+            incrementCycle(transaction, uid, username, newLeague, monthlyCycleId, actualDelta, true);
+            addLeagueChangeNotification(transaction, ref, previousLeague, newLeague);
             Map<String, Long> out = new HashMap<>();
             out.put("stars", newStars);
             out.put("tokens", tokens);
+            out.put("league", newLeague);
+            out.put("previousLeague", previousLeague);
             return out;
         }).addOnSuccessListener(callback::onSuccess)
                 .addOnFailureListener(e -> callback.onError("Neuspesna obrada forfeit kazne."));
@@ -485,6 +496,40 @@ public class PlayerEconomyRepository {
                 cycle,
                 SetOptions.merge()
         );
+    }
+
+    private void addLeagueChangeNotification(
+            Transaction transaction,
+            DocumentReference userRef,
+            long previousLeague,
+            long newLeague
+    ) {
+        if (previousLeague == newLeague) {
+            return;
+        }
+        boolean promotion = newLeague > previousLeague;
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("type", "league");
+        notification.put("title", promotion ? "Nova liga" : "Promena lige");
+        notification.put("message", leagueChangeMessage(promotion, newLeague));
+        notification.put("read", false);
+        notification.put("localShown", false);
+        notification.put("createdAt", Timestamp.now());
+        notification.put("actionType", "open_rankings");
+        notification.put("actionPayload", "");
+        transaction.set(
+                userRef.collection("notifications").document("league_change_" + System.currentTimeMillis()),
+                notification,
+                SetOptions.merge()
+        );
+    }
+
+    private String leagueChangeMessage(boolean promotion, long newLeague) {
+        String leagueLabel = LeagueRules.nameForLeague(newLeague);
+        if (promotion) {
+            return "Cestitamo! Presli ste u ligu " + leagueLabel + ".";
+        }
+        return "Pali ste u ligu " + leagueLabel + ".";
     }
 
     private long[] cycleWindow(String cycleId, boolean monthly) {
