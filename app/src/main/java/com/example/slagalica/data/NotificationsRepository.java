@@ -2,6 +2,9 @@ package com.example.slagalica.data;
 
 import com.example.slagalica.model.AppNotification;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.Query;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
@@ -55,6 +58,10 @@ public class NotificationsRepository {
                         n.createdAtMillis = createdAt != null ? createdAt.toDate().getTime() : 0L;
                         n.actionType = value(doc.getString("actionType"));
                         n.actionPayload = value(doc.getString("actionPayload"));
+                        Long rewardTokens = doc.getLong("rewardTokens");
+                        n.rewardTokens = rewardTokens == null ? 0L : rewardTokens;
+                        Boolean rewardClaimed = doc.getBoolean("rewardClaimed");
+                        n.rewardClaimed = rewardClaimed != null && rewardClaimed;
                         if (readFilter == null || n.read == readFilter) {
                             items.add(n);
                         }
@@ -72,6 +79,32 @@ public class NotificationsRepository {
                 .update("read", true)
                 .addOnSuccessListener(unused -> callback.onSuccess())
                 .addOnFailureListener(e -> callback.onError("Ne mogu da oznacim notifikaciju."));
+    }
+
+    public void claimReward(String uid, String notificationId, ActionCallback callback) {
+        DocumentReference userRef = db.collection("users").document(uid);
+        DocumentReference notificationRef = userRef.collection("notifications").document(notificationId);
+
+        db.runTransaction(transaction -> {
+                    DocumentSnapshot notification = transaction.get(notificationRef);
+                    if (!notification.exists()) {
+                        return false;
+                    }
+                    Boolean rewardClaimed = notification.getBoolean("rewardClaimed");
+                    Long rewardTokens = notification.getLong("rewardTokens");
+                    long tokens = rewardTokens == null ? 0L : rewardTokens;
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("read", true);
+                    if (!Boolean.TRUE.equals(rewardClaimed) && tokens > 0L) {
+                        transaction.update(userRef, "tokens", FieldValue.increment(tokens));
+                        updates.put("rewardClaimed", true);
+                        updates.put("claimedAt", Timestamp.now());
+                    }
+                    transaction.update(notificationRef, updates);
+                    return true;
+                })
+                .addOnSuccessListener(unused -> callback.onSuccess())
+                .addOnFailureListener(e -> callback.onError("Ne mogu da preuzmem nagradu."));
     }
 
     public void deleteHardcodedSeedNotifications(String uid, ActionCallback callback) {

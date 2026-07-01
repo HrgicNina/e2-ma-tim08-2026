@@ -81,6 +81,25 @@ public class NotificationService {
         });
     }
 
+    public void claimReward(String notificationId, UiActionCallback callback) {
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            callback.onError("Niste ulogovani.");
+            return;
+        }
+        repository.claimReward(user.getUid(), notificationId, new NotificationsRepository.ActionCallback() {
+            @Override
+            public void onSuccess() {
+                callback.onSuccess();
+            }
+
+            @Override
+            public void onError(String message) {
+                callback.onError(message);
+            }
+        });
+    }
+
     public void markAsLocalShown(String notificationId, UiActionCallback callback) {
         FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
         if (user == null) {

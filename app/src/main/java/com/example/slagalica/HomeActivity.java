@@ -257,13 +257,17 @@ public class HomeActivity extends AppCompatActivity {
                 .setTitle("Nagrada")
                 .setView(box)
                 .setPositiveButton("Preuzmi", (d, w) -> {
-                    notificationService.markAsRead(item.id, new NotificationService.UiActionCallback() {
+                    notificationService.claimReward(item.id, new NotificationService.UiActionCallback() {
                         @Override
                         public void onSuccess() {
+                            if (item.rewardTokens > 0L && !item.rewardClaimed) {
+                                Toast.makeText(HomeActivity.this, "Nagrada preuzeta: +" + item.rewardTokens + " tokena", Toast.LENGTH_SHORT).show();
+                            }
                         }
 
                         @Override
                         public void onError(String message) {
+                            Toast.makeText(HomeActivity.this, message, Toast.LENGTH_SHORT).show();
                         }
                     });
                     tg.release();

@@ -4,7 +4,7 @@ const path = require("path");
 const PROJECT_ID = "slagalica-30ba3";
 const POLL_INTERVAL_MS = 2_000;
 const CYCLE_INTERVAL_MS = 10_000;
-const APP_ACTIVE_STALE_MS = 90_000;
+const APP_ACTIVE_STALE_MS = 20_000;
 const RECENT_ON_START_MS = 2 * 60_000;
 
 const REGION_ROOMS = new Map([
@@ -160,8 +160,8 @@ function userIsInApp(user) {
   return age >= 0 && age <= APP_ACTIVE_STALE_MS;
 }
 
-function notificationFields(type, title, message, actionType, actionPayload) {
-  return {
+function notificationFields(type, title, message, actionType, actionPayload, rewardTokens = 0) {
+  const fields = {
     type: stringField(type),
     title: stringField(title),
     message: stringField(message),
@@ -171,6 +171,11 @@ function notificationFields(type, title, message, actionType, actionPayload) {
     actionType: stringField(actionType),
     actionPayload: stringField(actionPayload),
   };
+  if (rewardTokens > 0) {
+    fields.rewardTokens = integerField(rewardTokens);
+    fields.rewardClaimed = booleanField(false);
+  }
+  return fields;
 }
 
 async function createChatNotifications(firestore, users, roomId, messageDocument) {
@@ -317,10 +322,9 @@ async function rewardCycleUser(firestore, cycle, entry, rank) {
     updateWrite(
       `users/${entry.uid}`,
       {
-        tokens: integerField(number(user, "tokens") + tokens),
         [claimedField]: stringField(cycleId),
       },
-      ["tokens", claimedField]
+      [claimedField]
     ),
     updateWrite(
       `users/${entry.uid}/notifications/${cycleId}_ranking`,
@@ -339,7 +343,8 @@ async function rewardCycleUser(firestore, cycle, entry, rank) {
         monthly ? "Mesecna rang nagrada" : "Nedeljna rang nagrada",
         `Osvojeno mesto #${rank} (ciklus: ${label}). Dobijas ${tokens} tokena.`,
         "open_ranking_rewards",
-        cycleId
+        cycleId,
+        tokens
       )
     ),
   ];
