@@ -196,7 +196,7 @@ public class RegionMapView extends WebView {
                 + "L.imageOverlay('serbia_border_overlay.png',fullSerbiaBounds,{"
                 + "opacity:1,interactive:false}).addTo(map);"
                 + "points.forEach(p=>{"
-                + "L.circleMarker([p.lat,p.lon],{radius:4.5,color:'#ff003c',weight:1.5,"
+                + "L.circleMarker([p.lat,p.lon],{radius:3.2,color:'#ff003c',weight:1,"
                 + "fillColor:'#ff1744',fillOpacity:1,interactive:false,className:'player-point'}).addTo(map);"
                 + "});"
                 + "</script></body></html>";

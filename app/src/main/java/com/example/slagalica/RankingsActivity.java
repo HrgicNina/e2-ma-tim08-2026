@@ -13,6 +13,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.LeaderboardService;
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.model.LeaderboardEntry;
@@ -246,12 +247,7 @@ public class RankingsActivity extends AppCompatActivity {
     }
 
     private String leagueLabel(long league) {
-        if (league >= 5) return "🏆 L5";
-        if (league == 4) return "💎 L4";
-        if (league == 3) return "🥇 L3";
-        if (league == 2) return "🥈 L2";
-        if (league == 1) return "🥉 L1";
-        return "🌱 L0";
+        return LeagueRules.shortLabelForLeague(league);
     }
 
     private int dp(int value) {

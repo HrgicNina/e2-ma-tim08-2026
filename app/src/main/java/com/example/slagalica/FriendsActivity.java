@@ -17,6 +17,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.FriendsService;
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.domain.SessionManager;
 import com.example.slagalica.model.FriendProfile;
 import com.google.firebase.firestore.ListenerRegistration;
@@ -132,7 +133,7 @@ public class FriendsActivity extends AppCompatActivity {
             tvAvatar.setText(AvatarFrameHelper.symbolForAvatar(friend.avatarId, friend.username));
             AvatarFrameHelper.apply(tvAvatar, friend.avatarFrameId);
             tvUsername.setText(value(friend.username));
-            tvMeta.setText("Rang: " + rankLabel(friend.monthlyRank) + " | Zvezde: " + friend.stars + " | " + leagueIcon(friend.league) + " " + leagueName(friend.league));
+            tvMeta.setText("Rang: " + rankLabel(friend.monthlyRank) + " | Zvezde: " + friend.stars + " | " + LeagueRules.labelForLeague(friend.league));
             tvStatus.setText(statusLabel(friend));
             btnInvite.setEnabled(friend.canInvite());
             btnInvite.setAlpha(friend.canInvite() ? 1f : 0.55f);
@@ -212,24 +213,6 @@ public class FriendsActivity extends AppCompatActivity {
 
     private String rankLabel(long rank) {
         return rank <= 0L ? "-" : String.valueOf(rank);
-    }
-
-    private String leagueName(long league) {
-        if (league >= 5) return "Legenda";
-        if (league == 4) return "Dijamant";
-        if (league == 3) return "Zlato";
-        if (league == 2) return "Srebro";
-        if (league == 1) return "Bronza";
-        return "Početna";
-    }
-
-    private String leagueIcon(long league) {
-        if (league >= 5) return "🏆";
-        if (league == 4) return "◆";
-        if (league == 3) return "🥇";
-        if (league == 2) return "🥈";
-        if (league == 1) return "🥉";
-        return "★";
     }
 
     private String value(String input) {

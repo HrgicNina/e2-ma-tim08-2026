@@ -1,5 +1,6 @@
 package com.example.slagalica.data;
 
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.model.LeaderboardEntry;
 import com.google.firebase.Timestamp;
 import com.google.firebase.firestore.DocumentReference;
@@ -259,6 +260,11 @@ public class LeaderboardRepository {
                     SetOptions.merge()
             );
 
+            if (monthly && rank > 10) {
+                applyMonthlyPenalty(batch, cycle, entry);
+                continue;
+            }
+
             long reward = rewardTokens(rank, monthly);
             if (reward <= 0L) {
                 continue;
@@ -309,6 +315,45 @@ public class LeaderboardRepository {
                     releaseCycleProcessing(db.collection("leaderboardCycles").document(cycle.id));
                     callback.onError("Ne mogu da sacuvam nagrade rang liste.");
                 });
+    }
+
+    private void applyMonthlyPenalty(WriteBatch batch, CycleWindow cycle, LeaderboardEntry entry) {
+        if (entry.uid == null || entry.uid.trim().isEmpty()) {
+            return;
+        }
+        if (cycle.id.equals(value(entry.monthlyPenaltyAppliedCycleId))) {
+            return;
+        }
+        long currentStars = Math.max(0L, entry.stars);
+        if (currentStars <= 0L) {
+            return;
+        }
+        long previousLeague = LeagueRules.leagueForStars(currentStars);
+        long newStars = currentStars * 70L / 100L;
+        long newLeague = LeagueRules.leagueForStars(newStars);
+        batch.update(
+                db.collection("users").document(entry.uid),
+                "stars", newStars,
+                "league", newLeague,
+                "monthlyPenaltyAppliedCycleId", cycle.id
+        );
+        if (previousLeague != newLeague) {
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("type", "league");
+            notification.put("title", "Promena lige");
+            notification.put("message", "Pali ste u ligu " + LeagueRules.nameForLeague(newLeague) + ".");
+            notification.put("read", false);
+            notification.put("localShown", false);
+            notification.put("createdAt", Timestamp.now());
+            notification.put("actionType", "open_rankings");
+            notification.put("actionPayload", "");
+            batch.set(
+                    db.collection("users").document(entry.uid)
+                            .collection("notifications").document("league_change_" + cycle.id),
+                    notification,
+                    SetOptions.merge()
+            );
+        }
     }
 
     private long rewardTokens(int rank, boolean monthly) {
@@ -422,8 +467,10 @@ public class LeaderboardRepository {
             item.uid = doc.getId();
             item.username = value(doc.getString("username"));
             item.league = value(doc.getLong("league"));
+            item.stars = value(doc.getLong("stars"));
             item.cycleStars = value(doc.getLong(starsField));
             item.cycleMatches = matches;
+            item.monthlyPenaltyAppliedCycleId = value(doc.getString("monthlyPenaltyAppliedCycleId"));
             entries.add(item);
         }
         return entries;

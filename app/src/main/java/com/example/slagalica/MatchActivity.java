@@ -23,6 +23,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import com.example.slagalica.domain.AuthService;
 import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.LeaderboardService;
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.domain.MatchRealtimeClient;
 import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.PlayerStatsService;
@@ -300,7 +301,7 @@ public class MatchActivity extends AppCompatActivity {
         if (guestMode) {
             tvMatchTokens.setText("Tokeni\n-");
             tvMatchStars.setText("Zvezde\n-");
-            tvMatchLeague.setText("Liga\nGost");
+            tvMatchLeague.setText("Gost\n-");
             etInviteTarget.setEnabled(false);
             btnInviteFriend.setEnabled(false);
             autoInviteTarget = null;
@@ -677,7 +678,7 @@ public class MatchActivity extends AppCompatActivity {
         if (guestMode) {
             tvMatchTokens.setText("Tokeni\n-");
             tvMatchStars.setText("Zvezde\n-");
-            tvMatchLeague.setText("Liga\nGost");
+            tvMatchLeague.setText("Gost\n-");
             return;
         }
         economyService.getEconomy(myUid, new EconomyService.EconomyCallback() {
@@ -690,7 +691,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvMatchTokens.setText("Tokeni\n" + tokens);
                     tvMatchStars.setText("Zvezde\n" + stars);
-                    tvMatchLeague.setText("Liga\n" + league);
+                    tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
                 });
             }
 
@@ -735,7 +736,7 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvMatchTokens.setText("Tokeni\n" + tokens);
                     tvMatchStars.setText("Zvezde\n" + stars);
-                    tvMatchLeague.setText("Liga\n" + league);
+                    tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
                 });
                 reserveTokenInBackground();
             }
@@ -1188,6 +1189,11 @@ public class MatchActivity extends AppCompatActivity {
                 resultApplied = true;
                 stars = values.get("stars");
                 tokens = values.get("tokens");
+                Long previousLeague = values.get("previousLeague");
+                Long refreshedLeague = values.get("league");
+                if (refreshedLeague != null) {
+                    league = refreshedLeague;
+                }
                 long starDelta = stars - starsBefore;
                 long tokenDelta = tokens - tokensBefore;
                 LocalEconomyFallback.saveMatchResult(MatchActivity.this, myUid, myUsername, league, stars, tokens, starDelta);
@@ -1196,6 +1202,8 @@ public class MatchActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvMatchStars.setText("Zvezde\n" + stars);
                     tvMatchTokens.setText("Tokeni\n" + tokens);
+                    tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
+                    showLeagueChangeDialogIfNeeded(previousLeague, league);
                     if (callback != null) {
                         callback.onReady(starDelta, tokenDelta, null);
                     }
@@ -1221,15 +1229,18 @@ public class MatchActivity extends AppCompatActivity {
         long plannedDelta = winner ? 10L + bonusFromScore : bonusFromScore - 10L;
         long newStars = Math.max(0L, starsBefore + plannedDelta);
         long starDelta = newStars - starsBefore;
-        long previousTokenMilestones = Math.max(0L, starsBefore / 50L);
-        long newTokenMilestones = Math.max(0L, newStars / 50L);
-        long tokenDelta = Math.max(0L, newTokenMilestones - previousTokenMilestones);
+        long previousLeague = league;
+        long newLeague = LeagueRules.leagueForStars(newStars);
+        long tokenDelta = 0L;
         stars = newStars;
-        tokens = Math.max(0L, tokensBefore + tokenDelta);
+        tokens = Math.max(0L, tokensBefore);
+        league = newLeague;
         LocalEconomyFallback.saveMatchResult(this, myUid, myUsername, league, stars, tokens, starDelta);
         LocalEconomyFallback.syncRankingToRemote(this, myUid, () -> {});
         tvMatchStars.setText("Zvezde\n" + stars);
         tvMatchTokens.setText("Tokeni\n" + tokens);
+        tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
+        showLeagueChangeDialogIfNeeded(previousLeague, league);
         return new EconomyFallbackResult(starDelta, tokenDelta);
     }
 
@@ -1252,12 +1263,19 @@ public class MatchActivity extends AppCompatActivity {
                 resultApplied = true;
                 stars = values.get("stars");
                 tokens = values.get("tokens");
+                Long previousLeague = values.get("previousLeague");
+                Long refreshedLeague = values.get("league");
+                if (refreshedLeague != null) {
+                    league = refreshedLeague;
+                }
                 long starDelta = stars - starsBefore;
                 long tokenDelta = tokens - tokensBefore;
                 triggerLeaderboardRolloverCheck();
                 runOnUiThread(() -> {
                     tvMatchStars.setText("Zvezde\n" + stars);
                     tvMatchTokens.setText("Tokeni\n" + tokens);
+                    tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
+                    showLeagueChangeDialogIfNeeded(previousLeague, league);
                     if (callback != null) {
                         callback.onReady(starDelta, tokenDelta, null);
                     }
@@ -1289,12 +1307,19 @@ public class MatchActivity extends AppCompatActivity {
                 resultApplied = true;
                 stars = values.get("stars");
                 tokens = values.get("tokens");
+                Long previousLeague = values.get("previousLeague");
+                Long refreshedLeague = values.get("league");
+                if (refreshedLeague != null) {
+                    league = refreshedLeague;
+                }
                 long starDelta = stars - starsBefore;
                 long tokenDelta = tokens - tokensBefore;
                 triggerLeaderboardRolloverCheck();
                 runOnUiThread(() -> {
                     tvMatchStars.setText("Zvezde\n" + stars);
                     tvMatchTokens.setText("Tokeni\n" + tokens);
+                    tvMatchLeague.setText(LeagueRules.stackedLabelForLeague(league));
+                    showLeagueChangeDialogIfNeeded(previousLeague, league);
                     if (callback != null) {
                         callback.onReady(starDelta, tokenDelta, null);
                     }
@@ -1323,6 +1348,22 @@ public class MatchActivity extends AppCompatActivity {
             public void onError(String message) {
             }
         });
+    }
+
+    private void showLeagueChangeDialogIfNeeded(Long previousLeague, long newLeague) {
+        if (previousLeague == null || previousLeague == newLeague || isFinishing()) {
+            return;
+        }
+        boolean promotion = newLeague > previousLeague;
+        String title = promotion ? "Nova liga" : "Promena lige";
+        String message = promotion
+                ? "Cestitamo! Presli ste u ligu " + LeagueRules.nameForLeague(newLeague) + "."
+                : "Pali ste u ligu " + LeagueRules.nameForLeague(newLeague) + ".";
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton("U redu", null)
+                .show();
     }
 
     private void createOfflineInviteFallback(String targetUsername) {
@@ -1412,6 +1453,10 @@ public class MatchActivity extends AppCompatActivity {
                 resultApplied = true;
                 stars = values.get("stars");
                 tokens = values.get("tokens");
+                Long refreshedLeague = values.get("league");
+                if (refreshedLeague != null) {
+                    league = refreshedLeague;
+                }
                 triggerLeaderboardRolloverCheck();
             }
 

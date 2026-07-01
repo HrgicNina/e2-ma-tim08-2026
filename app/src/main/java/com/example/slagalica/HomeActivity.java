@@ -30,6 +30,7 @@ import com.example.slagalica.domain.BackgroundNotificationScheduler;
 import com.example.slagalica.domain.EconomyService;
 import com.example.slagalica.domain.FcmTokenRegistrar;
 import com.example.slagalica.domain.LeaderboardService;
+import com.example.slagalica.domain.LeagueRules;
 import com.example.slagalica.domain.NotificationChannelHelper;
 import com.example.slagalica.domain.NotificationService;
 import com.example.slagalica.domain.RegionsService;
@@ -305,7 +306,7 @@ public class HomeActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                             tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
-                            tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                            tvHomeLeague.setText(LeagueRules.stackedLabelForLeague(league == null ? 0L : league));
                         });
                     }
 
@@ -353,7 +354,7 @@ public class HomeActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                     tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
-                    tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                    tvHomeLeague.setText(LeagueRules.stackedLabelForLeague(league == null ? 0L : league));
                 });
             }
 
@@ -382,7 +383,7 @@ public class HomeActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     tvHomeTokens.setText("Tokeni\n" + (tokens == null ? 0 : tokens));
                     tvHomeStars.setText("Zvezde\n" + (stars == null ? 0 : stars));
-                    tvHomeLeague.setText("Liga\n" + (league == null ? 0 : league));
+                    tvHomeLeague.setText(LeagueRules.stackedLabelForLeague(league == null ? 0L : league));
                 });
             }
 
@@ -581,7 +582,7 @@ public class HomeActivity extends AppCompatActivity {
         if ("chat".equalsIgnoreCase(type)) {
             return "\uD83D\uDCAC";
         }
-        if ("ranking".equalsIgnoreCase(type)) {
+        if ("ranking".equalsIgnoreCase(type) || "league".equalsIgnoreCase(type)) {
             return "\uD83C\uDFC6";
         }
         if ("rewards".equalsIgnoreCase(type)) {
@@ -599,7 +600,7 @@ public class HomeActivity extends AppCompatActivity {
         String channelId = NotificationChannelHelper.CHANNEL_OTHER;
         if ("chat".equalsIgnoreCase(item.type)) {
             channelId = NotificationChannelHelper.CHANNEL_CHAT;
-        } else if ("ranking".equalsIgnoreCase(item.type)) {
+        } else if ("ranking".equalsIgnoreCase(item.type) || "league".equalsIgnoreCase(item.type)) {
             channelId = NotificationChannelHelper.CHANNEL_RANKING;
         } else if ("rewards".equalsIgnoreCase(item.type)) {
             channelId = NotificationChannelHelper.CHANNEL_REWARDS;

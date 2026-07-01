@@ -188,6 +188,7 @@
     <string name="profile_region_placeholder">Region\n-</string>
     <string name="profile_region_label">Region\n%1$s</string>
     <string name="profile_qr_description">QR kod za poziv prijatelja</string>
+    <string name="profile_qr_label">Pozovi prijatelja</string>
     <string name="profile_qr_placeholder">QR</string>
     <string name="profile_statistics_title">Statistika</string>
     <string name="profile_average_points">Prosecno osvojeni bodovi po igri</string>
@@ -220,10 +221,10 @@
     <string name="profile_win_percent">Pobede: 63% | Porazi: 37%</string>
     <string name="home_tokens_value">Tokeni\n-</string>
     <string name="home_stars_value">Zvezde\n-</string>
-    <string name="home_league_value">Liga\n-</string>
+    <string name="home_league_value">Nulta liga\n★</string>
     <string name="home_tokens_guest">Tokeni\n-</string>
     <string name="home_stars_guest">Zvezde\n-</string>
-    <string name="home_league_guest">Liga\nGost</string>
+    <string name="home_league_guest">Gost\n-</string>
     <string name="btn_open_quiz">Ko zna zna</string>
     <string name="quiz_question_index">Ko zna zna - Pitanje %1$d/5</string>
     <string name="quiz_title_simple">Ko zna zna</string>
